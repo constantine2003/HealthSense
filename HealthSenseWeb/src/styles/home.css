@@ -1,0 +1,230 @@
+html, body, #root {
+  margin: 0;
+  padding: 0;
+  width: 100%;
+  height: 100%;
+}
+
+.main-container {
+  min-height: 100vh;
+  width: 100%;
+  background: linear-gradient(
+    to bottom,
+    #EAF4FF,
+    #BFD9FF,
+    #9FC5F8
+  );
+
+  display: flex;
+  flex-direction: column;
+}
+
+.page-content {
+  display: flex;
+  width: 100%;
+  height: calc(100vh - 90px);
+
+  padding: clamp(12px, 4vw, 20px);
+  box-sizing: border-box;
+
+}
+
+/* =========================
+   LEFT DIV LAYOUT
+========================= */
+.left-div {
+  flex-basis: 65%;
+  height: 100%;
+
+  /* subtle internal padding */
+  padding-left: clamp(12px, 2vw, 30px);
+  padding-right: clamp(12px, 2vw, 30px);
+
+  display: flex;
+  flex-direction: column;
+  justify-content: center;
+
+  gap: clamp(10px, 2vw, 24px);
+
+  
+}
+
+/* =========================
+   WELCOME TEXT
+========================= */
+.welcome-text {
+  font-family: 'Lexend', sans-serif;
+  font-weight: 700;
+
+  font-size: clamp(18px, 4vw, 50px);
+  line-height: 1.2;
+
+  color: #168AAD;
+  margin: 0;
+}
+
+/* =========================
+   HEALTHSENSE LOGO TEXT
+========================= */
+.logo-text {
+  font-family: 'Lexend', sans-serif;
+  font-weight: 700;
+
+  font-size: clamp(48px, 14vw, 170px);
+  line-height: 1;
+
+  background: linear-gradient(to right, #168AAD, #34A0A4);
+
+  background-clip: text;
+  -webkit-background-clip: text;
+
+  color: transparent;
+  -webkit-text-fill-color: transparent;
+
+  white-space: normal;
+  word-break: break-word;
+    margin: 0; /* important */
+}
+
+/* =========================
+   DESCRIPTION TEXT
+========================= */
+.description-text {
+  font-family: 'Lexend', sans-serif;
+  font-weight: 200;
+
+  font-size: clamp(14px, 4vw, 48px);
+  line-height: 1.4;
+
+  color: #168AAD;
+  margin: 0;
+
+  max-width: 90%;
+}
+
+/* =========================
+   MOBILE STACKING FIX
+========================= */
+/* MOBILE adjustments */
+@media (max-width: 768px) {
+  .left-div {
+    flex-basis: 30%;
+    justify-content: center;
+    padding-left: clamp(12px, 4vw, 30px);
+    padding-right: clamp(12px, 4vw, 30px);
+    text-align: center; /* center text on mobile */
+  }
+
+  .welcome-text {
+    font-size: clamp(20px, 5vw, 28px); /* smaller, fits nicely */
+  }
+
+  .logo-text {
+    font-size: clamp(50px, 12vw, 100px); /* reduce so no overlap */
+    line-height: 1.1;
+  }
+
+  .description-text {
+    font-size: clamp(16px, 4vw, 24px);
+  }
+}
+
+/*RIGHTTTTTTTTTTTTTTTTTTTTTTTTTTTTTTTTTTTTTTTTT */
+.right-div {
+  flex-basis: 35%;
+  height: 100%;
+
+  display: flex;
+  align-items: center;
+
+  /* subtle left bias, not aggressive */
+  justify-content: flex-start;
+  padding-left: clamp(12px, 3vw, 32px);
+
+}
+.login-card {
+  width: 479px;
+  height: 566px;
+
+  border-radius: 20px;
+
+  /* Fill: white 13% */
+  background: rgba(255, 255, 255, 0.13);
+
+  /* Stroke: linear top → bottom (inside) */
+  border: 1px solid transparent;
+  background-clip: padding-box;
+  position: relative;
+
+  /* Background blur */
+  backdrop-filter: blur(30px);
+  -webkit-backdrop-filter: blur(30px);
+
+  /* Drop shadow */
+  box-shadow: 0px 8px 24px rgba(0, 0, 0, 0.25);
+
+  display: flex;
+  align-items: center;
+  justify-content: center;
+}
+
+/* Gradient stroke overlay */
+.login-card::before {
+  content: "";
+  position: absolute;
+  inset: 0;
+
+  border-radius: 20px;
+  padding: 1px;
+
+  background: linear-gradient(
+    to bottom,
+    rgba(255, 255, 255, 0.4),
+    rgba(255, 255, 255, 0.05)
+  );
+
+  /* Standard */
+  mask:
+    linear-gradient(#fff 0 0) content-box,
+    linear-gradient(#fff 0 0);
+  mask-composite: exclude;
+
+  /* WebKit */
+  -webkit-mask:
+    linear-gradient(#fff 0 0) content-box,
+    linear-gradient(#fff 0 0);
+  -webkit-mask-composite: xor;
+
+  pointer-events: none;
+}
+
+@media (max-width: 768px) {
+  .right-div {
+    flex-basis: 70%; /* right section now taller in stacked layout */
+    align-items: flex-start;
+    justify-content: center; /* center the login card */
+    padding-left: 0; /* remove left bias */
+    padding-right: 0;
+  }
+
+  .login-card {
+    width: 90%; /* scale card to fit small screens */
+    height: auto;
+    min-height: 420px;
+  }
+}
+
+/* Mobile / Responsive */
+@media (max-width: 768px) {
+  .page-content {
+    flex-direction: column; /* stack vertically */
+  }
+
+  .left-div {
+    flex-basis: 30%; /* now 30% height */
+  }
+
+  .right-div {
+    flex-basis: 70%; /* rest of height */
+  }
+}
