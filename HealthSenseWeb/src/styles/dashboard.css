@@ -1,0 +1,65 @@
+/* ========================================
+   DASHBOARD STYLES
+   ======================================== */
+
+.dashboard-content {
+  display: flex;
+  width: 100%;
+  height: calc(100vh - 90px);
+  padding: clamp(12px, 4vw, 20px);
+  box-sizing: border-box;
+}
+
+.dashboard-body {
+  width: 100%;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  gap: clamp(16px, 3vw, 24px);
+  text-align: center;
+}
+
+.dashboard-title {
+  margin: 0;
+  font-family: 'Lexend', sans-serif;
+  font-weight: 700;
+  font-size: clamp(32px, 8vw, 80px);
+  color: #168AAD;
+  line-height: 1.2;
+}
+
+.dashboard-subtitle {
+  margin: 0;
+  font-family: 'Lexend', sans-serif;
+  font-weight: 300;
+  font-size: clamp(16px, 3vw, 28px);
+  color: #168AAD;
+  line-height: 1.4;
+}
+
+/* ========================================
+   RESPONSIVE DESIGN - MOBILE (≤ 768px)
+   ======================================== */
+@media (max-width: 768px) {
+  .dashboard-title {
+    font-size: clamp(24px, 6vw, 48px);
+  }
+
+  .dashboard-subtitle {
+    font-size: clamp(14px, 3vw, 20px);
+  }
+}
+
+/* ========================================
+   RESPONSIVE DESIGN - TABLET (769px - 1024px)
+   ======================================== */
+@media (min-width: 769px) and (max-width: 1024px) {
+  .dashboard-title {
+    font-size: clamp(40px, 6vw, 64px);
+  }
+
+  .dashboard-subtitle {
+    font-size: clamp(18px, 3vw, 24px);
+  }
+}
