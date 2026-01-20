@@ -2,6 +2,7 @@
    DASHBOARD STYLES
    ======================================== */
 
+/* Main container content */
 .dashboard-content {
   display: flex;
   width: 100%;
@@ -20,46 +21,195 @@
   text-align: center;
 }
 
-.dashboard-title {
-  margin: 0;
+/* ========================================
+   DASHBOARD BOX
+======================================== */
+.dashboard-box {
+  position: relative;
+  background: rgba(255, 255, 255, 0.13);
+  border-radius: 20px;
+  padding: 50px;
+  backdrop-filter: blur(30px);
+  -webkit-backdrop-filter: blur(30px);
+  box-shadow: 0px 8px 24px rgba(0, 0, 0, 0.25);
+  border: 1px solid transparent;
+}
+
+.dashboard-box::before {
+  content: "";
+  position: absolute;
+  inset: 0;
+  border-radius: 20px;
+  padding: 1px;
+  background: linear-gradient(to bottom, rgba(255, 255, 255, 0.4), rgba(255, 255, 255, 0.05));
+  mask: linear-gradient(#fff 0 0) content-box, linear-gradient(#fff 0 0);
+  mask-composite: exclude;
+  -webkit-mask: linear-gradient(#fff 0 0) content-box, linear-gradient(#fff 0 0);
+  -webkit-mask-composite: xor;
+  pointer-events: none;
+}
+
+/* ========================================
+   WELCOME TEXT
+======================================== */
+.welcome-user {
   font-family: 'Lexend', sans-serif;
   font-weight: 700;
-  font-size: clamp(32px, 8vw, 80px);
+  font-size: 50px;
   color: #168AAD;
-  line-height: 1.2;
+  margin-top: 30px;
+  text-align: center;
 }
 
-.dashboard-subtitle {
-  margin: 0;
+/* ========================================
+   BUTTONS
+======================================== */
+.dashboard-buttons {
+  display: flex;
+  gap: 80px;
+  justify-content: center;
+  align-items: center;
+  flex-wrap: wrap;
+  margin-bottom: 30px;
+}
+
+.dashboard-btn {
+  width: 250px;
+  height: 250px;
+  padding: 40px;
+  border-radius: 20px;
   font-family: 'Lexend', sans-serif;
-  font-weight: 300;
-  font-size: clamp(16px, 3vw, 28px);
-  color: #168AAD;
-  line-height: 1.4;
+  font-weight: 700;
+  font-size: 16px;
+  color: black;
+  background: linear-gradient(to bottom, #90E0EF, #B6CCFE);
+  
+  border: 1px solid rgb(22, 138, 173); /* updated border color */
+  cursor: pointer;
+
+  display: flex;
+  justify-content: center;
+  align-items: center;
+  text-align: center;
+
+  transition: transform 0.1s ease; /* quick click feedback */
+}
+
+.dashboard-btn:active {
+  transform: scale(0.98); /* shrink button by ~2% when clicked */
+  transition: transform 0.1s ease; /* smooth press effect */
+}
+
+.dashboard-btn:focus {
+  outline: none; /* optional: remove default focus outline */
+  box-shadow: 0 0 0 4px rgba(144, 224, 239, 0.5); /* subtle focus ring */
 }
 
 /* ========================================
-   RESPONSIVE DESIGN - MOBILE (≤ 768px)
-   ======================================== */
-@media (max-width: 768px) {
-  .dashboard-title {
-    font-size: clamp(24px, 6vw, 48px);
-  }
+   MEDIA QUERIES
+======================================== */
 
-  .dashboard-subtitle {
-    font-size: clamp(14px, 3vw, 20px);
-  }
+/* Extra Large Screens */
+@media (min-width: 2560px) {
+  .dashboard-box { padding: 60px; }
+  .welcome-user { font-size: 70px; }
+  .dashboard-btn { width: 300px; height: 300px; font-size: 18px; }
 }
 
-/* ========================================
-   RESPONSIVE DESIGN - TABLET (769px - 1024px)
-   ======================================== */
+/* 1651-1750px */
+@media (min-width: 1651px) and (max-width: 1750px) {
+  .dashboard-box { padding: 60px; }
+  .welcome-user { font-size: 65px; }
+  .dashboard-btn { width: 290px; height: 290px; }
+}
+
+/* 1601-1650px */
+@media (min-width: 1601px) and (max-width: 1650px) {
+  .dashboard-box { padding: 55px; }
+  .welcome-user { font-size: 62px; }
+  .dashboard-btn { width: 285px; height: 285px; }
+}
+
+/* 1551-1600px */
+@media (min-width: 1551px) and (max-width: 1600px) {
+  .dashboard-box { padding: 50px; }
+  .welcome-user { font-size: 60px; }
+  .dashboard-btn { width: 280px; height: 280px; }
+}
+
+/* 1451-1550px */
+@media (min-width: 1451px) and (max-width: 1550px) {
+  .dashboard-box { padding: 45px; }
+  .welcome-user { font-size: 55px; }
+  .dashboard-btn { width: 270px; height: 270px; }
+}
+
+/* 1400-1450px */
+@media (min-width: 1400px) and (max-width: 1450px) {
+  .dashboard-box { padding: 40px; }
+  .welcome-user { font-size: 50px; }
+  .dashboard-btn { width: 260px; height: 260px; }
+}
+
+/* Tablet / small desktop */
 @media (min-width: 769px) and (max-width: 1024px) {
-  .dashboard-title {
-    font-size: clamp(40px, 6vw, 64px);
+  .dashboard-box { padding: 30px; }
+  .welcome-user { font-size: 42px; }
+  .dashboard-btn { width: 230px; height: 230px; }
+  .dashboard-buttons { gap: 40px; }
+}
+
+/* Mobile medium */
+@media (max-width: 768px) {
+  .dashboard-box { padding: 20px; }
+  .welcome-user { font-size: 36px; }
+  .dashboard-buttons { 
+    gap: 15px;  /* smaller gap for smaller screens */
+    flex-direction: row; /* keep buttons side by side */
+    justify-content: center; /* center them */
+    flex-wrap: wrap; /* allow wrapping if screen too narrow */
+  }
+  .dashboard-btn { 
+    width: 160px;  /* shrink buttons to fit */
+    height: 160px; 
+    padding: 20px; 
+    font-size: 14px; /* optional slight text shrink */
+  }
+}
+
+/* Mobile small (≤480px) */
+@media (max-width: 480px) {
+  .dashboard-box { padding: 15px; }
+  .welcome-user { font-size: 28px; }
+  .dashboard-buttons { 
+    gap: 10px; 
+    flex-direction: row; /* stay side by side */
+    justify-content: center;
+    flex-wrap: wrap; /* wrap if needed */
+  }
+  .dashboard-btn { 
+    width: 140px; 
+    height: 140px; 
+    padding: 15px; 
+    font-size: 12px; /* optional */
+  }
+}
+
+/* Extra small mobile */
+@media (max-width: 375px) {
+  .dashboard-buttons {
+    gap: 8px;          /* smaller gap */
+    flex-direction: row;
+    justify-content: center;
+    flex-wrap: nowrap;  /* prevent wrapping */
+    overflow-x: auto;   /* scroll if needed */
   }
 
-  .dashboard-subtitle {
-    font-size: clamp(18px, 3vw, 24px);
+  .dashboard-btn {
+    width: 120px;
+    height: 120px;
+    padding: 10px;
+    font-size: 10px;   /* optional */
+    flex-shrink: 0;    /* prevent shrinking too small */
   }
 }
