@@ -70,6 +70,7 @@
   justify-content: center;
   align-items: center;
   flex-wrap: wrap;
+  margin-bottom: 30px;
 }
 
 .dashboard-btn {
@@ -82,13 +83,26 @@
   font-size: 16px;
   color: black;
   background: linear-gradient(to bottom, #90E0EF, #B6CCFE);
-  border: none;
+  
+  border: 1px solid rgb(22, 138, 173); /* updated border color */
   cursor: pointer;
-  transition: transform 0.2s ease;
+
+  display: flex;
+  justify-content: center;
+  align-items: center;
+  text-align: center;
+
+  transition: transform 0.1s ease; /* quick click feedback */
 }
 
-.dashboard-btn:hover {
-  transform: translateY(-4px);
+.dashboard-btn:active {
+  transform: scale(0.98); /* shrink button by ~2% when clicked */
+  transition: transform 0.1s ease; /* smooth press effect */
+}
+
+.dashboard-btn:focus {
+  outline: none; /* optional: remove default focus outline */
+  box-shadow: 0 0 0 4px rgba(144, 224, 239, 0.5); /* subtle focus ring */
 }
 
 /* ========================================
