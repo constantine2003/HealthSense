@@ -81,7 +81,7 @@ body,
   font-size: clamp(14px, 4vw, 48px);
   line-height: 1.4;
   color: #168AAD;
-  max-width: 90%;
+  max-width: 100%;
 }
 
 
@@ -172,6 +172,7 @@ body,
   display: flex;
   flex-direction: column;
   gap: 10px;
+  
 }
 
 .form-group label {
@@ -233,6 +234,7 @@ body,
   font-size: 16px;
   color: black;
   background: linear-gradient(to bottom, #90E0EF, #B6CCFE);
+  font-weight: bold;
 }
 
 /* Forgot password link */
@@ -249,7 +251,8 @@ body,
 .terms-text {
   margin: 0;
   font-size: 16px;
-  color: #111827;
+  color: #6C7278;
+  letter-spacing: -1%;
   text-align: center;
 }
 
