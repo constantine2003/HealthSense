@@ -2,6 +2,7 @@ import React, { useState } from "react";
 import { FaEye, FaEyeSlash } from "react-icons/fa";
 import "../styles/home.css";  // make sure this exists
 import Navbar from "../components/navbar.jsx"; // correct relative path
+import { useNavigate } from "react-router-dom";
 
 const Home = () => {
   const [showPassword, setShowPassword] = useState(false);
@@ -9,6 +10,8 @@ const Home = () => {
   const togglePasswordVisibility = () => {
     setShowPassword(!showPassword);
   };
+
+  const navigate = useNavigate();
   return (
     <div className="main-container">
       <Navbar />
@@ -55,7 +58,12 @@ const Home = () => {
                 </div>
               </div>
 
-              <button className="login-btn">Log in</button>
+              <button
+                className="login-btn"
+                onClick={() => navigate("/dashboard")}
+              >
+                Log in
+              </button>
 
               <a href="#" className="forgot-password">
                 Forgot Password?
