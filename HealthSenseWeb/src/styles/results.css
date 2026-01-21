@@ -1,0 +1,36 @@
+/* ========================================
+   LAST RESULTS STYLES
+======================================== */
+.main-container {
+  min-height: 100vh;
+  min-height: 100svh;
+  display: flex;
+  flex-direction: column;
+  background: linear-gradient(to bottom, #EAF4FF, #BFD9FF, #9FC5F8);
+  max-width: 100%;
+  overflow-x: hidden;
+}
+/* Main container content */
+.lastresults-content {
+  display: flex;
+  width: 100%;
+  height: calc(100vh - 90px);
+  padding: clamp(12px, 4vw, 20px);
+  box-sizing: border-box;
+}
+
+.lastresults-body {
+  width: 100%;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  text-align: center;
+}
+
+.lastresults-body h1 {
+  font-family: 'Lexend', sans-serif;
+  font-weight: 700;
+  font-size: clamp(32px, 6vw, 64px);
+  color: #168AAD;
+  margin: 0;
+}

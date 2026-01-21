@@ -55,10 +55,21 @@
 .welcome-user {
   font-family: 'Lexend', sans-serif;
   font-weight: 700;
-  font-size: 50px;
+  font-size: 60px;
   color: #168AAD;
   margin-top: 30px;
+  margin-bottom: 10px;
   text-align: center;
+}
+.description-text {
+  margin: 0;
+  font-family: 'Lexend', sans-serif;
+  font-weight: 200;
+  font-size: clamp(14px, 4vw, 48px);
+  line-height: 1.4;
+  color: #168AAD;
+  max-width: 100%;
+  margin-bottom: 30px;
 }
 
 /* ========================================
@@ -80,7 +91,7 @@
   border-radius: 20px;
   font-family: 'Lexend', sans-serif;
   font-weight: 700;
-  font-size: 16px;
+  font-size: 25px;
   color: black;
   background: linear-gradient(to bottom, #90E0EF, #B6CCFE);
   
