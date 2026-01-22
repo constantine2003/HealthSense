@@ -44,7 +44,11 @@ const evaluateHealthMetrics = (userData) => {
     unit: "%",
     status: spo2Status,
     statusType: spo2Type,
-    icon: <FiActivity />,
+    icon: <FiActivity 
+          color={spo2Type   === "success" ? "#22c55e" 
+                : spo2Type   === "warning" ? "#F97316" 
+                : "#EF4444"} 
+          size={24} />,
   });
 
   // -------------------------------
@@ -76,7 +80,11 @@ const evaluateHealthMetrics = (userData) => {
     unit: "°C",
     status: tempStatus,
     statusType: tempType,
-    icon: <FiThermometer />,
+    icon: <FiThermometer 
+          color={tempType === "success" ? "#22c55e" 
+                : tempType === "warning" ? "#F97316" 
+                : "#EF4444"} 
+          size={24} />,
   });
 
   // -------------------------------
@@ -102,7 +110,11 @@ const evaluateHealthMetrics = (userData) => {
     unit: "m",
     status: heightStatus,
     statusType: heightType,
-    icon: <MdHeight />,
+    icon: <MdHeight 
+          color={heightType === "success" ? "#22c55e" 
+                : heightType === "warning" ? "#F97316" 
+                : "#EF4444"} 
+          size={24} />,
   });
 
   // -------------------------------
@@ -132,7 +144,11 @@ const evaluateHealthMetrics = (userData) => {
     unit: "kg",
     status: weightStatus,
     statusType: weightType,
-    icon: <MdMonitorWeight />,
+    icon: <MdMonitorWeight 
+          color={weightType === "success" ? "#22c55e" 
+                : weightType === "warning" ? "#F97316" 
+                : "#EF4444"} 
+          size={24} />,
   });
 
   // -------------------------------
@@ -164,7 +180,11 @@ const evaluateHealthMetrics = (userData) => {
     unit: "",
     status: bmiStatus,
     statusType: bmiType,
-    icon: <FiBarChart />,
+    icon: <FiBarChart 
+          color={bmiType === "success" ? "#22c55e" 
+                : bmiType === "warning" ? "#F97316" 
+                : "#EF4444"} 
+          size={24} />,
   });
 
   // -------------------------------
@@ -196,7 +216,11 @@ const evaluateHealthMetrics = (userData) => {
     unit: "mmHg",
     status: bpStatus,
     statusType: bpType,
-    icon: <FiHeart />,
+    icon: <FiHeart 
+          color={bpType === "success" ? "#22c55e" 
+                : bpType === "warning" ? "#F97316" 
+                : "#EF4444"} 
+          size={24} />,
   });
 
   return healthData;
@@ -208,8 +232,8 @@ const evaluateHealthMetrics = (userData) => {
 // ------------------------------
 const getMockUserData = () => {
   return {
-    spo2: 99,
-    temperature: 36.6,
+    spo2: 91,
+    temperature: 21.6,
     height: 1.65,
     weight: 65,
     bloodPressure: "1220/80",
