@@ -1,6 +1,7 @@
+/* Navbar */
 .navbar {
     width: 100%;
-    height: 90px;
+    height: 90px; /* default height for desktop */
     padding: 0 24px;
 
     display: flex;
@@ -15,77 +16,99 @@
 
 /* Logo */
 .logo {
-  font-family: 'Lexend', sans-serif;
-  font-size: 30px; /* default size */
-  font-weight: 700; /* bold */
-
-  /* Optional: responsive scaling */
-  line-height: 1;
-  color: #168AAD
-}
-
-/* Responsive */
-@media (max-width: 768px) {
-  .logo {
-    font-size: 22px; /* smaller on tablets/mobiles */
-  }
-}
-
-@media (max-width: 480px) {
-  .logo {
-    font-size: 18px; /* even smaller on small phones */
-  }
+    font-family: 'Lexend', sans-serif;
+    font-size: 30px; /* default size */
+    font-weight: 700; /* bold */
+    line-height: 1;
+    color: #168AAD;
 }
 
 /* Links */
 .nav-right a {
-  margin-left: 20px;
-  text-decoration: none;
-  color: #000;
-  font-weight: 500;
+    margin-left: 20px;
+    text-decoration: none;
+    color: #000;
+    font-weight: 500;
 }
 
-/* Responsive */
-@media (max-width: 768px) {
-  .navbar {
-    padding: 0 16px;
-  }
-
-  .nav-right a {
-    margin-left: 12px;
-    font-size: 0.9rem;
-  }
-}
-
+/* About Button */
 .about-btn {
-  display: inline-flex;
-  align-items: center;
-  justify-content: center;
+    display: inline-flex;
+    align-items: center;
+    justify-content: center;
 
-  width: 12vw;   /* relative to viewport width */
-  max-width: 135px; /* never bigger than 135px */
-  min-width: 90px;  /* never smaller than 90px */
-  height: 6vh;   /* relative to viewport height */
-  max-height: 45px;
-  min-height: 35px;
+    width: 12vw;   
+    max-width: 135px;
+    min-width: 90px;
+    height: 6vh;   
+    max-height: 45px;
+    min-height: 35px;
 
-  font-family: 'Lexend', sans-serif;
-  font-size: clamp(14px, 1.2vw, 16px); /* scales between 14px and 16px */
-  font-weight: 700;
-  color: #000;
+    font-family: 'Lexend', sans-serif;
+    font-size: clamp(14px, 1.2vw, 16px);
+    font-weight: 700;
+    color: #000;
 
-  text-decoration: none;
-  background-color: #ffffff;
-  border-radius: 8px;
-  box-shadow: 0px 2px 4px rgba(0,0,0,0.2);
-  transition: background 0.2s, transform 0.2s;
+    text-decoration: none;
+    background-color: #ffffff;
+    border-radius: 8px;
+    box-shadow: 0px 2px 4px rgba(0,0,0,0.2);
+    transition: background 0.2s, transform 0.2s;
 }
 
 .about-btn:hover {
-  background-color: #e0e0e0;
+    background-color: #e0e0e0;
 }
 
 .about-btn:active {
-  background-color: #d0d0d0;
-  transform: scale(0.98);
+    background-color: #d0d0d0;
+    transform: scale(0.98);
+}
+
+/* Responsive: tablets and mobiles */
+@media (max-width: 768px) {
+    .navbar {
+        height: 70px;      /* smaller navbar height */
+        padding: 0 16px;   /* reduce horizontal padding */
+    }
+
+    .logo {
+        font-size: 22px;   /* shrink logo */
+    }
+
+    .nav-right a {
+        margin-left: 12px;
+        font-size: 0.9rem;
+    }
+
+    .about-btn {
+        height: 5vh;       /* slightly smaller button */
+        max-height: 40px;
+        min-height: 30px;
+        font-size: clamp(12px, 1.2vw, 14px); /* smaller font */
+    }
+}
+
+/* Responsive: small phones */
+@media (max-width: 480px) {
+    .navbar {
+        height: 60px;      /* even smaller navbar */
+        padding: 0 12px;
+    }
+
+    .logo {
+        font-size: 18px;   /* tiny logo */
+    }
+
+    .about-btn {
+        height: 4.5vh; 
+        max-height: 35px;
+        min-height: 28px;
+        font-size: 12px;
+    }
+
+    .nav-right a {
+        margin-left: 8px;
+        font-size: 0.8rem;
+    }
 }

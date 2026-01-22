@@ -76,6 +76,7 @@ body,
 /* Description/subtitle text */
 .description-text {
   margin: 0;
+  margin-bottom: 0;
   font-family: 'Lexend', sans-serif;
   font-weight: 200;
   font-size: clamp(14px, 4vw, 48px);
@@ -275,7 +276,7 @@ body,
     text-align: center;
     padding-left: clamp(8px, 3vw, 20px);
     padding-right: clamp(8px, 3vw, 20px);
-    margin-bottom: 20px;
+    margin-bottom: 10px;
   }
 
   .welcome-text {
