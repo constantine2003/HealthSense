@@ -77,54 +77,95 @@
 ======================================== */
 .dashboard-buttons {
   display: flex;
-  gap: 80px;
+  flex-direction: row;    /* Always side-by-side */
   justify-content: center;
   align-items: center;
-  flex-wrap: wrap;
-  margin-bottom: 30px;
+  flex-wrap: nowrap;      /* Prevents them from jumping to new lines */
+  gap: 20px;
+  width: 100%;
 }
 
 .dashboard-btn {
+  /* Layout */
+  display: flex;
+  flex-direction: column;   /* Stacks Icon on top of Text */
+  justify-content: center;  /* Centers vertically */
+  align-items: center;      /* Centers horizontally */
+  gap: 15px;                /* Space between icon and text */
+  
+  /* Sizing */
   width: 250px;
   height: 250px;
-  padding: 40px;
-  border-radius: 20px;
-  font-family: 'Lexend', sans-serif;
-  font-weight: 700;
-  font-size: 25px;
-  color: black;
-  background: linear-gradient(to bottom, #90E0EF, #B6CCFE);
+  border-radius: 24px;
+  padding: 20px;
   
-  border: 1px solid rgb(22, 138, 173); /* updated border color */
+  /* Visuals */
+  background: linear-gradient(145deg, #90E0EF, #B6CCFE);
+  border: 2px solid rgba(22, 138, 173, 0.3);
+  box-shadow: 0 10px 20px rgba(0, 0, 0, 0.05);
   cursor: pointer;
+  
+  /* Animation */
+  transition: all 0.2s ease;
+  overflow: hidden;
+}
+.dashboard-btn:hover .btn-icon {
+  filter: drop-shadow(0 0 8px rgba(255, 255, 255, 0.8));
+  transform: scale(1.1);
+  transition: all 0.3s ease;
+}
+/* Icon Style */
+.btn-icon {
+  /* This creates a soft glow behind the icon for depth */
+  filter: drop-shadow(0px 4px 10px rgba(255, 255, 255, 0.5));
+}
 
+/* Text Container */
+.btn-text-container {
   display: flex;
-  justify-content: center;
-  align-items: center;
-  text-align: center;
+  flex-direction: column;
+  font-family: 'Lexend', sans-serif;
+  line-height: 1;
+}
 
-  transition: transform 0.1s ease; /* quick click feedback */
+.btn-label {
+  font-size: 18px;
+  font-weight: 500;
+  color: #03045E; /* Deep Navy */
+  opacity: 0.8;
+  margin-bottom: 4px;
+}
+
+.btn-title {
+  font-size: 32px;
+  font-weight: 800;
+  color: #03045E; /* Deep Navy */
+  letter-spacing: -0.5px;
+}
+
+/* Interactive States */
+.dashboard-btn:hover {
+  transform: translateY(-5px); /* Lift up */
+  background: linear-gradient(145deg, #CAF0F8, #B6CCFE);
+  border-color: #0077B6;
+  box-shadow: 0 15px 30px rgba(0, 0, 0, 0.1);
 }
 
 .dashboard-btn:active {
-  transform: scale(0.98); /* shrink button by ~2% when clicked */
-  transition: transform 0.1s ease; /* smooth press effect */
-}
-
-.dashboard-btn:focus {
-  outline: none; /* optional: remove default focus outline */
-  box-shadow: 0 0 0 4px rgba(144, 224, 239, 0.5); /* subtle focus ring */
+  transform: scale(0.95); /* Squish effect */
 }
 
 /* ========================================
    MEDIA QUERIES
 ======================================== */
 
-/* Extra Large Screens */
 @media (min-width: 2560px) {
   .dashboard-box { padding: 60px; }
   .welcome-user { font-size: 70px; }
-  .dashboard-btn { width: 300px; height: 300px; font-size: 18px; }
+  .dashboard-btn { width: 300px; height: 300px; }
+  .btn-label { font-size: 22px; }
+  .btn-title { font-size: 38px; }
+  .dashboard-btn svg { width: 120px; height: 120px; } /* Icon scaling */
 }
 
 /* 1651-1750px */
@@ -132,6 +173,9 @@
   .dashboard-box { padding: 60px; }
   .welcome-user { font-size: 65px; }
   .dashboard-btn { width: 290px; height: 290px; }
+  .btn-label { font-size: 20px; }
+  .btn-title { font-size: 36px; }
+  .dashboard-btn svg { width: 110px; height: 110px; }
 }
 
 /* 1601-1650px */
@@ -139,6 +183,8 @@
   .dashboard-box { padding: 55px; }
   .welcome-user { font-size: 62px; }
   .dashboard-btn { width: 285px; height: 285px; }
+  .btn-label { font-size: 19px; }
+  .btn-title { font-size: 34px; }
 }
 
 /* 1551-1600px */
@@ -146,20 +192,15 @@
   .dashboard-box { padding: 50px; }
   .welcome-user { font-size: 60px; }
   .dashboard-btn { width: 280px; height: 280px; }
+  .btn-label { font-size: 18px; }
+  .btn-title { font-size: 32px; }
 }
 
-/* 1451-1550px */
-@media (min-width: 1451px) and (max-width: 1550px) {
-  .dashboard-box { padding: 45px; }
-  .welcome-user { font-size: 55px; }
-  .dashboard-btn { width: 270px; height: 270px; }
-}
-
-/* 1400-1450px */
-@media (min-width: 1400px) and (max-width: 1450px) {
-  .dashboard-box { padding: 40px; }
-  .welcome-user { font-size: 50px; }
-  .dashboard-btn { width: 260px; height: 260px; }
+/* Standard Desktop (Your current middle range) */
+@media (min-width: 1025px) and (max-width: 1450px) {
+  .btn-label { font-size: 18px; }
+  .btn-title { font-size: 30px; }
+  .dashboard-btn svg { width: 100px; height: 100px; }
 }
 
 /* Tablet / small desktop */
@@ -168,59 +209,36 @@
   .welcome-user { font-size: 42px; }
   .dashboard-btn { width: 230px; height: 230px; }
   .dashboard-buttons { gap: 40px; }
+  .btn-label { font-size: 16px; }
+  .btn-title { font-size: 28px; }
+  .dashboard-btn svg { width: 85px; height: 85px; }
 }
 
-/* Mobile medium */
+/* Mobile medium (768px) */
 @media (max-width: 768px) {
   .dashboard-box { padding: 20px; }
   .welcome-user { font-size: 36px; }
-  .dashboard-buttons { 
-    gap: 15px;  /* smaller gap for smaller screens */
-    flex-direction: row; /* keep buttons side by side */
-    justify-content: center; /* center them */
-    flex-wrap: wrap; /* allow wrapping if screen too narrow */
-  }
-  .dashboard-btn { 
-    width: 160px;  /* shrink buttons to fit */
-    height: 160px; 
-    padding: 20px; 
-    font-size: 14px; /* optional slight text shrink */
-  }
+  .dashboard-btn { width: 160px; height: 160px; padding: 15px; }
+  .btn-label { font-size: 14px; }
+  .btn-title { font-size: 22px; }
+  .dashboard-btn svg { width: 60px; height: 60px; } /* Icon shrinks to fit */
+  .dashboard-btn { gap: 8px; } /* Tighter spacing for mobile */
 }
 
 /* Mobile small (≤480px) */
 @media (max-width: 480px) {
   .dashboard-box { padding: 15px; }
   .welcome-user { font-size: 28px; }
-  .dashboard-buttons { 
-    gap: 10px; 
-    flex-direction: row; /* stay side by side */
-    justify-content: center;
-    flex-wrap: wrap; /* wrap if needed */
-  }
-  .dashboard-btn { 
-    width: 140px; 
-    height: 140px; 
-    padding: 15px; 
-    font-size: 12px; /* optional */
-  }
+  .dashboard-btn { width: 140px; height: 140px; }
+  .btn-label { font-size: 12px; }
+  .btn-title { font-size: 20px; }
+  .dashboard-btn svg { width: 50px; height: 50px; }
 }
 
-/* Extra small mobile */
+/* Extra small mobile (375px) */
 @media (max-width: 375px) {
-  .dashboard-buttons {
-    gap: 8px;          /* smaller gap */
-    flex-direction: row;
-    justify-content: center;
-    flex-wrap: nowrap;  /* prevent wrapping */
-    overflow-x: auto;   /* scroll if needed */
-  }
-
-  .dashboard-btn {
-    width: 120px;
-    height: 120px;
-    padding: 10px;
-    font-size: 10px;   /* optional */
-    flex-shrink: 0;    /* prevent shrinking too small */
-  }
+  .dashboard-btn { width: 120px; height: 120px; padding: 10px; }
+  .btn-label { font-size: 11px; }
+  .btn-title { font-size: 18px; }
+  .dashboard-btn svg { width: 40px; height: 40px; }
 }

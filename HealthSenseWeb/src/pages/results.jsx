@@ -263,7 +263,7 @@ const Results = () => {
             onClick={() => navigate("/dashboard")}>
               <IoArrowBack size={24} />
             </button>
-            
+
             <p className="toptext">Your Results</p>
             </div>
             <div className="results-grid">

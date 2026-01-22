@@ -31,21 +31,20 @@
     font-weight: 500;
 }
 
-/* About Button */
+/* Updated About/Nav Buttons */
 .about-btn {
     display: inline-flex;
     align-items: center;
     justify-content: center;
 
-    width: 12vw;   
-    max-width: 135px;
-    min-width: 90px;
-    height: 6vh;   
-    max-height: 45px;
-    min-height: 35px;
+    /* Use a stable width/height for mobile readability */
+    width: auto; 
+    padding: 0 16px; /* Horizontal padding instead of fixed vw */
+    min-width: 80px; 
+    height: 40px;    /* Standard comfortable height */
 
     font-family: 'Lexend', sans-serif;
-    font-size: clamp(14px, 1.2vw, 16px);
+    font-size: 14px;
     font-weight: 700;
     color: #000;
 
@@ -53,7 +52,7 @@
     background-color: #ffffff;
     border-radius: 8px;
     box-shadow: 0px 2px 4px rgba(0,0,0,0.2);
-    transition: background 0.2s, transform 0.2s;
+    transition: all 0.2s ease;
 }
 
 .about-btn:hover {
@@ -68,47 +67,42 @@
 /* Responsive: tablets and mobiles */
 @media (max-width: 768px) {
     .navbar {
-        height: 70px;      /* smaller navbar height */
-        padding: 0 16px;   /* reduce horizontal padding */
-    }
-
-    .logo {
-        font-size: 22px;   /* shrink logo */
-    }
-
-    .nav-right a {
-        margin-left: 12px;
-        font-size: 0.9rem;
+        height: 70px;
+        padding: 0 16px;
     }
 
     .about-btn {
-        height: 5vh;       /* slightly smaller button */
-        max-height: 40px;
-        min-height: 30px;
-        font-size: clamp(12px, 1.2vw, 14px); /* smaller font */
+        height: 38px;      /* Consistent height */
+        min-width: 75px;   /* Slightly narrower */
+        padding: 0 12px;   /* Less internal padding */
+        font-size: 13px;
+    }
+
+    .nav-right a {
+        margin-left: 10px; /* Bring buttons closer */
     }
 }
 
-/* Responsive: small phones */
+/* Responsive: small phones (iPhone SE, etc) */
 @media (max-width: 480px) {
     .navbar {
-        height: 60px;      /* even smaller navbar */
-        padding: 0 12px;
+        height: 65px;
+        padding: 0 10px;
     }
 
     .logo {
-        font-size: 18px;   /* tiny logo */
+        font-size: 18px;
     }
 
     .about-btn {
-        height: 4.5vh; 
-        max-height: 35px;
-        min-height: 28px;
+        height: 34px;      /* Minimum tap target height */
+        min-width: 70px;
+        padding: 0 8px;
         font-size: 12px;
+        border-radius: 6px; /* Slightly sharper corners for small size */
     }
 
     .nav-right a {
-        margin-left: 8px;
-        font-size: 0.8rem;
+        margin-left: 6px;  /* Tighten space to prevent overflow */
     }
 }
