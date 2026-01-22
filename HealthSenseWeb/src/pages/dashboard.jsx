@@ -14,7 +14,7 @@ const Dashboard = () => {
         <div className="dashboard-body">
           {/* Center Box */}
           <div className="dashboard-box">
-            <p className="welcome-user">Welcome {user}!!</p>
+            <p className="welcome-user">Welcome {user}!!!</p>
             <p className="description-text">Access your medical checkup results and history securely.</p>
             {/* Button Row */}
             <div className="dashboard-buttons">

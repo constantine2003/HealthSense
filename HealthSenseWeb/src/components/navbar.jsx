@@ -8,7 +8,7 @@ function Navbar() {
       </div>
 
       <div className="nav-right">
-        <a href="#" className="about-btn">About Us</a>
+        {/* <a href="#" className="about-btn">About Us</a> */}
       </div>
     </nav>
   );

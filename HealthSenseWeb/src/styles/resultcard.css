@@ -1,0 +1,178 @@
+/* ========================================
+   HEALTH CARD
+======================================== */
+
+/* Card Container */
+.health-card {
+  background: #FFFFFF;
+  padding: 24px;
+  border-radius: 20px;
+  box-shadow: 0 4px 20px rgba(0, 0, 0, 0.05);
+  transition: transform 0.2s ease;
+  display: flex;
+  flex-direction: column;
+  justify-content: space-between;
+}
+
+.health-card:hover {
+  transform: translateY(-5px);
+  box-shadow: 0 10px 25px rgba(0, 0, 0, 0.1);
+}
+
+/* Header */
+.card-header {
+  display: flex;
+  align-items: center;
+  margin-bottom: 15px;
+}
+
+.icon-box {
+  width: 36px;
+  height: 36px;
+  border-radius: 10px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  margin-right: 12px;
+  font-size: 18px;
+}
+
+.card-title {
+  font-size: 13px;
+  font-weight: 700;
+  color: #94A3B8;
+  text-transform: uppercase;
+  letter-spacing: 0.8px;
+}
+
+/* Values */
+.value-container {
+  display: flex;
+  align-items: baseline;
+  margin-bottom: 10px;
+}
+
+.main-value {
+  font-size: 32px;
+  font-weight: 800;
+  color: #1E293B;
+  margin-right: 4px;
+}
+
+.unit {
+  font-size: 14px;
+  font-weight: 600;
+  color: #64748B;
+}
+
+/* Status Badges */
+.status-badge {
+  display: inline-block;
+  padding: 6px 12px;
+  border-radius: 20px;
+  font-size: 12px;
+  font-weight: 700;
+  margin-bottom: 15px;
+  width: fit-content;
+}
+
+/* Color Variations */
+.success { background-color: #DCFCE7; color: #166534; }
+.success-bg { background-color: #F0FDF4; }
+.success-fill { width: 90%; background: #22c55e; }
+
+.warning { background-color: #FFEDD5; color: #9A3412; }
+.warning-bg { background-color: #FFF7ED; }
+.warning-fill { width: 70%; background: #F97316; }
+
+.danger { background-color: #FEE2E2; color: #991B1B; }
+.danger-bg { background-color: #FEF2F2; }
+.danger-fill { width: 40%; background: #EF4444; }
+
+/* Progress Bar */
+.range-wrapper {
+  width: 100%;
+  height: 6px;
+  background-color: #F1F5F9;
+  border-radius: 10px;
+  overflow: hidden;
+}
+
+.range-fill {
+  height: 100%;
+  border-radius: 10px;
+}
+
+/* ========================================
+   MEDIA QUERIES
+======================================== */
+
+/* Extra Large Screens */
+@media (min-width: 2560px) {
+  .health-card {
+    padding: 32px;
+  }
+  .main-value { font-size: 36px; }
+}
+
+/* 1651-1750px */
+@media (min-width: 1651px) and (max-width: 1750px) {
+  .health-card { padding: 30px; }
+  .main-value { font-size: 34px; }
+}
+
+/* 1601-1650px */
+@media (min-width: 1601px) and (max-width: 1650px) {
+  .health-card { padding: 28px; }
+  .main-value { font-size: 32px; }
+}
+
+/* 1551-1600px */
+@media (min-width: 1551px) and (max-width: 1600px) {
+  .health-card { padding: 26px; }
+  .main-value { font-size: 30px; }
+}
+
+/* 1451-1550px */
+@media (min-width: 1451px) and (max-width: 1550px) {
+  .health-card { padding: 24px; }
+  .main-value { font-size: 28px; }
+}
+
+/* 1400-1450px */
+@media (min-width: 1400px) and (max-width: 1450px) {
+  .health-card { padding: 22px; }
+  .main-value { font-size: 26px; }
+}
+
+/* Tablet / small desktop */
+@media (min-width: 769px) and (max-width: 1024px) {
+  .health-card { padding: 20px; }
+  .main-value { font-size: 24px; }
+  .card-title { font-size: 12px; }
+  .unit { font-size: 12px; }
+}
+
+/* Mobile medium */
+@media (max-width: 768px) {
+  .health-card { padding: 18px; }
+  .main-value { font-size: 22px; }
+  .card-title { font-size: 11px; }
+  .unit { font-size: 11px; }
+}
+
+/* Mobile small ≤480px */
+@media (max-width: 480px) {
+  .health-card { padding: 16px; }
+  .main-value { font-size: 20px; }
+  .card-title { font-size: 10px; }
+  .unit { font-size: 10px; }
+}
+
+/* Extra small mobile ≤375px */
+@media (max-width: 375px) {
+  .health-card { padding: 14px; }
+  .main-value { font-size: 18px; }
+  .card-title { font-size: 9px; }
+  .unit { font-size: 9px; }
+}
