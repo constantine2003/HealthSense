@@ -6,6 +6,8 @@ import '../styles/resultcard.css';
 import { IoArrowBack } from "react-icons/io5"; // Ionicons
 import { FiActivity, FiThermometer, FiHeart, FiBarChart } from 'react-icons/fi';
 import { MdHeight, MdMonitorWeight } from 'react-icons/md';
+import { useNavigate } from "react-router-dom";
+
 // Function to dynamically evaluate health metrics
 // ================================
 // Evaluate health metrics dynamically
@@ -246,6 +248,7 @@ const Results = () => {
 
   // Dynamically generate healthData based on actual values
   const healthData = evaluateHealthMetrics(userData);
+  const navigate = useNavigate(); 
 
   return (
     <div className="main-container">
@@ -254,9 +257,13 @@ const Results = () => {
         <div className="lastresults-body">
           <div className="results-box">
             <div className="top">
-            <button className="back-btn">
+
+            <button 
+            className="back-btn"
+            onClick={() => navigate("/dashboard")}>
               <IoArrowBack size={24} />
             </button>
+            
             <p className="toptext">Your Results</p>
             </div>
             <div className="results-grid">
