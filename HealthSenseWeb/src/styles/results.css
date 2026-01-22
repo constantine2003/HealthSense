@@ -68,6 +68,8 @@
   justify-content: center;
   margin-bottom: 30px;
   position: relative;
+  border-bottom: 3px solid #168AAD; /* Added bottom border */
+  padding-bottom: 10px; /* optional: adds some space between content and border */
 }
 
 .toptext {
@@ -83,8 +85,8 @@
 }
 
 .back-btn {
-  width: clamp(80px, 5vw, 100px);
-  height: clamp(40px, 3vw, 50px);
+  width: clamp(30px, 3vw, 35px);
+  height: clamp(30px, 3vw, 35px);
   border: none;
   border-radius: 8px;
   background: linear-gradient(to bottom, #90E0EF, #B6CCFE);
@@ -103,10 +105,7 @@
   transform: scale(0.98);
 }
 
-.back-btn:focus {
-  outline: none;
-  box-shadow: 0 0 0 4px rgba(144, 224, 239, 0.5);
-}
+
 
 /* ========================================
    RESULTS GRID
