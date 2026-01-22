@@ -3,7 +3,9 @@ import "../styles/results.css";
 import Navbar from "../components/navbar2";
 import ResultCard from "../components/resultcard";
 import '../styles/resultcard.css';
-
+import { IoArrowBack } from "react-icons/io5"; // Ionicons
+import { FiActivity, FiThermometer, FiHeart, FiBarChart } from 'react-icons/fi';
+import { MdHeight, MdMonitorWeight } from 'react-icons/md';
 // Function to dynamically evaluate health metrics
 // ================================
 // Evaluate health metrics dynamically
@@ -42,7 +44,7 @@ const evaluateHealthMetrics = (userData) => {
     unit: "%",
     status: spo2Status,
     statusType: spo2Type,
-    icon: "💨",
+    icon: <FiActivity />,
   });
 
   // -------------------------------
@@ -74,7 +76,7 @@ const evaluateHealthMetrics = (userData) => {
     unit: "°C",
     status: tempStatus,
     statusType: tempType,
-    icon: "🌡️",
+    icon: <FiThermometer />,
   });
 
   // -------------------------------
@@ -100,7 +102,7 @@ const evaluateHealthMetrics = (userData) => {
     unit: "m",
     status: heightStatus,
     statusType: heightType,
-    icon: "📏",
+    icon: <MdHeight />,
   });
 
   // -------------------------------
@@ -130,7 +132,7 @@ const evaluateHealthMetrics = (userData) => {
     unit: "kg",
     status: weightStatus,
     statusType: weightType,
-    icon: "⚖️",
+    icon: <MdMonitorWeight />,
   });
 
   // -------------------------------
@@ -162,7 +164,7 @@ const evaluateHealthMetrics = (userData) => {
     unit: "",
     status: bmiStatus,
     statusType: bmiType,
-    icon: "📊",
+    icon: <FiBarChart />,
   });
 
   // -------------------------------
@@ -194,7 +196,7 @@ const evaluateHealthMetrics = (userData) => {
     unit: "mmHg",
     status: bpStatus,
     statusType: bpType,
-    icon: "❤️",
+    icon: <FiHeart />,
   });
 
   return healthData;
@@ -228,7 +230,9 @@ const Results = () => {
         <div className="lastresults-body">
           <div className="results-box">
             <div className="top">
-            <button className="back-btn">Back</button>
+            <button className="back-btn">
+              <IoArrowBack size={24} />
+            </button>
             <p className="toptext">Your Results</p>
             </div>
             <div className="results-grid">
