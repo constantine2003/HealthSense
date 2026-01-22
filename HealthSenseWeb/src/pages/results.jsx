@@ -8,7 +8,23 @@ const Results = () => {
       <Navbar />
       <div className="lastresults-content">
         <div className="lastresults-body">
-          <h1>Last results</h1>
+          <div className="results-box">
+            
+            
+              <button className="back-btn">Back</button>
+              <p className="toptext">Your Results</p>
+            
+              <div className="results-grid">
+                <div className="grid-item">Box 1</div>
+                <div className="grid-item">Box 2</div>
+                <div className="grid-item">Box 3</div>
+                <div className="grid-item">Box 4</div>
+                <div className="grid-item">Box 5</div>
+                <div className="grid-item">Box 6</div>
+              </div>
+            {/* different content */}
+            
+          </div>
         </div>
       </div>
     </div>
