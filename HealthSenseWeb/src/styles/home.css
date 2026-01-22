@@ -251,7 +251,7 @@ body,
 /* Terms text */
 .terms-text {
   margin: 0;
-  font-size: 16px;
+  font-size: 12px;
   color: #6C7278;
   letter-spacing: -1%;
   text-align: center;
@@ -337,6 +337,7 @@ body,
    RESPONSIVE DESIGN - MOBILE (481px - 768px)
    ======================================== */
 @media (min-width: 481px) and (max-width: 768px) {
+  
   /* Stack sections vertically */
   .page-content {
     flex-direction: column;
