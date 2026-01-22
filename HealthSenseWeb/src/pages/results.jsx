@@ -5,148 +5,192 @@ import ResultCard from "../components/resultcard";
 import '../styles/resultcard.css';
 
 // Function to dynamically evaluate health metrics
+// ================================
+// Evaluate health metrics dynamically
+// ================================
 const evaluateHealthMetrics = (userData) => {
   const healthData = [];
 
+  // -------------------------------
+  // Helper function to validate numeric values
+  // -------------------------------
+  const isValidNumber = (value) => value !== null && value !== undefined && !isNaN(value);
+
+  // -------------------------------
   // SpO2
-  let spo2Status = "";
-  let spo2Type = "";
-  if (userData.spo2 < 95) {
-    spo2Status = "Low";
-    spo2Type = "danger";
-  } else if (userData.spo2 <= 98) {
-    spo2Status = "Normal";
-    spo2Type = "warning";
-  } else {
-    spo2Status = "Excellent";
-    spo2Type = "success";
+  // -------------------------------
+  let spo2Status = "Unknown";
+  let spo2Type = "danger";
+  if (isValidNumber(userData.spo2)) {
+    if (userData.spo2 < 95) {
+      spo2Status = "Low";
+      spo2Type = "danger";
+    } else if (userData.spo2 <= 98) {
+      spo2Status = "Normal";
+      spo2Type = "warning";
+    } else if (userData.spo2 <= 100) {
+      spo2Status = "Excellent";
+      spo2Type = "success";
+    } else {
+      spo2Status = "Invalid";
+      spo2Type = "danger";
+    }
   }
   healthData.push({
     title: "SpO2",
-    value: userData.spo2,
+    value: userData.spo2 || "-",
     unit: "%",
     status: spo2Status,
     statusType: spo2Type,
     icon: "💨",
   });
 
-  // Temperature
-  let tempStatus = "";
-  let tempType = "";
-  if (userData.temperature < 36) {
-    tempStatus = "Low";
-    tempType = "warning";
-  } else if (userData.temperature <= 37.5) {
-    tempStatus = "Normal";
-    tempType = "success";
-  } else {
-    tempStatus = "Fever";
-    tempType = "danger";
+  // -------------------------------
+  // Temperature (°C)
+  // -------------------------------
+  let tempStatus = "Unknown";
+  let tempType = "danger";
+  if (isValidNumber(userData.temperature)) {
+    if (userData.temperature < 35) {
+      tempStatus = "Hypothermia";
+      tempType = "danger";
+    } else if (userData.temperature < 36) {
+      tempStatus = "Low";
+      tempType = "warning";
+    } else if (userData.temperature <= 37.5) {
+      tempStatus = "Normal";
+      tempType = "success";
+    } else if (userData.temperature <= 39) {
+      tempStatus = "Fever";
+      tempType = "warning";
+    } else {
+      tempStatus = "High Fever";
+      tempType = "danger";
+    }
   }
   healthData.push({
     title: "Temperature",
-    value: userData.temperature,
+    value: userData.temperature || "-",
     unit: "°C",
     status: tempStatus,
     statusType: tempType,
     icon: "🌡️",
   });
 
-  // Height
-  let heightStatus = "";
-  let heightType = "";
-  if (userData.height < 1.6) {
-    heightStatus = "Below Average";
-    heightType = "danger";
-  } else if (userData.height <= 1.75) {
-    heightStatus = "Average";
-    heightType = "success";
-  } else {
-    heightStatus = "Above Average";
-    heightType = "success";
+  // -------------------------------
+  // Height (m)
+  // -------------------------------
+  let heightStatus = "Unknown";
+  let heightType = "danger";
+  if (isValidNumber(userData.height)) {
+    if (userData.height < 1.5) {
+      heightStatus = "Below Average";
+      heightType = "danger";
+    } else if (userData.height <= 1.75) {
+      heightStatus = "Average";
+      heightType = "success";
+    } else {
+      heightStatus = "Above Average";
+      heightType = "success";
+    }
   }
   healthData.push({
     title: "Height",
-    value: userData.height,
+    value: userData.height || "-",
     unit: "m",
     status: heightStatus,
     statusType: heightType,
     icon: "📏",
   });
 
-  // Weight
-  const minWeight = 18.5 * (userData.height ** 2);
-  const maxWeight = 24.9 * (userData.height ** 2);
-  let weightStatus = "";
-  let weightType = "";
-  if (userData.weight < minWeight) {
-    weightStatus = "Underweight";
-    weightType = "warning";
-  } else if (userData.weight <= maxWeight) {
-    weightStatus = "Normal";
-    weightType = "success";
-  } else if (userData.weight <= maxWeight + 5) {
-    weightStatus = "Overweight";
-    weightType = "warning";
-  } else {
-    weightStatus = "Obese";
-    weightType = "danger";
+  // -------------------------------
+  // Weight (kg) – use BMI for classification
+  // -------------------------------
+  let weightStatus = "Unknown";
+  let weightType = "danger";
+  if (isValidNumber(userData.weight) && isValidNumber(userData.height)) {
+    const bmi = userData.weight / (userData.height ** 2);
+    if (bmi < 18.5) {
+      weightStatus = "Underweight";
+      weightType = "warning";
+    } else if (bmi < 25) {
+      weightStatus = "Normal";
+      weightType = "success";
+    } else if (bmi < 30) {
+      weightStatus = "Overweight";
+      weightType = "warning";
+    } else {
+      weightStatus = "Obese";
+      weightType = "danger";
+    }
   }
   healthData.push({
     title: "Weight",
-    value: userData.weight,
+    value: userData.weight || "-",
     unit: "kg",
     status: weightStatus,
     statusType: weightType,
     icon: "⚖️",
   });
 
+  // -------------------------------
   // BMI
-  const bmi = userData.weight / (userData.height ** 2);
-  let bmiStatus = "";
-  let bmiType = "";
-  if (bmi < 18.5) {
-    bmiStatus = "Underweight";
-    bmiType = "warning";
-  } else if (bmi < 25) {
-    bmiStatus = "Normal";
-    bmiType = "success";
-  } else if (bmi < 30) {
-    bmiStatus = "Overweight";
-    bmiType = "warning";
-  } else {
-    bmiStatus = "Obese";
-    bmiType = "danger";
+  // -------------------------------
+  let bmiValue = "-";
+  let bmiStatus = "Unknown";
+  let bmiType = "danger";
+  if (isValidNumber(userData.weight) && isValidNumber(userData.height)) {
+    const bmi = userData.weight / (userData.height ** 2);
+    bmiValue = bmi.toFixed(1);
+    if (bmi < 18.5) {
+      bmiStatus = "Underweight";
+      bmiType = "warning";
+    } else if (bmi < 25) {
+      bmiStatus = "Normal";
+      bmiType = "success";
+    } else if (bmi < 30) {
+      bmiStatus = "Overweight";
+      bmiType = "warning";
+    } else {
+      bmiStatus = "Obese";
+      bmiType = "danger";
+    }
   }
   healthData.push({
     title: "BMI",
-    value: bmi.toFixed(1),
+    value: bmiValue,
     unit: "",
     status: bmiStatus,
     statusType: bmiType,
     icon: "📊",
   });
 
+  // -------------------------------
   // Blood Pressure
-  const [systolic, diastolic] = userData.bloodPressure.split("/").map(Number);
-  let bpStatus = "";
-  let bpType = "";
-  if (systolic < 90 || diastolic < 60) {
-    bpStatus = "Low";
-    bpType = "warning";
-  } else if (systolic <= 120 && diastolic <= 80) {
-    bpStatus = "Ideal";
-    bpType = "success";
-  } else if (systolic <= 139 || diastolic <= 89) {
-    bpStatus = "Elevated";
-    bpType = "warning";
-  } else {
-    bpStatus = "High";
-    bpType = "danger";
+  // -------------------------------
+  let bpStatus = "Unknown";
+  let bpType = "danger";
+  if (userData.bloodPressure) {
+    const [systolic, diastolic] = userData.bloodPressure.split("/").map(Number);
+    if (!isNaN(systolic) && !isNaN(diastolic)) {
+      if (systolic < 90 || diastolic < 60) {
+        bpStatus = "Low";
+        bpType = "warning";
+      } else if (systolic <= 120 && diastolic <= 80) {
+        bpStatus = "Ideal";
+        bpType = "success";
+      } else if (systolic <= 139 || diastolic <= 89) {
+        bpStatus = "Elevated";
+        bpType = "warning";
+      } else {
+        bpStatus = "High";
+        bpType = "danger";
+      }
+    }
   }
   healthData.push({
     title: "Blood Pressure",
-    value: userData.bloodPressure,
+    value: userData.bloodPressure || "-",
     unit: "mmHg",
     status: bpStatus,
     statusType: bpType,
@@ -157,16 +201,16 @@ const evaluateHealthMetrics = (userData) => {
 };
 
 // ------------------------------
-// TEMPORARY FUNCTION TO SET MOCK DATA
+// TEMPORARY FUNCTION TO PROVIDE MOCK DATA
+// Replace with Supabase fetch later
 // ------------------------------
 const getMockUserData = () => {
-  // TODO: Change these values to test different scenarios
   return {
     spo2: 99,
     temperature: 36.6,
-    height: 1.0,
-    weight: 10,
-    bloodPressure: "120/80",
+    height: 1.65,
+    weight: 65,
+    bloodPressure: "1220/80",
   };
 };
 
@@ -183,9 +227,10 @@ const Results = () => {
       <div className="lastresults-content">
         <div className="lastresults-body">
           <div className="results-box">
+            <div className="top">
             <button className="back-btn">Back</button>
             <p className="toptext">Your Results</p>
-
+            </div>
             <div className="results-grid">
               {healthData.map((item, index) => (
                 <ResultCard
