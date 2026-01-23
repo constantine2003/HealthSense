@@ -1,11 +1,8 @@
 import "../styles/navbar.css";
 import { useNavigate } from "react-router-dom";
 import { FaUser } from "react-icons/fa"; // FontAwesome
-import { IoPersonOutline } from "react-icons/io5"; // Ionicons
-import { MdPerson } from "react-icons/md"; // Material Design
 import { FiLogOut } from "react-icons/fi"; // Feather Icons
-import { MdLogout } from "react-icons/md"; // Material Design
-import { IoExitOutline } from "react-icons/io5"; // Ionicons
+
 function Navbar() {
   const navigate = useNavigate();
 
@@ -25,11 +22,11 @@ function Navbar() {
 
       <div className="nav-right">
         <button className="about-btn">
-          <FaUser size={18} style={{ marginRight: "6px" }} />
+          <FaUser  style={{ marginRight: "6px" }} />
           Profile
         </button>
         <button className="about-btn" onClick={handleLogout}>
-          <FiLogOut size={18} style={{ marginRight: "6px" }} />
+          <FiLogOut  style={{ marginRight: "6px" }} />
           Log-Out
         </button>
       </div>
