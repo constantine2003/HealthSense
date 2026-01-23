@@ -160,24 +160,27 @@
 
 /* Mobile medium */
 @media (max-width: 768px) {
-  .health-card { padding: 18px; }
-  .main-value { font-size: 22px; }
-  .card-title { font-size: 11px; }
-  .unit { font-size: 11px; }
-}
-
-/* Mobile small ≤480px */
-@media (max-width: 480px) {
   .health-card { padding: 16px; }
   .main-value { font-size: 20px; }
   .card-title { font-size: 10px; }
   .unit { font-size: 10px; }
+  .card-header { margin-bottom: 8px; }
+  .value-container {  margin-bottom: 8px;  }
+  .status-badge { font-size: 10px; }
 }
 
-/* Extra small mobile ≤375px */
-@media (max-width: 375px) {
+/* Mobile small ≤480px */
+@media (max-width: 480px) {
   .health-card { padding: 14px; }
   .main-value { font-size: 18px; }
   .card-title { font-size: 9px; }
   .unit { font-size: 9px; }
+}
+
+/* Extra small mobile ≤375px */
+@media (max-width: 375px) {
+  .health-card { padding: 12px; }
+  .main-value { font-size: 16px; }
+  .card-title { font-size: 8px; }
+  .unit { font-size: 8px; }
 }
