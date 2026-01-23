@@ -34,3 +34,91 @@
   color: #168AAD;
   margin: 0;
 }
+
+/* ========================================
+   HISTORY BOX
+======================================== */
+.history-box {
+  position: relative;
+  background: rgba(255, 255, 255, 0.13);
+  border-radius: 20px;
+  padding: 35px clamp(20px, 5vw, 50px) 50px clamp(20px, 5vw, 50px);
+  backdrop-filter: blur(30px);
+  -webkit-backdrop-filter: blur(30px);
+  box-shadow: 0px 8px 24px rgba(0, 0, 0, 0.25);
+  border: 1px solid transparent;
+
+  /* Animation */
+  opacity: 0;
+  transform: scale(0.9);
+  animation: fadeInBox 0.8s ease forwards;
+  animation-delay: 0.2s; /* slight delay after splash */
+}
+/* Animation keyframes */
+@keyframes fadeInBox {
+  0% {
+    opacity: 0;
+    transform: scale(0.9);
+  }
+  100% {
+    opacity: 1;
+    transform: scale(1);
+  }
+}
+.history-box::before {
+  content: "";
+  position: absolute;
+  inset: 0;
+  border-radius: 20px;
+  padding: 1px;
+  background: linear-gradient(
+    to bottom,
+    rgba(255, 255, 255, 0.4),
+    rgba(255, 255, 255, 0.05)
+  );
+  mask: linear-gradient(#fff 0 0) content-box, linear-gradient(#fff 0 0);
+  mask-composite: exclude;
+  -webkit-mask: linear-gradient(#fff 0 0) content-box, linear-gradient(#fff 0 0);
+  -webkit-mask-composite: xor;
+  pointer-events: none;
+}
+
+
+
+/* ========================================
+   MEDIA QUERIES - HISTORY BOX
+======================================== */
+
+/* Extra Large Screens (1400px+) */
+@media (min-width: 1400px) {
+  .history-box {
+    padding: 40px;
+  }
+}
+
+/* Desktop / Tablet Large (769px - 1399px) */
+@media (min-width: 769px) and (max-width: 1399px) {
+  .history-box {
+    padding: 30px;
+  }
+}
+
+/* Mobile Medium (481px - 768px) */
+@media (min-width: 481px) and (max-width: 768px) {
+  .history-box {
+    padding: 20px;
+  }
+  .toptext {
+    font-size: 30px;
+  }
+}
+
+/* Mobile Small (≤480px) */
+@media (max-width: 480px) {
+  .history-box {
+    padding: 15px;
+  }
+  .toptext {
+    font-size: 25px;
+  }
+}

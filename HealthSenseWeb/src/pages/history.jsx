@@ -8,7 +8,9 @@ const History = () => {
       <Navbar />
       <div className="history-content">
         <div className="history-body">
-          <h1>History</h1>
+          <div className="history-box">
+            <h1>History</h1>
+          </div>
         </div>
       </div>
     </div>

@@ -33,6 +33,12 @@
   -webkit-backdrop-filter: blur(30px);
   box-shadow: 0px 8px 24px rgba(0, 0, 0, 0.25);
   border: 1px solid transparent;
+
+  /* Animation */
+  opacity: 0;
+  transform: scale(0.9);
+  animation: fadeInBox 0.8s ease forwards;
+  animation-delay: 0.2s; /* slight delay after splash */
 }
 
 .dashboard-box::before {
@@ -49,6 +55,18 @@
   pointer-events: none;
 }
 
+/* Animation keyframes */
+@keyframes fadeInBox {
+  0% {
+    opacity: 0;
+    transform: scale(0.9);
+  }
+  100% {
+    opacity: 1;
+    transform: scale(1);
+  }
+}
+
 /* ========================================
    WELCOME TEXT
 ======================================== */
@@ -56,7 +74,7 @@
   font-family: 'Lexend', sans-serif;
   font-weight: 700;
   font-size: 60px;
-  color: #168AAD;
+  color: #139dc7;
   margin-top: 30px;
   margin-bottom: 10px;
   text-align: center;
@@ -65,9 +83,9 @@
   margin: 0;
   font-family: 'Lexend', sans-serif;
   font-weight: 200;
-  font-size: clamp(14px, 4vw, 48px);
+  font-size: clamp(14px, 4vw, 35px);
   line-height: 1.4;
-  color: #168AAD;
+  color: #139dc7;
   max-width: 100%;
   margin-bottom: 30px;
 }
@@ -223,6 +241,7 @@
   .btn-title { font-size: 22px; }
   .dashboard-btn svg { width: 60px; height: 60px; } /* Icon shrinks to fit */
   .dashboard-btn { gap: 8px; } /* Tighter spacing for mobile */
+  .description-text { margin-bottom: 20px;}
 }
 
 /* Mobile small (≤480px) */

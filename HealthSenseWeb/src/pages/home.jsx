@@ -3,15 +3,26 @@ import { FaEye, FaEyeSlash } from "react-icons/fa";
 import "../styles/home.css";  // make sure this exists
 import Navbar from "../components/navbar.jsx"; // correct relative path
 import { useNavigate } from "react-router-dom";
-
+import SplashScreen from "../components/splashscreen.jsx";
 const Home = () => {
   const [showPassword, setShowPassword] = useState(false);
 
   const togglePasswordVisibility = () => {
     setShowPassword(!showPassword);
   };
-
   const navigate = useNavigate();
+  const [showSplash, setShowSplash] = useState(false);
+
+  const handleLogin = () => {
+    setShowSplash(true); // show splash first
+    setTimeout(() => {
+      navigate("/dashboard"); // go to dashboard after 2 seconds
+    }, 2000);
+  };
+
+  if (showSplash) return <SplashScreen />;
+
+  
   return (
     <div className="main-container">
       <Navbar />
@@ -58,10 +69,7 @@ const Home = () => {
                 </div>
               </div>
 
-              <button
-                className="login-btn"
-                onClick={() => navigate("/dashboard")}
-              >
+              <button className="login-btn" onClick={handleLogin}>
                 Log in
               </button>
 
