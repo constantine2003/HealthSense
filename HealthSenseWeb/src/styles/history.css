@@ -139,7 +139,7 @@
 .mini-stat svg { color: #168AAD; font-size: 1.1rem; }
 
 .status-indicator {
-  padding: 6px 12px;
+  padding: 6px 0;
   border-radius: 20px;
   font-size: 11px;
   font-weight: 800;
@@ -149,6 +149,7 @@
 }
 
 .status-indicator.success { background: #dcfce7; color: #166534; }
+.status-indicator.risk { background: #f0fdf4; color: #F97316; }
 .status-indicator.warning { background: #fee2e2; color: #991b1b; }
 
 .details-arrow {
@@ -161,6 +162,10 @@
   cursor: pointer;
   transition: background 0.2s;
   font-family: "Lexend";
+  width: 120px;
+  height: 40px;
+  justify-content: center;
+  align-items: center;
 }
 
 .details-arrow:hover { background: #1a759f; }
