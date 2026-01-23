@@ -16,7 +16,7 @@
   height: calc(100svh - 90px);
   padding: clamp(10px, 3vw, 20px);
   box-sizing: border-box;
-  justify-content: center;
+  justify-content: flex-start;
   align-content: center;
 }
 
@@ -117,8 +117,8 @@
   text-align: left;
 }
 
-.date-text { font-weight: 700; color: #1e293b; font-size: 1rem; }
-.time-text { font-size: 0.85rem; color: #475569; }
+.date-text { font-family: "Lexend"; font-weight: 700; color: #1e293b; font-size: 1rem; }
+.time-text { font-family: "Lexend";font-size: 0.85rem; color: #475569; }
 
 .stats-preview {
   display: grid;
@@ -133,6 +133,7 @@
   font-weight: 600;
   color: #1E293B;
   font-size: 0.9rem;
+  font-family: "Lexend";
 }
 
 .mini-stat svg { color: #168AAD; font-size: 1.1rem; }
@@ -144,6 +145,7 @@
   font-weight: 800;
   text-transform: uppercase;
   text-align: center;
+  font-family: "Lexend";
 }
 
 .status-indicator.success { background: #dcfce7; color: #166534; }
@@ -158,6 +160,7 @@
   font-weight: 600;
   cursor: pointer;
   transition: background 0.2s;
+  font-family: "Lexend";
 }
 
 .details-arrow:hover { background: #1a759f; }
