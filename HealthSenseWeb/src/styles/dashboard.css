@@ -2,24 +2,31 @@
    DASHBOARD STYLES
    ======================================== */
 
+.main-container {
+  min-height: 100vh;
+  min-height: 100svh;
+  display: flex;
+  flex-direction: column;
+  background: linear-gradient(to bottom, #EAF4FF, #BFD9FF, #9FC5F8);
+  max-width: 100%;
+  overflow-x: hidden;
+}
+
 /* Main container content */
 .dashboard-content {
   display: flex;
   width: 100%;
-  height: calc(100vh - 90px);
+  height: calc(100svh - 90px); /* mobile + zoom safe */
+
   padding: clamp(12px, 4vw, 20px);
   box-sizing: border-box;
+
+  overflow: hidden; /* protects navbar */
+  justify-content: center;
+  align-content: center;
 }
 
-.dashboard-body {
-  width: 100%;
-  display: flex;
-  flex-direction: column;
-  align-items: center;
-  justify-content: center;
-  gap: clamp(16px, 3vw, 24px);
-  text-align: center;
-}
+
 
 /* ========================================
    DASHBOARD BOX
@@ -39,6 +46,7 @@
   transform: scale(0.9);
   animation: fadeInBox 0.8s ease forwards;
   animation-delay: 0.2s; /* slight delay after splash */
+  
 }
 
 .dashboard-box::before {

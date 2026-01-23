@@ -2,8 +2,7 @@
    GLOBAL & LAYOUT
 ======================================== */
 .main-container {
-  min-height: 100vh;
-  min-height: 100svh;
+  min-height: 100svh; /* mobile-safe viewport */
   display: flex;
   flex-direction: column;
   background: linear-gradient(to bottom, #EAF4FF, #BFD9FF, #9FC5F8);
@@ -14,16 +13,23 @@
 .history-content {
   display: flex;
   width: 100%;
-  height: calc(100vh - 90px);
+  height: calc(100svh - 90px);
   padding: clamp(10px, 3vw, 20px);
   box-sizing: border-box;
+  justify-content: flex-start;
+  align-content: center;
 }
 
 .history-body {
   width: 100%;
+  height: 100%;
   display: flex;
-  align-items: center;
+
+  /* DO NOT center vertically */
+  align-items: flex-start;
   justify-content: center;
+
+  overflow-y: auto;
 }
 
 /* ========================================
@@ -33,7 +39,6 @@
   position: relative;
   background: rgba(255, 255, 255, 0.13);
   border-radius: 20px;
-  /* Dynamic padding handles all desktop sizes without redundant queries */
   padding: clamp(20px, 5vw, 50px);
   backdrop-filter: blur(30px);
   -webkit-backdrop-filter: blur(30px);
@@ -44,7 +49,6 @@
   display: flex;
   flex-direction: column;
 
-  /* Entry Animation */
   opacity: 0;
   transform: scale(0.95);
   animation: fadeInBox 0.6s ease forwards;
@@ -54,7 +58,6 @@
   to { opacity: 1; transform: scale(1); }
 }
 
-/* Glass Border Effect */
 .history-box::before {
   content: "";
   position: absolute;
@@ -78,10 +81,9 @@
   width: 100%;
   margin-top: 20px;
   overflow-y: auto;
-  padding-right: 10px; /* Space for scrollbar */
+  padding-right: 10px;
 }
 
-/* Scrollbar Styling */
 .history-list::-webkit-scrollbar { width: 6px; }
 .history-list::-webkit-scrollbar-track { background: transparent; }
 .history-list::-webkit-scrollbar-thumb { 
@@ -115,8 +117,8 @@
   text-align: left;
 }
 
-.date-text { font-weight: 700; color: #1e293b; font-size: 1rem; }
-.time-text { font-size: 0.85rem; color: #475569; }
+.date-text { font-family: "Lexend"; font-weight: 700; color: #1e293b; font-size: 1rem; }
+.time-text { font-family: "Lexend";font-size: 0.85rem; color: #475569; }
 
 .stats-preview {
   display: grid;
@@ -131,20 +133,23 @@
   font-weight: 600;
   color: #1E293B;
   font-size: 0.9rem;
+  font-family: "Lexend";
 }
 
 .mini-stat svg { color: #168AAD; font-size: 1.1rem; }
 
 .status-indicator {
-  padding: 6px 12px;
+  padding: 6px 0;
   border-radius: 20px;
   font-size: 11px;
   font-weight: 800;
   text-transform: uppercase;
   text-align: center;
+  font-family: "Lexend";
 }
 
 .status-indicator.success { background: #dcfce7; color: #166534; }
+.status-indicator.risk { background: #f0fdf4; color: #F97316; }
 .status-indicator.warning { background: #fee2e2; color: #991b1b; }
 
 .details-arrow {
@@ -156,6 +161,11 @@
   font-weight: 600;
   cursor: pointer;
   transition: background 0.2s;
+  font-family: "Lexend";
+  width: 120px;
+  height: 40px;
+  justify-content: center;
+  align-items: center;
 }
 
 .details-arrow:hover { background: #1a759f; }
@@ -164,20 +174,39 @@
    RESPONSIVENESS
 ======================================== */
 
-/* Tablet & Smaller Laptops */
+/* Combined Large Screens */
+@media (min-width: 1400px) {
+  .history-box {
+    padding: 40px;
+  }
+}
+
+@media (min-width: 1451px) and (max-width: 1550px) { .history-box { padding: 45px; } }
+@media (min-width: 1551px) and (max-width: 1600px) { .history-box { padding: 50px; } }
+@media (min-width: 1601px) and (max-width: 1650px) { .history-box { padding: 55px; } }
+@media (min-width: 1651px) { .history-box { padding: 60px; } }
+
+/* Tablets & Smaller Laptops */
 @media (max-width: 1024px) {
   .history-item {
-    grid-template-columns: 1fr 120px; /* Stack stats and date, keep status/btn */
+    grid-template-columns: 1fr 120px;
     gap: 15px;
   }
-  
-  .date-section { grid-column: 1 / -1; flex-direction: row; justify-content: space-between; border-bottom: 1px solid rgba(255,255,255,0.1); padding-bottom: 5px; }
+
+  .date-section {
+    grid-column: 1 / -1;
+    flex-direction: row;
+    justify-content: space-between;
+    border-bottom: 1px solid rgba(255,255,255,0.1);
+    padding-bottom: 5px;
+  }
 
   .stats-preview { grid-template-columns: repeat(2, 1fr); }
 }
 
-/* Mobile */
+/* Mobile & Small Phones */
 @media (max-width: 768px) {
+  .history-box { padding: 20px; }
   .toptext { font-size: clamp(24px, 5vw, 32px); }
   
   .history-item {
@@ -194,5 +223,14 @@
 }
 
 @media (max-width: 480px) {
-  .stats-preview { grid-template-columns: 1fr; justify-items: start; padding-left: 20%; }
+  .history-box { padding: 15px; }
+  .toptext { font-size: 22px; }
+
+  .stats-preview {
+    grid-template-columns: repeat(2, 1fr);
+    justify-items: center;
+    
+  }
+  
+  .mini-stat { font-size: 13px; }
 }
