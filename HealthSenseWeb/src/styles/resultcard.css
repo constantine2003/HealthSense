@@ -164,9 +164,10 @@
   .main-value { font-size: 20px; }
   .card-title { font-size: 10px; }
   .unit { font-size: 10px; }
-  .card-header { margin-bottom: 8px; }
-  .value-container {  margin-bottom: 8px;  }
-  .status-badge { font-size: 10px; }
+  .card-header { margin-bottom: 4px; }
+  .value-container {  margin-bottom: 4px;  }
+  .status-badge { font-size: 10px; margin-bottom: 4px; }
+  .range-wrapper { height: 3px; }
 }
 
 /* Mobile small ≤480px */

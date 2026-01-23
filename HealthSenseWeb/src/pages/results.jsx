@@ -3,10 +3,10 @@ import "../styles/results.css";
 import Navbar from "../components/navbar2";
 import ResultCard from "../components/resultcard";
 import '../styles/resultcard.css';
-import { IoArrowBack } from "react-icons/io5"; // Ionicons
 import { FiActivity, FiThermometer, FiHeart, FiBarChart } from 'react-icons/fi';
 import { MdHeight, MdMonitorWeight } from 'react-icons/md';
 import { useNavigate } from "react-router-dom";
+import BackButton from "../components/backbutton";
 
 // Function to dynamically evaluate health metrics
 // ================================
@@ -258,11 +258,7 @@ const Results = () => {
           <div className="results-box">
             <div className="top">
 
-            <button 
-            className="back-btn"
-            onClick={() => navigate("/dashboard")}>
-              <IoArrowBack size={24} />
-            </button>
+            <BackButton/>
 
             <p className="toptext">Your Results</p>
             </div>

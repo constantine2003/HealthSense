@@ -43,6 +43,23 @@
   -webkit-backdrop-filter: blur(30px);
   box-shadow: 0px 8px 24px rgba(0, 0, 0, 0.25);
   border: 1px solid transparent;
+
+  /* Animation */
+  opacity: 0;
+  transform: scale(0.9);
+  animation: fadeInBox 0.8s ease forwards;
+  animation-delay: 0.2s; /* slight delay after splash */
+}
+/* Animation keyframes */
+@keyframes fadeInBox {
+  0% {
+    opacity: 0;
+    transform: scale(0.9);
+  }
+  100% {
+    opacity: 1;
+    transform: scale(1);
+  }
 }
 
 .results-box::before {
@@ -68,7 +85,7 @@
   justify-content: center;
   margin-bottom: 30px;
   position: relative;
-  border-bottom: 3px solid #168AAD; /* Added bottom border */
+  border-bottom: 3px solid #139dc7; /* Added bottom border */
   padding-bottom: 10px; /* optional: adds some space between content and border */
 }
 
@@ -76,7 +93,7 @@
   font-family: 'Lexend', sans-serif;
   font-weight: 700;
   font-size: clamp(32px, 6vw, 45px);
-  color: #168AAD;
+  color: #139dc7;
   margin: 0;
   text-align: center;
   line-height: 1.2;
@@ -195,32 +212,7 @@
   width: fit-content;
 }
 
-/* Status Colors */
-.success { background-color: #DCFCE7; color: #166534; }
-.success-bg { background-color: #F0FDF4; }
-.success-fill { width: 90%; background: #22c55e; }
 
-.warning { background-color: #FFEDD5; color: #9A3412; }
-.warning-bg { background-color: #FFF7ED; }
-.warning-fill { width: 70%; background: #F97316; }
-
-.danger { background-color: #FEE2E2; color: #991B1B; }
-.danger-bg { background-color: #FEF2F2; }
-.danger-fill { width: 40%; background: #EF4444; }
-
-/* Progress Bar */
-.range-wrapper {
-  width: 100%;
-  height: 6px;
-  background-color: #F1F5F9;
-  border-radius: 10px;
-  overflow: hidden;
-}
-
-.range-fill {
-  height: 100%;
-  border-radius: 10px;
-}
 
 /* ========================================
    MEDIA QUERIES (Grid responsiveness)
@@ -323,6 +315,8 @@
   .toptext {
     font-size: 30px;
   }
+  .top { margin-bottom: 15px; }
+  .results-grid { margin-top: 15px; }
 }
 
 /* Mobile Small (≤480px) */

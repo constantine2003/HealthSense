@@ -1,5 +1,5 @@
 /* ========================================
-   History STYLES
+   GLOBAL & LAYOUT
 ======================================== */
 .main-container {
   min-height: 100vh;
@@ -10,12 +10,12 @@
   max-width: 100%;
   overflow-x: hidden;
 }
-/* Main container content */
+
 .history-content {
   display: flex;
   width: 100%;
   height: calc(100vh - 90px);
-  padding: clamp(12px, 4vw, 20px);
+  padding: clamp(10px, 3vw, 20px);
   box-sizing: border-box;
 }
 
@@ -24,13 +24,175 @@
   display: flex;
   align-items: center;
   justify-content: center;
+}
+
+/* ========================================
+   HISTORY BOX (Glassmorphism)
+======================================== */
+.history-box {
+  position: relative;
+  background: rgba(255, 255, 255, 0.13);
+  border-radius: 20px;
+  /* Dynamic padding handles all desktop sizes without redundant queries */
+  padding: clamp(20px, 5vw, 50px);
+  backdrop-filter: blur(30px);
+  -webkit-backdrop-filter: blur(30px);
+  box-shadow: 0px 8px 24px rgba(0, 0, 0, 0.25);
+  width: 100%;
+  max-width: 1200px;
+  max-height: 85vh;
+  display: flex;
+  flex-direction: column;
+
+  /* Entry Animation */
+  opacity: 0;
+  transform: scale(0.95);
+  animation: fadeInBox 0.6s ease forwards;
+}
+
+@keyframes fadeInBox {
+  to { opacity: 1; transform: scale(1); }
+}
+
+/* Glass Border Effect */
+.history-box::before {
+  content: "";
+  position: absolute;
+  inset: 0;
+  border-radius: 20px;
+  padding: 1px;
+  background: linear-gradient(to bottom, rgba(255,255,255,0.4), rgba(255,255,255,0.05));
+  mask: linear-gradient(#fff 0 0) content-box, linear-gradient(#fff 0 0);
+  mask-composite: exclude;
+  -webkit-mask-composite: xor;
+  pointer-events: none;
+}
+
+/* ========================================
+   SCROLLABLE LIST
+======================================== */
+.history-list {
+  display: flex;
+  flex-direction: column;
+  gap: 15px;
+  width: 100%;
+  margin-top: 20px;
+  overflow-y: auto;
+  padding-right: 10px; /* Space for scrollbar */
+}
+
+/* Scrollbar Styling */
+.history-list::-webkit-scrollbar { width: 6px; }
+.history-list::-webkit-scrollbar-track { background: transparent; }
+.history-list::-webkit-scrollbar-thumb { 
+  background: rgba(22, 138, 173, 0.3); 
+  border-radius: 10px; 
+}
+
+/* ========================================
+   HISTORY ITEM CARD
+======================================== */
+.history-item {
+  background: rgba(255, 255, 255, 0.2);
+  border: 1px solid rgba(255, 255, 255, 0.3);
+  border-radius: 15px;
+  padding: 20px;
+  display: grid;
+  grid-template-columns: 130px 1fr 100px 140px;
+  align-items: center;
+  gap: 20px;
+  transition: 0.3s ease;
+}
+
+.history-item:hover {
+  background: rgba(255, 255, 255, 0.3);
+  transform: translateY(-2px);
+}
+
+.date-section {
+  display: flex;
+  flex-direction: column;
+  text-align: left;
+}
+
+.date-text { font-weight: 700; color: #1e293b; font-size: 1rem; }
+.time-text { font-size: 0.85rem; color: #475569; }
+
+.stats-preview {
+  display: grid;
+  grid-template-columns: repeat(3, 1fr);
+  gap: 10px;
+}
+
+.mini-stat {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  font-weight: 600;
+  color: #1E293B;
+  font-size: 0.9rem;
+}
+
+.mini-stat svg { color: #168AAD; font-size: 1.1rem; }
+
+.status-indicator {
+  padding: 6px 12px;
+  border-radius: 20px;
+  font-size: 11px;
+  font-weight: 800;
+  text-transform: uppercase;
   text-align: center;
 }
 
-.history-body h1 {
-  font-family: 'Lexend', sans-serif;
-  font-weight: 700;
-  font-size: clamp(32px, 6vw, 64px);
-  color: #168AAD;
-  margin: 0;
+.status-indicator.success { background: #dcfce7; color: #166534; }
+.status-indicator.warning { background: #fee2e2; color: #991b1b; }
+
+.details-arrow {
+  background: #168AAD;
+  color: white;
+  border: none;
+  padding: 10px;
+  border-radius: 10px;
+  font-weight: 600;
+  cursor: pointer;
+  transition: background 0.2s;
+}
+
+.details-arrow:hover { background: #1a759f; }
+
+/* ========================================
+   RESPONSIVENESS
+======================================== */
+
+/* Tablet & Smaller Laptops */
+@media (max-width: 1024px) {
+  .history-item {
+    grid-template-columns: 1fr 120px; /* Stack stats and date, keep status/btn */
+    gap: 15px;
+  }
+  
+  .date-section { grid-column: 1 / -1; flex-direction: row; justify-content: space-between; border-bottom: 1px solid rgba(255,255,255,0.1); padding-bottom: 5px; }
+
+  .stats-preview { grid-template-columns: repeat(2, 1fr); }
+}
+
+/* Mobile */
+@media (max-width: 768px) {
+  .toptext { font-size: clamp(24px, 5vw, 32px); }
+  
+  .history-item {
+    grid-template-columns: 1fr;
+    text-align: center;
+  }
+
+  .stats-preview {
+    grid-template-columns: repeat(2, 1fr);
+    justify-items: center;
+  }
+
+  .status-indicator, .details-arrow { width: 100%; }
+}
+
+@media (max-width: 480px) {
+  .stats-preview { grid-template-columns: 1fr; justify-items: start; padding-left: 20%; }
 }

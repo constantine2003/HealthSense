@@ -1,6 +1,20 @@
+import React from "react";
+import { useNavigate } from "react-router-dom";
+import { FaUser } from "react-icons/fa";
+import { FiLogOut } from "react-icons/fi";
 import "../styles/navbar.css";
 
 function Navbar() {
+  const navigate = useNavigate();
+
+  const handleLogout = () => {
+  // Clear session immediately
+  localStorage.removeItem("userToken");
+
+  // Navigate to the logout splash
+  navigate("/logout-splash");
+};
+
   return (
     <nav className="navbar">
       <div className="nav-left">
@@ -8,8 +22,14 @@ function Navbar() {
       </div>
 
       <div className="nav-right">
-        <a href="#" className="about-btn">Profile</a>
-        <a href="#" className="about-btn">Log-Out</a>
+        <button className="about-btn">
+          <FaUser style={{ marginRight: "6px" }} />
+          Profile
+        </button>
+        <button className="about-btn" onClick={handleLogout}>
+          <FiLogOut style={{ marginRight: "6px" }} />
+          Log-Out
+        </button>
       </div>
     </nav>
   );
