@@ -237,7 +237,7 @@ const getMockUserData = () => {
     spo2: 91,
     temperature: 21.6,
     height: 1.65,
-    weight: 65,
+    weight: 50,
     bloodPressure: "1220/80",
   };
 };
