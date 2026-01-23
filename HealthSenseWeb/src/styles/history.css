@@ -82,41 +82,75 @@
   -webkit-mask-composite: xor;
   pointer-events: none;
 }
-
-
-
 /* ========================================
-   MEDIA QUERIES - HISTORY BOX
+   MEDIA QUERIES - RESULTS BOX
 ======================================== */
 
-/* Extra Large Screens (1400px+) */
-@media (min-width: 1400px) {
-  .history-box {
-    padding: 40px;
+/* Extra Large Screens (2560px+) */
+@media (min-width: 2560px) {
+  .history-box  {
+    padding: 60px 60px 60px 60px;
   }
 }
 
-/* Desktop / Tablet Large (769px - 1399px) */
+/* 1651-1750px */
+@media (min-width: 1651px) and (max-width: 1750px) {
+  .history-box  {
+    padding: 60px 60px 60px 60px;
+  }
+}
+
+/* 1601-1650px */
+@media (min-width: 1601px) and (max-width: 1650px) {
+  .history-box  {
+    padding: 55px 55px 55px 55px;
+  }
+}
+
+/* 1551-1600px */
+@media (min-width: 1551px) and (max-width: 1600px) {
+  .history-box  {
+    padding: 50px 50px 50px 50px;
+  }
+}
+
+/* 1451-1550px */
+@media (min-width: 1451px) and (max-width: 1550px) {
+  .history-box  {
+    padding: 45px 45px 45px 45px;
+  }
+}
+
+/* 1400-1450px */
+@media (min-width: 1400px) and (max-width: 1450px) {
+  .history-box  {
+    padding: 40px 40px 40px 40px;
+  }
+}
+
+/* Desktop / Tablet Large (769-1399px) */
 @media (min-width: 769px) and (max-width: 1399px) {
-  .history-box {
-    padding: 30px;
+  .history-box  {
+    padding: 30px 30px 30px 30px;
   }
 }
 
-/* Mobile Medium (481px - 768px) */
-@media (min-width: 481px) and (max-width: 768px) {
-  .history-box {
-    padding: 20px;
+/* Mobile Medium (≤768px) */
+@media (max-width: 768px) {
+  .history-box  {
+    padding: 20px 20px 20px 20px;
   }
   .toptext {
     font-size: 30px;
   }
+  .top { margin-bottom: 15px; }
+  .results-grid { margin-top: 15px; }
 }
 
 /* Mobile Small (≤480px) */
 @media (max-width: 480px) {
   .history-box {
-    padding: 15px;
+    padding: 15px 15px 15px 15px;
   }
   .toptext {
     font-size: 25px;

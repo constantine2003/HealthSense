@@ -236,6 +236,29 @@ body,
   color: black;
   background: linear-gradient(to bottom, #90E0EF, #B6CCFE);
   font-weight: bold;
+
+  /* Smooth transitions for hover/active effects */
+  transition: all 0.2s ease, box-shadow 0.3s ease;
+}
+
+/* Hover effect: lifts the button and adds shadow */
+.login-btn:hover {
+  transform: translateY(-2px); /* slightly lift */
+  box-shadow: 0 6px 12px rgba(0, 0, 0, 0.15);
+  background: linear-gradient(to bottom, #CAF0F8, #B6CCFE);
+}
+
+/* Active effect: pressed down */
+.login-btn:active {
+  transform: scale(0.97); /* squish effect */
+  box-shadow: 0 3px 6px rgba(0, 0, 0, 0.1);
+  background: linear-gradient(to bottom, #B6CCFE, #90E0EF);
+}
+
+/* Focus effect: for accessibility */
+.login-btn:focus {
+  outline: 2px solid #0077B6;
+  outline-offset: 2px;
 }
 
 /* Forgot password link */
