@@ -1,4 +1,4 @@
-HealthSense Project
+# HealthSense Project
 
 HealthSense is a **health monitoring system** with a **React web dashboard** and a **React Native mobile app**.  
 This README will guide you on how to set up, run, and test both projects.
@@ -85,3 +85,20 @@ The production-ready build will be created in the `/build` folder.
     * **Success (green)** → Normal / Excellent
     * **Warning (orange)** → Slightly abnormal
     * **Danger (red)** → Needs attention
+
+---
+
+## Group Members
+
+1. **Daniel M. Montesclaros - Leader**
+2. **Brendan Jay Condes**
+3. **Raphael Osorio**
+4. **Mark Ian Palacao**
+
+---
+
+## Acknowledgement
+
+1. **Engr. Julian R. Semblante - Thesis Adviser**
+2. **Cebu Institute of Technology - University**
+
