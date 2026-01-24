@@ -3,8 +3,7 @@
    ======================================== */
 
 .main-container {
-  min-height: 100vh;
-  min-height: 100svh;
+  min-height: 100svh; /* mobile-safe viewport */
   display: flex;
   flex-direction: column;
   background: linear-gradient(to bottom, #EAF4FF, #BFD9FF, #9FC5F8);
@@ -16,12 +15,9 @@
 .dashboard-content {
   display: flex;
   width: 100%;
-  height: calc(100svh - 90px); /* mobile + zoom safe */
-
-  padding: clamp(12px, 4vw, 20px);
+  height: calc(100svh - 90px);
+  padding: clamp(10px, 3vw, 20px);
   box-sizing: border-box;
-
-  overflow: hidden; /* protects navbar */
   justify-content: center;
   align-content: center;
 }
@@ -35,18 +31,69 @@
   position: relative;
   background: rgba(255, 255, 255, 0.13);
   border-radius: 20px;
-  padding: 50px;
+  padding: clamp(20px, 5vw, 50px);   /* outer padding stays for glass effect */
   backdrop-filter: blur(30px);
   -webkit-backdrop-filter: blur(30px);
   box-shadow: 0px 8px 24px rgba(0, 0, 0, 0.25);
-  border: 1px solid transparent;
 
-  /* Animation */
-  opacity: 0;
-  transform: scale(0.9);
-  animation: fadeInBox 0.8s ease forwards;
-  animation-delay: 0.2s; /* slight delay after splash */
+  width: 100%;
+  max-width: 1200px;
+
+  /* Dynamic height */
+  height: auto;                        /* grows with content */
+  max-height: calc(100svh - 90px);     /* capped at viewport minus header */
+  min-height: 0;                        /* allows flex children to shrink */
   
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+
+  overflow: hidden;                     /* box itself won’t grow beyond max-height */
+
+  /* Entrance animation */
+  opacity: 0;
+  transform: scale(0.95);
+  animation: fadeInBox 0.6s ease forwards;
+}
+
+/* Inner scrollable container */
+.dashboard-content-inner {
+  width: 100%;
+  flex: 1;                  /* fill remaining space */
+  min-height: 0;            /* allows shrinking */
+  overflow-y: auto;         /* scroll only here */
+  
+
+  display: flex;            /* enables flex centering */
+  flex-direction: column;   /* stack items vertically */
+  justify-content: center;  /* center vertically */
+  align-items: center;      /* center horizontally */
+}
+
+/* Scrollbar styling */
+.dashboard-content-inner::-webkit-scrollbar {
+  width: 6px;
+}
+
+.dashboard-content-inner::-webkit-scrollbar-track {
+  background: transparent;
+}
+
+.dashboard-content-inner::-webkit-scrollbar-thumb {
+  background: rgba(22, 138, 173, 0.3);
+  border-radius: 10px;
+  transition: background 0.3s ease;
+}
+
+.dashboard-content-inner::-webkit-scrollbar-thumb:hover {
+  background: rgba(22, 138, 173, 0.6);
+}
+
+/* Firefox support */
+.dashboard-content-inner {
+  scrollbar-width: thin;
+  scrollbar-color: rgba(22,138,173,0.3) transparent;
 }
 
 .dashboard-box::before {
@@ -83,7 +130,7 @@
   font-weight: 700;
   font-size: 60px;
   color: #139dc7;
-  margin-top: 30px;
+  margin-top: 0;
   margin-bottom: 10px;
   text-align: center;
 }
