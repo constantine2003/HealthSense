@@ -60,17 +60,24 @@
 /* Inner scrollable container */
 .dashboard-content-inner {
   width: 100%;
-  flex: 1;                  /* fill remaining space */
-  min-height: 0;            /* allows shrinking */
-  overflow-y: auto;         /* scroll only here */
-  
+  flex: 1;
+  min-height: 0;
+  overflow-y: auto;
 
-  display: flex;            /* enables flex centering */
-  flex-direction: column;   /* stack items vertically */
-  justify-content: center;  /* center vertically */
-  align-items: center;      /* center horizontally */
+  display: flex;
+  flex-direction: column;
+  align-items: center; /* horizontal centering */
 }
 
+/* Trick to vertically center only when short */
+.dashboard-content-inner > .dashboard-content-wrapper {
+  margin-top: auto;
+  margin-bottom: auto;
+  width: 100%;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+}
 /* Scrollbar styling */
 .dashboard-content-inner::-webkit-scrollbar {
   width: 6px;

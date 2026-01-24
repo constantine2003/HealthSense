@@ -29,6 +29,7 @@ const Dashboard = () => {
         
           <div className="dashboard-box">
             <div className="dashboard-content-inner">
+              <div className="dashboard-content-wrapper">
               <p className="welcome-user">Welcome {user}!!!</p>
               <p className="description-text">
                 "Access your medical checkup results and history securely."
@@ -56,7 +57,8 @@ const Dashboard = () => {
                     <span className="btn-title">History</span>
                   </div>
                 </button>
-            </div>
+                </div>
+              </div>
             </div>
           </div>
         </div>
