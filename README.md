@@ -34,7 +34,7 @@ This will open the Expo developer tools in your browser.
 2. **Install dependencies** `npm install`  
 *(or if using Yarn: `yarn install`)*
 
-3. **Start the development server** `npm start`  
+3. **Start the development server** `npm run dev`  
 This will open the web app in your default browser at `http://localhost:3000`.
 
 4. **Build for production** `npm run build`  
