@@ -5,26 +5,48 @@
 /* ========================================
    MAIN CONTAINER
 ======================================== */
-.main-container {
-  min-height: 100vh;
-  min-height: 100svh;
+.rmain-container {
+  min-height: 100svh; /* mobile-safe viewport */
   display: flex;
   flex-direction: column;
   background: linear-gradient(to bottom, #EAF4FF, #BFD9FF, #9FC5F8);
   max-width: 100%;
-  overflow-x: hidden;
+  overflow-y:scroll;
 }
 
 .lastresults-content {
   display: flex;
   width: 100%;
-  height: calc(100vh - 90px);
-  padding: clamp(12px, 4vw, 20px);
+  height: calc(100svh - 90px);
+  padding: clamp(10px, 3vw, 20px);
   box-sizing: border-box;
   justify-content: center;
   align-content: center;
 }
+/* Scrollbar styling for .lastresults-content */
+.rmain-container::-webkit-scrollbar {
+  width: 6px;
+}
 
+.rmain-container::-webkit-scrollbar-track {
+  background: transparent;
+}
+
+.rmain-container::-webkit-scrollbar-thumb {
+  background: rgba(22, 138, 173, 0.3);
+  border-radius: 10px;
+  transition: background 0.3s ease;
+}
+
+.rmain-container::-webkit-scrollbar-thumb:hover {
+  background: rgba(22, 138, 173, 0.6);
+}
+
+/* Firefox support */
+.rmain-container {
+  scrollbar-width: thin;
+  scrollbar-color: rgba(22,138,173,0.3) transparent;
+}
 .lastresults-body {
   width: 100%;
   height: 100%;

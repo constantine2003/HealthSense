@@ -13,7 +13,11 @@ const checkupHistory = [
   // New entries to show 3 colors clearly
   { id: 4, date: "Jan 26, 2026", time: "09:30", stats: { spo2: "99", temp: "36.4", height: "1.70", weight: "65", bmi: "22.5", bp: "118/78" } }, // success (green)
   { id: 5, date: "Jan 27, 2026", time: "11:15", stats: { spo2: "96", temp: "37.6", height: "1.68", weight: "68", bmi: "24.1", bp: "125/82" } }, // warning/caution (orange)
-  { id: 6, date: "Jan 28, 2026", time: "15:45", stats: { spo2: "93", temp: "39.0", height: "1.60", weight: "85", bmi: "33.2", bp: "150/95" } }  // risk (red)
+  { id: 6, date: "Jan 28, 2026", time: "15:45", stats: { spo2: "93", temp: "39.0", height: "1.60", weight: "85", bmi: "33.2", bp: "150/95" } },  // risk (red)
+  // New entries to show 3 colors clearly
+  { id: 7, date: "Jan 26, 2026", time: "09:30", stats: { spo2: "99", temp: "36.4", height: "1.70", weight: "65", bmi: "22.5", bp: "118/78" } }, // success (green)
+  { id: 8, date: "Jan 27, 2026", time: "11:15", stats: { spo2: "96", temp: "37.6", height: "1.68", weight: "68", bmi: "24.1", bp: "125/82" } }, // warning/caution (orange)
+  { id: 9, date: "Jan 28, 2026", time: "15:45", stats: { spo2: "93", temp: "39.0", height: "1.60", weight: "85", bmi: "33.2", bp: "150/95" } }  // risk (red)
 ];
 
 
@@ -98,7 +102,7 @@ const History = () => {
     <div className="main-container">
       <Navbar />
       <div className="history-content">
-        <div className="history-body">
+        
           <div className="history-box">
             <div className="top">
               <BackButton />
@@ -149,7 +153,7 @@ const History = () => {
           </div>
         </div>
       </div>
-    </div>
+    
   );
 };
 

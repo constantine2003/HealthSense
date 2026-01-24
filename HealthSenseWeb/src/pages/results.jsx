@@ -251,7 +251,7 @@ const Results = () => {
   const navigate = useNavigate(); 
 
   return (
-    <div className="main-container">
+    <div className="rmain-container">
       <Navbar />
       <div className="lastresults-content">
         <div className="lastresults-body">
