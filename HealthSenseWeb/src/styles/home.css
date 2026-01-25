@@ -74,7 +74,7 @@ body,
 }
 
 /* Description/subtitle text */
-.description-text {
+.ddescription-text {
   margin: 0;
   margin-bottom: 0;
   font-family: 'Lexend', sans-serif;
@@ -83,6 +83,7 @@ body,
   line-height: 1.4;
   color: #139dc7;
   max-width: 100%;
+  align-items: flex-start;
 }
 
 
@@ -311,7 +312,7 @@ body,
     line-height: 1;
   }
 
-  .description-text {
+  .ddescription-text {
     font-size: clamp(12px, 2.5vw, 14px);
     
   }
@@ -384,7 +385,7 @@ body,
     line-height: 1.1;
   }
 
-  .description-text {
+  .ddescription-text {
     font-size: clamp(14px, 3.5vw, 20px);
     text-align: center;
   }
@@ -453,7 +454,7 @@ body,
     font-size: clamp(55px, 9.5vw, 130px);
   }
 
-  .description-text {
+  .ddescription-text {
     font-size: clamp(14px, 2.2vw, 30px);
   }
 
@@ -487,7 +488,7 @@ body,
     font-size: clamp(52px, 9.2vw, 125px);
   }
 
-  .description-text {
+  .ddescription-text {
     font-size: clamp(14px, 2.1vw, 29px);
   }
 
@@ -521,7 +522,7 @@ body,
     font-size: clamp(50px, 8.8vw, 120px);
   }
 
-  .description-text {
+  .ddescription-text {
     font-size: clamp(13px, 2vw, 28px);
   }
 
@@ -558,7 +559,7 @@ body,
     line-height: 1.1;
   }
 
-  .description-text {
+  .ddescription-text {
     font-size: clamp(16px, 2.5vw, 22px);
     text-align: center;
   }
@@ -629,7 +630,7 @@ body,
     font-size: clamp(50px, 9vw, 120px);
   }
 
-  .description-text {
+  .ddescription-text {
     font-size: clamp(13px, 2vw, 28px);
   }
 
@@ -664,7 +665,7 @@ body,
     font-size: clamp(45px, 8vw, 110px);
   }
 
-  .description-text {
+  .ddescription-text {
     font-size: clamp(12px, 1.8vw, 26px);
   }
 
@@ -700,7 +701,7 @@ body,
     font-size: clamp(80px, 8vw, 140px);
   }
 
-  .description-text {
+  .ddescription-text {
     font-size: clamp(18px, 2vw, 30px);
   }
 
