@@ -217,6 +217,7 @@ const Results = () => {
               <BackButton />
               <p className="toptext">Your Results</p>
             </div>
+              <p className="toptext">Your Results</p>
             <div className="results-grid">
               {healthData.map((item, index) => (
                 <ResultCard
