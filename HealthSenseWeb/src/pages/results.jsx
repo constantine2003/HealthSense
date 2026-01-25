@@ -167,7 +167,7 @@ const Results = () => {
           const { data: { user } } = await supabase.auth.getUser();
 
           if (!user) {
-            navigate("/login");
+            navigate("/");
             return null;
           }
 
@@ -217,6 +217,7 @@ const Results = () => {
               <BackButton />
               <p className="toptext">Your Results</p>
             </div>
+              <p className="toptext">The date and time the data was collected</p>
             <div className="results-grid">
               {healthData.map((item, index) => (
                 <ResultCard

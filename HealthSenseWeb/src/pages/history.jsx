@@ -1,159 +1,223 @@
-import React from "react";
+import React, { useState, useEffect } from "react";
 import "../styles/history.css";
 import Navbar from "../components/navbar2";
 import BackButton from "../components/backbutton";
+import SplashScreen from "../components/splashscreen";
+import { useNavigate } from "react-router-dom";
+import { supabase } from "../supabaseClient";
+import { useAuth } from "../hooks/useAuth";
+
 import { FiActivity, FiThermometer, FiHeart, FiBarChart } from 'react-icons/fi';
 import { MdHeight, MdMonitorWeight } from 'react-icons/md';
 
-const checkupHistory = [
-  { id: 1, date: "Jan 23, 2026", time: "14:20", stats: { spo2: "99", temp: "36.6", height: "1.75", weight: "70", bmi: "22.9", bp: "120/80" } }, // success (green)
-  { id: 2, date: "Jan 25, 2026", time: "14:20", stats: { spo2: "97", temp: "37.8", height: "1.75", weight: "74", bmi: "24.1", bp: "130/85" } }, // warning/caution (orange)
-  { id: 3, date: "Jan 22, 2026", time: "14:20", stats: { spo2: "92", temp: "39.5", height: "1.45", weight: "90", bmi: "42.7", bp: "160/100" } }, // risk (red)
+// ================================
+// Evaluate metrics (same as dashboard logic)
+// ================================
+const evaluateMetrics = (checkup) => {
+  const healthData = [];
 
-  // New entries to show 3 colors clearly
-  { id: 4, date: "Jan 26, 2026", time: "09:30", stats: { spo2: "99", temp: "36.4", height: "1.70", weight: "65", bmi: "22.5", bp: "118/78" } }, // success (green)
-  { id: 5, date: "Jan 27, 2026", time: "11:15", stats: { spo2: "96", temp: "37.6", height: "1.68", weight: "68", bmi: "24.1", bp: "125/82" } }, // warning/caution (orange)
-  { id: 6, date: "Jan 28, 2026", time: "15:45", stats: { spo2: "93", temp: "39.0", height: "1.60", weight: "85", bmi: "33.2", bp: "150/95" } },  // risk (red)
-  // New entries to show 3 colors clearly
-  { id: 7, date: "Jan 26, 2026", time: "09:30", stats: { spo2: "99", temp: "36.4", height: "1.70", weight: "65", bmi: "22.5", bp: "118/78" } }, // success (green)
-  { id: 8, date: "Jan 27, 2026", time: "11:15", stats: { spo2: "96", temp: "37.6", height: "1.68", weight: "68", bmi: "24.1", bp: "125/82" } }, // warning/caution (orange)
-  { id: 9, date: "Jan 28, 2026", time: "15:45", stats: { spo2: "93", temp: "39.0", height: "1.60", weight: "85", bmi: "33.2", bp: "150/95" } }  // risk (red)
-];
+  const isValidNumber = (n) => n !== null && n !== undefined && !isNaN(n);
 
+  const spo2 = Number(checkup.spo2 || 0);
+  const temp = Number(checkup.temperature || 0);
+  const height = Number(checkup.height || 0);
+  const weight = Number(checkup.weight || 0);
+  const bmiVal = Number(checkup.bmi || 0);
+  const bp = checkup.blood_pressure ? checkup.blood_pressure.toString().trim() : "-";
 
-// Function to determine status type based on metric value
-const getMetricStatus = (metric, value) => {
-  let statusType = "danger";
+  // --- SpO2 ---
+  let spo2Status = "Unknown", spo2Type = "danger";
+  if (isValidNumber(spo2)) {
+    if (spo2 < 95) { spo2Status = "Low"; spo2Type = "danger"; }
+    else if (spo2 <= 98) { spo2Status = "Normal"; spo2Type = "warning"; }
+    else { spo2Status = "Excellent"; spo2Type = "success"; }
+  }
+  healthData.push({
+    title: "SpO2",
+    value: spo2 || "-",
+    unit: "%",
+    status: spo2Status,
+    statusType: spo2Type,
+    icon: <FiActivity color={spo2Type === "success" ? "#22c55e" : spo2Type === "warning" ? "#F97316" : "#EF4444"} size={24} />
+  });
 
-  switch (metric) {
-    case "spo2":
-      value = Number(value);
-      if (value < 95) statusType = "danger";
-      else if (value <= 98) statusType = "warning";
-      else if (value <= 100) statusType = "success";
-      break;
+  // --- Temperature ---
+  let tempStatus = "Unknown", tempType = "danger";
+  if (isValidNumber(temp)) {
+    if (temp < 35) { tempStatus = "Hypothermia"; tempType = "danger"; }
+    else if (temp < 36) { tempStatus = "Low"; tempType = "warning"; }
+    else if (temp <= 37.5) { tempStatus = "Normal"; tempType = "success"; }
+    else if (temp <= 39) { tempStatus = "Fever"; tempType = "warning"; }
+    else { tempStatus = "High Fever"; tempType = "danger"; }
+  }
+  healthData.push({
+    title: "Temperature",
+    value: temp || "-",
+    unit: "°C",
+    status: tempStatus,
+    statusType: tempType,
+    icon: <FiThermometer color={tempType === "success" ? "#22c55e" : tempType === "warning" ? "#F97316" : "#EF4444"} size={24} />
+  });
 
-    case "temp":
-      value = Number(value);
-      if (value < 35) statusType = "danger";
-      else if (value < 36) statusType = "warning";
-      else if (value <= 37.5) statusType = "success";
-      else if (value <= 39) statusType = "warning";
-      else statusType = "danger";
-      break;
+  // --- Height ---
+  let heightStatus = "Unknown", heightType = "danger";
+  if (isValidNumber(height)) {
+    if (height < 1.5) { heightStatus = "Below Average"; heightType = "danger"; }
+    else if (height <= 1.75) { heightStatus = "Average"; heightType = "success"; }
+    else { heightStatus = "Above Average"; heightType = "success"; }
+  }
+  healthData.push({
+    title: "Height",
+    value: height || "-",
+    unit: "m",
+    status: heightStatus,
+    statusType: heightType,
+    icon: <MdHeight color={heightType === "success" ? "#22c55e" : "#EF4444"} size={24} />
+  });
 
-    case "bmi":
-    case "weight":
-      value = Number(value);
-      if (value < 18.5) statusType = "warning";
-      else if (value < 25) statusType = "success";
-      else if (value < 30) statusType = "warning";
-      else statusType = "danger";
-      break;
+  // --- Weight & BMI ---
+  let weightStatus = "Unknown", weightType = "danger", bmiValue = "-", bmiStatus = "Unknown", bmiType = "danger";
+  if (isValidNumber(bmiVal) && bmiVal !== 0) bmiValue = bmiVal.toFixed(1);
+  else if (isValidNumber(weight) && isValidNumber(height) && height > 0) bmiValue = (weight / (height ** 2)).toFixed(1);
 
-    case "height":
-      value = Number(value);
-      if (value < 1.5) statusType = "danger";
-      else statusType = "success";
-      break;
-
-    case "bp":
-      if (typeof value === "string" && value.includes("/")) {
-        const [systolic, diastolic] = value.split("/").map(Number);
-        if (systolic < 90 || diastolic < 60) statusType = "warning";
-        else if (systolic <= 120 && diastolic <= 80) statusType = "success";
-        else if (systolic <= 139 || diastolic <= 89) statusType = "warning";
-        else statusType = "danger";
-      }
-      break;
-
-    default:
-      statusType = "danger";
+  if (bmiValue !== "-") {
+    const bmiNum = parseFloat(bmiValue);
+    if (bmiNum < 18.5) { bmiStatus = "Underweight"; bmiType = "warning"; weightStatus = "Underweight"; weightType = "warning"; }
+    else if (bmiNum < 25) { bmiStatus = "Normal"; bmiType = "success"; weightStatus = "Normal"; weightType = "success"; }
+    else if (bmiNum < 30) { bmiStatus = "Overweight"; bmiType = "warning"; weightStatus = "Overweight"; weightType = "warning"; }
+    else { bmiStatus = "Obese"; bmiType = "danger"; weightStatus = "Obese"; weightType = "danger"; }
   }
 
-  return statusType;
+  healthData.push({
+    title: "Weight",
+    value: weight || "-",
+    unit: "kg",
+    status: weightStatus,
+    statusType: weightType,
+    icon: <MdMonitorWeight color={weightType === "success" ? "#22c55e" : weightType === "warning" ? "#F97316" : "#EF4444"} size={24} />
+  });
+
+  healthData.push({
+    title: "BMI",
+    value: bmiValue,
+    unit: "",
+    status: bmiStatus,
+    statusType: bmiType,
+    icon: <FiBarChart color={bmiType === "success" ? "#22c55e" : bmiType === "warning" ? "#F97316" : "#EF4444"} size={24} />
+  });
+
+  // --- Blood Pressure ---
+  let bpStatus = "Unknown", bpType = "danger";
+  if (bp.includes("/")) {
+    const [systolic, diastolic] = bp.split("/").map(Number);
+    if (!isNaN(systolic) && !isNaN(diastolic)) {
+      if (systolic < 90 || diastolic < 60) { bpStatus = "Low"; bpType = "warning"; }
+      else if (systolic <= 120 && diastolic <= 80) { bpStatus = "Ideal"; bpType = "success"; }
+      else if (systolic <= 139 || diastolic <= 89) { bpStatus = "Elevated"; bpType = "warning"; }
+      else { bpStatus = "High"; bpType = "danger"; }
+    }
+  }
+  healthData.push({
+    title: "Blood Pressure",
+    value: bp,
+    unit: "mmHg",
+    status: bpStatus,
+    statusType: bpType,
+    icon: <FiHeart color={bpType === "success" ? "#22c55e" : bpType === "warning" ? "#F97316" : "#EF4444"} size={24} />
+  });
+
+  return healthData;
 };
 
-// Function to convert statusType to a color
-const getStatusColor = (statusType) => {
-  return statusType === "success" ? "#22c55e" 
-       : statusType === "warning" ? "#F97316"
-       : "#EF4444";
-};
-
-// Function to determine overall status
-const getOverallStatus = (stats) => {
-  const types = [
-    getMetricStatus("spo2", stats.spo2),
-    getMetricStatus("temp", stats.temp),
-    getMetricStatus("bmi", stats.bmi),
-    getMetricStatus("weight", stats.weight),
-    getMetricStatus("height", stats.height),
-    getMetricStatus("bp", stats.bp),
-  ];
-
-  if (types.includes("danger")) return { status: "risk", label: "At Risk" }; // any danger → red
-  if (types.includes("warning")) return { status: "warning", label: "Alert" }; // any warning → orange
-  return { status: "success", label: "Normal" }; // all success → green
-};
-
+// ================================
+// Main Component
+// ================================
 const History = () => {
+  const navigate = useNavigate();
+  const { user, loading: authLoading } = useAuth();
+
+  const [splash, setSplash] = useState(true);
+  const [history, setHistory] = useState([]);
+
+  // Fetch user history
+  useEffect(() => {
+    if (authLoading) return;
+    if (!user) {
+      navigate("/"); // redirect if not logged in
+      return;
+    }
+
+    const fetchHistory = async () => {
+      const { data, error } = await supabase
+        .from("health_checkups")
+        .select("*")
+        .eq("user_id", user.id)
+        .order("created_at", { ascending: false }); // latest first
+
+      if (error) {
+        console.error("Failed to fetch history:", error.message);
+      } else {
+        setHistory(data || []);
+      }
+
+      setTimeout(() => setSplash(false), 2000); // splash for 2s
+    };
+
+    fetchHistory();
+  }, [authLoading, user, navigate]);
+
+  // Show splash while loading
+  if (authLoading || splash) return <SplashScreen />;
+
+  // Function to determine overall status for item
+  const getOverallStatus = (metrics) => {
+    const types = metrics.map((m) => m.statusType);
+    if (types.includes("danger")) return { status: "risk", label: "At Risk" };
+    if (types.includes("warning")) return { status: "warning", label: "Alert" };
+    return { status: "success", label: "Normal" };
+  };
+
   return (
     <div className="main-container">
       <Navbar />
       <div className="history-content">
-        
-          <div className="history-box">
-            <div className="top">
-              <BackButton />
-              <p className="toptext">History</p>
-            </div>
+        <div className="history-box">
+          <div className="top">
+            <BackButton />
+            <p className="toptext">History</p>
+          </div>
 
-            <div className="history-list">
-              {checkupHistory.map((item) => {
-                const overall = getOverallStatus(item.stats); // compute per item
+          <div className="history-list">
+            {history.map((item) => {
+              const metrics = evaluateMetrics(item);
+              const overall = getOverallStatus(metrics);
+              const dateObj = new Date(item.created_at);
+              const dateStr = dateObj.toLocaleDateString();
+              const timeStr = dateObj.toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' });
 
-                return (
-                  <div key={item.id} className="history-item">
-                    <div className="date-section">
-                      <span className="date-text">{item.date}</span>
-                      <span className="time-text">{item.time}</span>
-                    </div>
-
-                    <div className="stats-preview">
-                      <div className="mini-stat">
-                        <FiActivity color={getStatusColor(getMetricStatus("spo2", item.stats.spo2))} /> {item.stats.spo2}%
-                      </div>
-                      <div className="mini-stat">
-                        <FiThermometer color={getStatusColor(getMetricStatus("temp", item.stats.temp))} /> {item.stats.temp}°C
-                      </div>
-                      <div className="mini-stat">
-                        <FiBarChart color={getStatusColor(getMetricStatus("bmi", item.stats.bmi))} /> {item.stats.bmi}
-                      </div>
-                      <div className="mini-stat">
-                        <MdMonitorWeight color={getStatusColor(getMetricStatus("weight", item.stats.weight))} /> {item.stats.weight}kg
-                      </div>
-                      <div className="mini-stat">
-                        <MdHeight color={getStatusColor(getMetricStatus("height", item.stats.height))} /> {item.stats.height}m
-                      </div>
-                      <div className="mini-stat">
-                        <FiHeart color={getStatusColor(getMetricStatus("bp", item.stats.bp))} /> {item.stats.bp}
-                      </div>
-                    </div>
-
-                    {/* <div className={`status-indicator ${overall.status}`}>
-                      {overall.label}
-                    </div> */}
-
-                    <button className="details-arrow">View details</button>
+              return (
+                <div key={item.id} className="history-item">
+                  <div className="date-section">
+                    <span className="date-text">{dateStr}</span>
+                    <span className="time-text">{timeStr}</span>
                   </div>
-                );
-              })}
-            </div>
+
+                  <div className="stats-preview">
+                    {metrics.map((m, idx) => (
+                      <div key={idx} className="mini-stat">
+                        {m.icon} {m.value}{m.unit}
+                      </div>
+                    ))}
+                  </div>
+
+                  <button className="details-arrow">View details</button>
+                </div>
+              );
+            })}
           </div>
         </div>
       </div>
-    
+    </div>
   );
 };
 
