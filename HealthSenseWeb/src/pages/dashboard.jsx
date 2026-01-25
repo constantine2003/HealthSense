@@ -4,30 +4,30 @@ import Navbar from "../components/navbar2";
 import { useNavigate } from "react-router-dom";
 import { FiClipboard, FiClock } from "react-icons/fi";
 import SplashScreen from "../components/splashscreen";
-import { supabase } from "../supabaseClient";
 import { getProfile } from "../auth/getProfile";
+import { useAuth } from "../hooks/useAuth";
 
 const Dashboard = () => {
   const navigate = useNavigate();
 
-  // Splash screen state (for initial load)
+  // Get user from auth hook
+  const { user, loading: authLoading } = useAuth();
+
+  // Local splash screen while fetching profile
   const [splash, setSplash] = useState(true);
 
   // User full name state
   const [fullName, setFullName] = useState("");
 
-  // Check if user is logged in and fetch profile
+  // Fetch profile once the user is available
   useEffect(() => {
-    const initialize = async () => {
-      const {
-        data: { user },
-      } = await supabase.auth.getUser();
+    if (authLoading) return; // wait for auth
+    if (!user) {
+      navigate("/"); // redirect if not logged in
+      return;
+    }
 
-      if (!user) {
-        navigate("/");
-        return;
-      }
-
+    const fetchProfile = async () => {
       try {
         const profile = await getProfile(user.id);
         setFullName(`${profile.first_name} ${profile.last_name}`);
@@ -35,17 +35,15 @@ const Dashboard = () => {
         console.error("Failed to fetch profile:", err.message);
       }
 
-      // Keep splash for 2 seconds even after fetching data
-      setTimeout(() => {
-        setSplash(false);
-      }, 2000);
+      // Show splash for 2 seconds to give time for UI/animations
+      setTimeout(() => setSplash(false), 2000);
     };
 
-    initialize();
-  }, [navigate]);
+    fetchProfile();
+  }, [authLoading, user, navigate]);
 
-  // Show splash screen on initial load
-  if (splash) return <SplashScreen />;
+  // Show splash while either auth is loading or local splash is active
+  if (authLoading || splash) return <SplashScreen />;
 
   return (
     <div className="main-container">
