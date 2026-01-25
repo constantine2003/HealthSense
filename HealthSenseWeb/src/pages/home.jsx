@@ -38,7 +38,7 @@ const Home = () => {
     }
   };
 
-  if (loading) return <p>Loading...</p>; // wait for auth to load
+  if (loading) return null; // wait for auth to load
 
   return (
     <div className="main-container">
