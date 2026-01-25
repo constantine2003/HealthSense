@@ -1,37 +1,44 @@
-import React, { useState } from "react";
+import React, { useState, useEffect } from "react";
 import { FaEye, FaEyeSlash } from "react-icons/fa";
 import "../styles/home.css";
 import Navbar from "../components/navbar.jsx";
 import { useNavigate } from "react-router-dom";
 import { login } from "../auth/login"; 
+import { useAuth } from "../hooks/useAuth"; // your auth hook
 
 const Home = () => {
+  const navigate = useNavigate();
+  const { user, loading } = useAuth(); // check session
+
   const [showPassword, setShowPassword] = useState(false);
   const [emailInput, setEmailInput] = useState("");
   const [passwordInput, setPasswordInput] = useState("");
 
-  const navigate = useNavigate();
+  // Redirect immediately if user is already logged in
+  useEffect(() => {
+    if (!loading && user) {
+      navigate("/dashboard");
+    }
+  }, [loading, user, navigate]);
 
-  const togglePasswordVisibility = () => {
-    setShowPassword(!showPassword);
-  };
+  const togglePasswordVisibility = () => setShowPassword(!showPassword);
 
   const handleLogin = async () => {
-    // Append @kiosk.local if not included
     const email = emailInput.includes("@") ? emailInput : `${emailInput}@kiosk.local`;
     const password = passwordInput;
 
     try {
-      const user = await login(email, password);
-      console.log("Logged in:", user);
+      const loggedInUser = await login(email, password);
+      console.log("Logged in:", loggedInUser);
 
-      // Navigate immediately to dashboard
       navigate("/dashboard");
     } catch (err) {
       console.error("Login failed:", err.message);
       alert("Login failed: " + err.message);
     }
   };
+
+  if (loading) return <p>Loading...</p>; // wait for auth to load
 
   return (
     <div className="main-container">
@@ -49,9 +56,7 @@ const Home = () => {
           <div className="login-card">
             <div className="login-content">
               <h2 className="login-title">Welcome</h2>
-              <p className="login-subtitle">
-                Log in using your account to proceed
-              </p>
+              <p className="login-subtitle">Log in using your account to proceed</p>
 
               <div className="form-group">
                 <label>Email</label>
@@ -87,12 +92,12 @@ const Home = () => {
                 Log in
               </button>
 
-              <a href="#" className="forgot-password">
-                Forgot Password?
-              </a>
+              <a href="#" className="forgot-password">Forgot Password?</a>
 
               <p className="terms-text">
-                By signing up, you agree to the <span className="terms-highlight">Terms of Service</span> and <span className="terms-highlight">Data Processing Agreement</span>
+                By signing up, you agree to the{" "}
+                <span className="terms-highlight">Terms of Service</span> and{" "}
+                <span className="terms-highlight">Data Processing Agreement</span>
               </p>
             </div>
           </div>

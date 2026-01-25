@@ -10,7 +10,7 @@ import { useAuth } from "../hooks/useAuth";
 const Dashboard = () => {
   const navigate = useNavigate();
 
-  // Get user from auth hook
+  // Get user and loading state from auth hook
   const { user, loading: authLoading } = useAuth();
 
   // Local splash screen while fetching profile
@@ -21,7 +21,7 @@ const Dashboard = () => {
 
   // Fetch profile once the user is available
   useEffect(() => {
-    if (authLoading) return; // wait for auth
+    if (authLoading) return; // wait for auth to resolve
     if (!user) {
       navigate("/"); // redirect if not logged in
       return;
@@ -35,14 +35,14 @@ const Dashboard = () => {
         console.error("Failed to fetch profile:", err.message);
       }
 
-      // Show splash for 2 seconds to give time for UI/animations
+      // Keep splash visible for 2 seconds even after profile is fetched
       setTimeout(() => setSplash(false), 2000);
     };
 
     fetchProfile();
   }, [authLoading, user, navigate]);
 
-  // Show splash while either auth is loading or local splash is active
+  // Show splash screen while auth or local splash is active
   if (authLoading || splash) return <SplashScreen />;
 
   return (
