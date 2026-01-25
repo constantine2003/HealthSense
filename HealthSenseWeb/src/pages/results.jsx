@@ -217,7 +217,7 @@ const Results = () => {
               <BackButton />
               <p className="toptext">Your Results</p>
             </div>
-              <p className="toptext">Your Results</p>
+              <p className="toptext">The date and time the data was collected</p>
             <div className="results-grid">
               {healthData.map((item, index) => (
                 <ResultCard
