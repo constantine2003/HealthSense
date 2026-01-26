@@ -6,7 +6,6 @@ import SplashScreen from "../components/splashscreen";
 import { useNavigate } from "react-router-dom";
 import { supabase } from "../supabaseClient";
 import { useAuth } from "../hooks/useAuth";
-
 import { FiActivity, FiThermometer, FiHeart, FiBarChart } from 'react-icons/fi';
 import { MdHeight, MdMonitorWeight } from 'react-icons/md';
 
@@ -38,7 +37,7 @@ const evaluateMetrics = (checkup) => {
     unit: "%",
     status: spo2Status,
     statusType: spo2Type,
-    icon: <FiActivity color={spo2Type === "success" ? "#22c55e" : spo2Type === "warning" ? "#F97316" : "#EF4444"} size={24} />
+    icon: <FiActivity color={spo2Type === "success" ? "#22c55e" : spo2Type === "warning" ? "#F97316" : "#EF4444"} style={{ fontSize: "clamp(24px, 5vw, 35px)" }} />
   });
 
   // --- Temperature ---
@@ -56,7 +55,7 @@ const evaluateMetrics = (checkup) => {
     unit: "°C",
     status: tempStatus,
     statusType: tempType,
-    icon: <FiThermometer color={tempType === "success" ? "#22c55e" : tempType === "warning" ? "#F97316" : "#EF4444"} size={24} />
+    icon: <FiThermometer color={tempType === "success" ? "#22c55e" : tempType === "warning" ? "#F97316" : "#EF4444"} style={{ fontSize: "clamp(24px, 5vw, 40px)" }} />
   });
 
   // --- Height ---
@@ -72,7 +71,7 @@ const evaluateMetrics = (checkup) => {
     unit: "m",
     status: heightStatus,
     statusType: heightType,
-    icon: <MdHeight color={heightType === "success" ? "#22c55e" : "#EF4444"} size={24} />
+    icon: <MdHeight color={heightType === "success" ? "#22c55e" : "#EF4444"} style={{ fontSize: "clamp(24px, 5vw, 40px)" }} />
   });
 
   // --- Weight & BMI ---
@@ -94,7 +93,7 @@ const evaluateMetrics = (checkup) => {
     unit: "kg",
     status: weightStatus,
     statusType: weightType,
-    icon: <MdMonitorWeight color={weightType === "success" ? "#22c55e" : weightType === "warning" ? "#F97316" : "#EF4444"} size={24} />
+    icon: <MdMonitorWeight color={weightType === "success" ? "#22c55e" : weightType === "warning" ? "#F97316" : "#EF4444"} style={{ fontSize: "clamp(24px, 5vw, 40px)" }} />
   });
 
   healthData.push({
@@ -103,7 +102,7 @@ const evaluateMetrics = (checkup) => {
     unit: "",
     status: bmiStatus,
     statusType: bmiType,
-    icon: <FiBarChart color={bmiType === "success" ? "#22c55e" : bmiType === "warning" ? "#F97316" : "#EF4444"} size={24} />
+    icon: <FiBarChart color={bmiType === "success" ? "#22c55e" : bmiType === "warning" ? "#F97316" : "#EF4444"} style={{ fontSize: "clamp(24px, 5vw, 35px)" }} />
   });
 
   // --- Blood Pressure ---
@@ -123,7 +122,7 @@ const evaluateMetrics = (checkup) => {
     unit: "mmHg",
     status: bpStatus,
     statusType: bpType,
-    icon: <FiHeart color={bpType === "success" ? "#22c55e" : bpType === "warning" ? "#F97316" : "#EF4444"} size={24} />
+    icon: <FiHeart color={bpType === "success" ? "#22c55e" : bpType === "warning" ? "#F97316" : "#EF4444"} style={{ fontSize: "clamp(24px, 5vw, 40px)" }} />
   });
 
   return healthData;

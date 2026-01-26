@@ -4,7 +4,7 @@ import "../styles/resultcard.css";
 import Navbar from "../components/navbar2";
 import ResultCard from "../components/resultcard";
 import BackButton from "../components/backbutton";
-import SplashScreen from "../components/splashscreen"; // splash import
+import SplashScreen from "../components/splashscreen";
 import { FiActivity, FiThermometer, FiHeart, FiBarChart } from 'react-icons/fi';
 import { MdHeight, MdMonitorWeight } from 'react-icons/md';
 import { useNavigate } from "react-router-dom";
@@ -16,7 +16,9 @@ import { supabase } from "../supabaseClient";
 const evaluateHealthMetrics = (userData) => {
   const healthData = [];
 
-  // Explicitly cast numbers
+  // Icon Responsive Style
+  const iconStyle = { fontSize: "clamp(24px, 4vw, 40px)" };
+
   const height = Number(userData.height);
   const weight = Number(userData.weight);
   const spo2 = Number(userData.spo2);
@@ -24,9 +26,7 @@ const evaluateHealthMetrics = (userData) => {
 
   const isValidNumber = (value) => value !== null && value !== undefined && !isNaN(value);
 
-  // -------------------
   // SpO2
-  // -------------------
   let spo2Status = "Unknown", spo2Type = "danger";
   if (isValidNumber(spo2)) {
     if (spo2 < 95) { spo2Status = "Low"; spo2Type = "danger"; }
@@ -39,12 +39,10 @@ const evaluateHealthMetrics = (userData) => {
     unit: "%",
     status: spo2Status,
     statusType: spo2Type,
-    icon: <FiActivity color={spo2Type === "success" ? "#22c55e" : spo2Type === "warning" ? "#F97316" : "#EF4444"} size={24} />
+    icon: <FiActivity color={spo2Type === "success" ? "#22c55e" : spo2Type === "warning" ? "#F97316" : "#EF4444"} style={iconStyle} />
   });
 
-  // -------------------
   // Temperature
-  // -------------------
   let tempStatus = "Unknown", tempType = "danger";
   if (isValidNumber(temp)) {
     if (temp < 35) { tempStatus = "Hypothermia"; tempType = "danger"; }
@@ -59,12 +57,10 @@ const evaluateHealthMetrics = (userData) => {
     unit: "°C",
     status: tempStatus,
     statusType: tempType,
-    icon: <FiThermometer color={tempType === "success" ? "#22c55e" : tempType === "warning" ? "#F97316" : "#EF4444"} size={24} />
+    icon: <FiThermometer color={tempType === "success" ? "#22c55e" : tempType === "warning" ? "#F97316" : "#EF4444"} style={iconStyle} />
   });
 
-  // -------------------
   // Height
-  // -------------------
   let heightStatus = "Unknown", heightType = "danger";
   if (isValidNumber(height)) {
     if (height < 1.5) { heightStatus = "Below Average"; heightType = "danger"; }
@@ -77,12 +73,10 @@ const evaluateHealthMetrics = (userData) => {
     unit: "m",
     status: heightStatus,
     statusType: heightType,
-    icon: <MdHeight color={heightType === "success" ? "#22c55e" : "#EF4444"} size={24} />
+    icon: <MdHeight color={heightType === "success" ? "#22c55e" : "#EF4444"} style={iconStyle} />
   });
 
-  // -------------------
   // Weight & BMI
-  // -------------------
   let weightStatus = "Unknown", weightType = "danger", bmiValue = "-", bmiStatus = "Unknown", bmiType = "danger";
 
   if (isValidNumber(userData.bmi) && Number(userData.bmi) !== 0) {
@@ -105,7 +99,7 @@ const evaluateHealthMetrics = (userData) => {
       unit: "kg",
       status: weightStatus,
       statusType: weightType,
-      icon: <MdMonitorWeight color={weightType === "success" ? "#22c55e" : weightType === "warning" ? "#F97316" : "#EF4444"} size={24} />
+      icon: <MdMonitorWeight color={weightType === "success" ? "#22c55e" : weightType === "warning" ? "#F97316" : "#EF4444"} style={iconStyle} />
   });
 
   healthData.push({
@@ -114,12 +108,10 @@ const evaluateHealthMetrics = (userData) => {
       unit: "",
       status: bmiStatus,
       statusType: bmiType,
-      icon: <FiBarChart color={bmiType === "success" ? "#22c55e" : bmiType === "warning" ? "#F97316" : "#EF4444"} size={24} />
+      icon: <FiBarChart color={bmiType === "success" ? "#22c55e" : bmiType === "warning" ? "#F97316" : "#EF4444"} style={iconStyle} />
   });
 
-  // -------------------
   // Blood Pressure
-  // -------------------
   let bpStatus = "Unknown", bpType = "danger";
   let bpValue = (userData.blood_pressure != null) ? userData.blood_pressure.toString().trim() : "-";
 
@@ -141,12 +133,11 @@ const evaluateHealthMetrics = (userData) => {
       unit: "mmHg",
       status: bpStatus,
       statusType: bpType,
-      icon: <FiHeart color={bpType === "success" ? "#22c55e" : bpType === "warning" ? "#F97316" : "#EF4444"} size={24} />
+      icon: <FiHeart color={bpType === "success" ? "#22c55e" : bpType === "warning" ? "#F97316" : "#EF4444"} style={iconStyle} />
   });
 
   return healthData;
 };
-
 
 // ===============================
 // RESULTS COMPONENT
@@ -158,14 +149,11 @@ const Results = () => {
 
   useEffect(() => {
     const fetchLatestCheckup = async () => {
-      // 1. Start the 2-second timer immediately
       const timer = new Promise((resolve) => setTimeout(resolve, 2000));
 
       try {
-        // 2. Define the data fetching logic
         const fetchData = async () => {
           const { data: { user } } = await supabase.auth.getUser();
-
           if (!user) {
             navigate("/");
             return null;
@@ -183,18 +171,11 @@ const Results = () => {
           return data;
         };
 
-        // 3. Wait for BOTH. 
-        // If data takes 0.5s, it waits for the 2s timer.
-        // If data takes 5s, it waits for the data.
         const [data] = await Promise.all([fetchData(), timer]);
-
-        if (data) {
-          setUserData(data);
-        }
+        if (data) setUserData(data);
       } catch (err) {
         console.error("Failed to fetch latest checkup:", err.message);
-        // Even on error, we wait for the timer to finish for a smooth UI
-        await timer; 
+        await timer;
       } finally {
         setLoading(false);
       }
@@ -206,6 +187,14 @@ const Results = () => {
   if (loading) return <SplashScreen />;
 
   const healthData = userData ? evaluateHealthMetrics(userData) : [];
+  
+  // Format the date from Supabase created_at
+  const formattedDate = userData?.created_at 
+    ? new Date(userData.created_at).toLocaleString('en-US', { 
+        dateStyle: 'long', 
+        timeStyle: 'short' 
+      }) 
+    : "No date available";
 
   return (
     <div className="rmain-container">
@@ -217,7 +206,10 @@ const Results = () => {
               <BackButton />
               <p className="toptext">Your Results</p>
             </div>
-              <p className="toptext">The date and time the data was collected</p>
+            {/* Added the dynamic date and time here */}
+            <p className="toptext" style={{ fontSize: "1rem", color: "#666", }}>
+              Latest Data collected on: {formattedDate}
+            </p>
             <div className="results-grid">
               {healthData.map((item, index) => (
                 <ResultCard

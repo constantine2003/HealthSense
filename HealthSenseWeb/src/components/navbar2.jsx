@@ -8,21 +8,9 @@ import { supabase } from "../supabaseClient"; // import Supabase client
 function Navbar() {
   const navigate = useNavigate();
 
-  const handleLogout = async () => {
-    try {
-      // Sign out using Supabase
-      const { error } = await supabase.auth.signOut();
-      if (error) throw error;
-
-      // Optional: clear any local storage if used
-      localStorage.removeItem("userToken");
-
-      // Navigate to login page or a splash
-      navigate("/");
-    } catch (err) {
-      console.error("Logout failed:", err.message);
-      alert("Failed to log out. Try again.");
-    }
+  const handleLogout = () => {
+    // Only navigate to splash, let splash handle logout and redirect
+    navigate("/logout-splash");
   };
 
   return (
@@ -32,7 +20,7 @@ function Navbar() {
       </div>
 
       <div className="nav-right">
-        <button className="about-btn">
+        <button className="about-btn" onClick={() => navigate("/profile") }>
           <FaUser style={{ marginRight: "6px" }} />
           Profile
         </button>
