@@ -2,7 +2,8 @@ import React, { useState, useEffect } from "react";
 import Navbar from "../components/navbar2.jsx";
 import "../styles/profile.css";
 import { FiUser, FiMail, FiShield, FiMoon, FiSun, FiSave, FiLogOut, FiTrash2 } from "react-icons/fi";
-import { supabase } from "../supabaseClient"; // Assuming you have this
+import { supabase } from "../supabaseClient";
+import { getProfile } from "../auth/getProfile";
 
 const Profile = () => {
     const [loading, setLoading] = useState(true);
@@ -13,23 +14,23 @@ const Profile = () => {
         isDarkMode: false
     });
 
-    // Simulate fetching data (Replace with real Supabase fetch)
+    // Fetch real user data from Supabase (same logic as dashboard.jsx)
     useEffect(() => {
         const fetchUserData = async () => {
             try {
-                // Example: const { data: { user } } = await supabase.auth.getUser();
-                // Fetch your custom profile table here using user.id
-                
-                // MOCK DATA for now
-                setTimeout(() => {
-                    setUserData({
-                        fullName: "Alex Rivera",
-                        email: "alex.rivera@example.com",
-                        recoveryEmail: "",
-                        isDarkMode: false
-                    });
-                    setLoading(false);
-                }, 1000);
+                // Get current user
+                const { data: { user }, error: userError } = await supabase.auth.getUser();
+                if (userError || !user) throw userError || new Error("No user found");
+
+                // Fetch profile info using getProfile (should return { first_name, last_name, email })
+                const profile = await getProfile(user.id);
+
+                setUserData(prev => ({
+                    ...prev,
+                    fullName: `${profile.first_name} ${profile.last_name}`,
+                    email: profile.email || user.email || "",
+                }));
+                setLoading(false);
             } catch (error) {
                 console.error("Error loading profile", error);
                 setLoading(false);
