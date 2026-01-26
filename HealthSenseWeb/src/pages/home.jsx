@@ -13,6 +13,7 @@ const Home = () => {
   const [showPassword, setShowPassword] = useState(false);
   const [emailInput, setEmailInput] = useState("");
   const [passwordInput, setPasswordInput] = useState("");
+  const [loginError, setLoginError] = useState("");
 
   // Redirect immediately if user is already logged in
   useEffect(() => {
@@ -27,14 +28,14 @@ const Home = () => {
     const email = emailInput.includes("@") ? emailInput : `${emailInput}@kiosk.local`;
     const password = passwordInput;
 
+    setLoginError("");
     try {
       const loggedInUser = await login(email, password);
       console.log("Logged in:", loggedInUser);
-
       navigate("/dashboard");
     } catch (err) {
       console.error("Login failed:", err.message);
-      alert("Login failed: " + err.message);
+      setLoginError(err.message || "Invalid email or password. Please try again");
     }
   };
 
@@ -59,6 +60,9 @@ const Home = () => {
               <p className="login-subtitle">Log in using your account to proceed</p>
 
               <div className="form-group">
+                {loginError && (
+                  <div className="login-error" role="alert">{loginError}</div>
+                )}
                 <label>Email</label>
                 <input
                   type="text"
