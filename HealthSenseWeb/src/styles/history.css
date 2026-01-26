@@ -123,7 +123,7 @@
   gap: 8px;
   font-weight: 600;
   color: #1E293B;
-  font-size: 0.9rem;
+  font-Size: clamp(13px, 1.5vw, 17px);
   font-family: "Lexend";
 }
 
