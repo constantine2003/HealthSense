@@ -4,22 +4,25 @@
 
 .main-container {
   min-height: 100svh; /* mobile-safe viewport */
+  min-height: 100vh;
   display: flex;
   flex-direction: column;
   background: linear-gradient(to bottom, #EAF4FF, #BFD9FF, #9FC5F8);
   max-width: 100%;
   overflow-x: hidden;
+  overflow-y: auto;
 }
 
 /* Main container content */
 .dashboard-content {
   display: flex;
-  width: 100%;
-  height: calc(100svh - 90px);
-  padding: clamp(10px, 3vw, 20px);
-  box-sizing: border-box;
   justify-content: center;
-  align-content: center;
+  align-items: center;
+  padding: 40px 20px;
+  width: 100%;
+  min-height: calc(100vh - 80px); /* Adjust based on navbar height */
+  box-sizing: border-box;
+  font-family: "Lexend", sans-serif;
 }
 
 
@@ -31,30 +34,32 @@
   position: relative;
   background: rgba(255, 255, 255, 0.13);
   border-radius: 20px;
-  padding: clamp(20px, 5vw, 50px);   /* outer padding stays for glass effect */
+  padding: clamp(2.5rem, 8vw, 5rem);
   backdrop-filter: blur(30px);
   -webkit-backdrop-filter: blur(30px);
-  box-shadow: 0px 8px 24px rgba(0, 0, 0, 0.25);
+  box-shadow: 0px 8px 24px rgba(0, 0, 0, 0.18);
 
   width: 100%;
-  max-width: 1200px;
+  max-width: 100vw;
+  min-width: 0;
+  margin: 0 auto;
 
   /* Dynamic height */
-  height: auto;                        /* grows with content */
-  max-height: calc(100svh - 90px);     /* capped at viewport minus header */
-  min-height: 0;                        /* allows flex children to shrink */
-  
+  height: auto;
+  min-height: 0;
+
   display: flex;
   flex-direction: column;
   align-items: center;
   justify-content: center;
 
-  overflow: hidden;                     /* box itself won’t grow beyond max-height */
+  overflow: visible;
 
   /* Entrance animation */
   opacity: 0;
-  transform: scale(0.95);
-  animation: fadeInBox 0.6s ease forwards;
+  transform: scale(0.97);
+  animation: fadeInBox 0.6s cubic-bezier(0.4,0,0.2,1) forwards;
+  transition: max-width 0.3s, max-height 0.3s, padding 0.3s;
 }
 
 /* Inner scrollable container */
@@ -62,7 +67,7 @@
   width: 100%;
   flex: 1;
   min-height: 0;
-  overflow-y: auto;
+  /* Remove overflow-y: auto; so no internal scroll */
 
   display: flex;
   flex-direction: column;
@@ -78,27 +83,23 @@
   flex-direction: column;
   align-items: center;
 }
-/* Scrollbar styling */
-.dashboard-content-inner::-webkit-scrollbar {
-  width: 6px;
+/* Scrollbar styling for main container */
+.main-container::-webkit-scrollbar {
+  width: 8px;
 }
-
-.dashboard-content-inner::-webkit-scrollbar-track {
+.main-container::-webkit-scrollbar-track {
   background: transparent;
 }
-
-.dashboard-content-inner::-webkit-scrollbar-thumb {
+.main-container::-webkit-scrollbar-thumb {
   background: rgba(22, 138, 173, 0.3);
   border-radius: 10px;
   transition: background 0.3s ease;
 }
-
-.dashboard-content-inner::-webkit-scrollbar-thumb:hover {
+.main-container::-webkit-scrollbar-thumb:hover {
   background: rgba(22, 138, 173, 0.6);
 }
-
 /* Firefox support */
-.dashboard-content-inner {
+.main-container {
   scrollbar-width: thin;
   scrollbar-color: rgba(22,138,173,0.3) transparent;
 }
@@ -135,11 +136,32 @@
 .welcome-user {
   font-family: 'Lexend', sans-serif;
   font-weight: 700;
-  font-size: 60px;
+  font-size: clamp(2rem, 6vw, 54px);
   color: #139dc7;
   margin-top: 0;
+  margin-bottom: 0px;
+  text-align: center;
+  max-width: 100%;
+  white-space: normal;
+  word-break: break-word;
+  overflow-wrap: break-word;
+  overflow: visible;
+}
+
+.welcome-username {
+  font-family: 'Lexend', sans-serif;
+  font-weight: 800;
+  font-size: clamp(1.5rem, 5vw, 40px);
+  color: #139dc7;
+  margin-top: 4px;
   margin-bottom: 10px;
   text-align: center;
+  max-width: 100%;
+  white-space: normal;
+  word-break: break-word;
+  overflow-wrap: break-word;
+  overflow: visible;
+  letter-spacing: 0.5px;
 }
 .description-text {
   margin: 0;
@@ -241,12 +263,16 @@
 ======================================== */
 
 @media (min-width: 2560px) {
-  .dashboard-box { padding: 60px; }
+  .dashboard-box {
+    padding: 4rem;
+    max-width: 1600px;
+    min-width: 0;
+  }
   .welcome-user { font-size: 70px; }
   .dashboard-btn { width: 300px; height: 300px; }
   .btn-label { font-size: 22px; }
   .btn-title { font-size: 38px; }
-  .dashboard-btn svg { width: 120px; height: 120px; } /* Icon scaling */
+  .dashboard-btn svg { width: 120px; height: 120px; }
 }
 
 /* 1651-1750px */
@@ -297,19 +323,27 @@
 
 /* Mobile medium (768px) */
 @media (max-width: 768px) {
-  .dashboard-box { padding: 20px; }
+  .dashboard-box {
+    padding: 1rem;
+    max-width: 100vw;
+    min-width: 0;
+  }
   .welcome-user { font-size: 36px; }
   .dashboard-btn { width: 160px; height: 160px; padding: 15px; }
   .btn-label { font-size: 14px; }
   .btn-title { font-size: 22px; }
-  .dashboard-btn svg { width: 60px; height: 60px; } /* Icon shrinks to fit */
-  .dashboard-btn { gap: 8px; } /* Tighter spacing for mobile */
+  .dashboard-btn svg { width: 60px; height: 60px; }
+  .dashboard-btn { gap: 8px; }
   .description-text { margin-bottom: 20px;}
 }
 
 /* Mobile small (≤480px) */
 @media (max-width: 480px) {
-  .dashboard-box { padding: 15px; }
+  .dashboard-box {
+    padding: 0.5rem;
+    max-width: 100vw;
+    min-width: 0;
+  }
   .welcome-user { font-size: 28px; }
   .dashboard-btn { width: 140px; height: 140px; }
   .btn-label { font-size: 12px; }

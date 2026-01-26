@@ -20,7 +20,7 @@ function Navbar() {
       </div>
 
       <div className="nav-right">
-        <button className="about-btn">
+        <button className="about-btn" onClick={() => navigate("/profile") }>
           <FaUser style={{ marginRight: "6px" }} />
           Profile
         </button>
