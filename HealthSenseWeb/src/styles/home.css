@@ -235,7 +235,7 @@ body,
   cursor: pointer;
   font-size: 16px;
   color: black;
-  background: linear-gradient(to bottom, #90E0EF, #B6CCFE);
+  background: linear-gradient(to bottom, #B6CCFE,#4cb5d4);
   font-weight: bold;
 
   /* Smooth transitions for hover/active effects */
@@ -246,21 +246,16 @@ body,
 .login-btn:hover {
   transform: translateY(-2px); /* slightly lift */
   box-shadow: 0 6px 12px rgba(0, 0, 0, 0.15);
-  background: linear-gradient(to bottom, #CAF0F8, #B6CCFE);
+  background: linear-gradient(to bottom, #B6CCFE,#4cb5d4);
 }
 
 /* Active effect: pressed down */
 .login-btn:active {
   transform: scale(0.97); /* squish effect */
   box-shadow: 0 3px 6px rgba(0, 0, 0, 0.1);
-  background: linear-gradient(to bottom, #B6CCFE, #90E0EF);
+  background: linear-gradient(to bottom, #B6CCFE,#4cb5d4);
 }
 
-/* Focus effect: for accessibility */
-.login-btn:focus {
-  outline: 2px solid #0077B6;
-  outline-offset: 2px;
-}
 
 /* Forgot password link */
 .forgot-password {
