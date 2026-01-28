@@ -1,5 +1,5 @@
 import React, { useState, useEffect } from "react";
-import Navbar from "../components/navbar2.jsx";
+import Navbar from "../components/navbar3.jsx";
 import "../styles/profile.css";
 import { FiUser, FiMail, FiShield, FiSave } from "react-icons/fi";
 import { supabase } from "../supabaseClient";
@@ -193,7 +193,7 @@ const Profile = () => {
                 </button>
             </div>
 
-            
+
           </div>
         </div>
       </div>
