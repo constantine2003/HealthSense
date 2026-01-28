@@ -1,170 +1,204 @@
 import React, { useState, useEffect } from "react";
-import Navbar from "../components/navbar2.jsx";
+import Navbar from "../components/navbar3.jsx";
 import "../styles/profile.css";
-import { FiUser, FiMail, FiShield, FiMoon, FiSun, FiSave, FiLogOut, FiTrash2 } from "react-icons/fi";
+import { FiUser, FiMail, FiShield, FiSave } from "react-icons/fi";
 import { supabase } from "../supabaseClient";
 import { getProfile } from "../auth/getProfile";
+import SplashScreen from "../components/splashscreen";
+import { useNavigate } from "react-router-dom";
 
 const Profile = () => {
-    const [loading, setLoading] = useState(true);
-    const [userData, setUserData] = useState({
-        fullName: "",
-        email: "",
-        recoveryEmail: "",
-        isDarkMode: false
-    });
+  const navigate = useNavigate();
 
-    // Fetch real user data from Supabase (same logic as dashboard.jsx)
-    useEffect(() => {
-        const fetchUserData = async () => {
-            try {
-                // Get current user
-                const { data: { user }, error: userError } = await supabase.auth.getUser();
-                if (userError || !user) throw userError || new Error("No user found");
+  // Splash/loading state
+  const [splash, setSplash] = useState(true);
 
-                // Fetch profile info using getProfile (should return { first_name, last_name, email })
-                const profile = await getProfile(user.id);
+  // Loading and user data
+  const [loading, setLoading] = useState(true);
+  const [userData, setUserData] = useState({
+    fullName: "",
+    email: "",
+    recoveryEmail: "",
+  });
 
-                setUserData(prev => ({
-                    ...prev,
-                    fullName: `${profile.first_name} ${profile.last_name}`,
-                    email: profile.email || user.email || "",
-                }));
-                setLoading(false);
-            } catch (error) {
-                console.error("Error loading profile", error);
-                setLoading(false);
-            }
-        };
-        fetchUserData();
-    }, []);
+  // Fetch user profile
+  useEffect(() => {
+    const fetchUserData = async () => {
+      try {
+        const {
+          data: { user },
+        } = await supabase.auth.getUser();
 
-    const handleChange = (e) => {
-        const { name, value, type, checked } = e.target;
-        setUserData(prev => ({
-            ...prev,
-            [name]: type === "checkbox" ? checked : value
-        }));
+        if (!user) {
+          navigate("/"); // redirect if not logged in
+          return;
+        }
+
+        const profile = await getProfile(user.id);
+        console.log("Fetched profile:", profile);
+
+        setUserData({
+          fullName: `${profile.first_name} ${profile.last_name}`,
+          email: profile.email || user.email || "",
+          recoveryEmail: profile.recovery_email || "",
+        });
+
+        // Keep splash for 2 seconds
+        setTimeout(() => {
+          setSplash(false);
+          setLoading(false);
+        }, 2000);
+      } catch (err) {
+        console.error("Failed to fetch profile:", err.message);
+        navigate("/"); // redirect if error
+      }
     };
 
-    const handleSave = () => {
-        alert(`Saved! Recovery Email: ${userData.recoveryEmail}, Dark Mode: ${userData.isDarkMode}`);
-        // Add Supabase update logic here
-    };
+    fetchUserData();
+  }, [navigate]);
 
-    // Get initials for Avatar
-    const getInitials = (name) => {
-        return name ? name.split(' ').map(n => n[0]).join('').toUpperCase().slice(0, 2) : "User";
-    };
+  const handleChange = (e) => {
+    const { name, value } = e.target;
+    setUserData((prev) => ({
+      ...prev,
+      [name]: value,
+    }));
+  };
 
-    return (
-        <div className={`main-container ${userData.isDarkMode ? 'dark-theme' : ''}`}>
-            <Navbar />
-            
-            <div className="profile-page-content">
-                <div className="settings-container">
-                    
-                    {/* Header Section */}
-                    <div className="settings-header">
-                        <div className="avatar-circle">
-                            {loading ? "..." : getInitials(userData.fullName)}
-                        </div>
-                        <div className="header-text">
-                            <h2>Account Settings</h2>
-                            <p>Manage your profile details and preferences</p>
-                        </div>
-                    </div>
+  const handleSave = async () => {
+    try {
+      const {
+        data: { user },
+      } = await supabase.auth.getUser();
 
-                    {/* Main Form Section */}
-                    <div className="settings-card">
-                        
-                        {/* Section: Personal Info */}
-                        <div className="settings-section">
-                            <h3 className="section-title"><FiUser className="icon" /> Personal Information</h3>
-                            <div className="form-grid">
-                                <div className="form-group">
-                                    <label>Full Name</label>
-                                    <input 
-                                        type="text" 
-                                        name="fullName" 
-                                        value={loading ? "Loading..." : userData.fullName} 
-                                        disabled // READ ONLY
-                                        className="input-disabled"
-                                    />
-                                    <span className="helper-text">Name cannot be changed. Contact support to update.</span>
-                                </div>
+      if (!user) throw new Error("User not found");
 
-                                <div className="form-group">
-                                    <label>Email Address</label>
-                                    <input 
-                                        type="email" 
-                                        value={loading ? "..." : userData.email} 
-                                        disabled // READ ONLY
-                                        className="input-disabled"
-                                    />
-                                </div>
-                            </div>
-                        </div>
+      // Update recovery email
+      const { error } = await supabase
+        .from("profiles")
+        .update({ recovery_email: userData.recoveryEmail })
+        .eq("id", user.id);
 
-                        <div className="divider"></div>
+      if (error) throw error;
+      alert("Recovery email updated successfully!");
+    } catch (err) {
+      alert("Failed to save recovery email: " + (err.message || err));
+    }
+  };
 
-                        {/* Section: Security & Preferences */}
-                        <div className="settings-section">
-                            <h3 className="section-title"><FiShield className="icon" /> Security & Preferences</h3>
-                            
-                            <div className="form-group">
-                                <label>Recovery Email</label>
-                                <div className="input-with-icon">
-                                    <FiMail className="input-icon" />
-                                    <input 
-                                        type="email" 
-                                        name="recoveryEmail"
-                                        placeholder="Enter a backup email address"
-                                        value={userData.recoveryEmail} 
-                                        onChange={handleChange}
-                                    />
-                                </div>
-                            </div>
+  const getInitials = (name) => {
+    return name
+      ? name
+          .split(" ")
+          .map((n) => n[0])
+          .join("")
+          .toUpperCase()
+          .slice(0, 2)
+      : "User";
+  };
 
-                            <div className="toggle-row">
-                                <div className="toggle-info">
-                                    <span className="toggle-label"><FiMoon className="icon" /> Dark Mode</span>
-                                    <span className="toggle-desc">Switch between light and dark themes</span>
-                                </div>
-                                <label className="switch">
-                                    <input 
-                                        type="checkbox" 
-                                        name="isDarkMode"
-                                        checked={userData.isDarkMode} 
-                                        onChange={handleChange}
-                                    />
-                                    <span className="slider round"></span>
-                                </label>
-                            </div>
-                        </div>
+  if (splash) return <SplashScreen />;
 
-                        {/* Action Buttons */}
-                        <div className="action-buttons">
-                            <button className="btn-secondary">Change Password</button>
-                            <button className="btn-primary" onClick={handleSave}>
-                                <FiSave /> Save Changes
-                            </button>
-                        </div>
-                    </div>
+  return (
+    <div className="main-container">
+      <Navbar />
 
-                    {/* Danger Zone 
-                     <div className="danger-zone">
-                        <div className="danger-text">
-                            <h4>Delete Account</h4>
-                            <p>Permanently remove your account and all data.</p>
-                        </div>
-                        <button className="btn-danger"><FiTrash2 /> Delete</button>
-                    </div> */}
-
-                </div>
+      <div className="profile-page-content">
+        <div className="settings-container">
+          <div className="settings-header">
+            <div className="avatar-circle">
+              {loading ? "..." : getInitials(userData.fullName)}
             </div>
+            <div className="header-text">
+              <h2>Account Settings</h2>
+              <p>Manage your profile details and preferences</p>
+            </div>
+          </div>
+
+          <div className="settings-card">
+            {/* Personal Info */}
+            <div className="settings-section">
+              <h3 className="section-title">
+                <FiUser className="icon" /> Personal Information
+              </h3>
+              <div className="form-grid">
+                <div className="form-group">
+                  <label>Full Name</label>
+                  <input
+                    type="text"
+                    name="fullName"
+                    value={loading ? "Loading..." : userData.fullName}
+                    disabled
+                    className="input-disabled"
+                  />
+                  <span className="helper-text">
+                    Name cannot be changed. Contact support to update.
+                  </span>
+                </div>
+
+                <div className="form-group">
+                  <label>Email Address</label>
+                  <input
+                    type="email"
+                    value={loading ? "..." : userData.email}
+                    disabled
+                    className="input-disabled"
+                  />
+                </div>
+              </div>
+            </div>
+
+            {/* <div className="divider"></div> */}
+
+            {/* Security & Preferences */}
+            <div className="settings-section">
+              <h3 className="section-title">
+                <FiShield className="icon" /> Security & Preferences
+              </h3>
+
+              <div className="form-group">
+                <label>Recovery Email</label>
+                <div className="input-with-icon">
+                  <FiMail className="input-icon" />
+                  <input
+                    type="email"
+                    name="recoveryEmail"
+                    placeholder="Enter a backup email address"
+                    value={userData.recoveryEmail}
+                    onChange={handleChange}
+                  />
+                </div>
+              </div>
+              
+            </div>
+            
+            {/* <div className="toggle-row">
+                <div className="toggle-info">
+                  <span className="toggle-label"><FiMoon className="icon" /> Dark Mode</span>
+                  <span className="toggle-desc">Switch between light and dark themes</span>
+                </div>
+                <label className="switch">
+                  <input type="checkbox" name="isDarkMode" checked={userData.isDarkMode} onChange={handleChange} />
+                  <span className="slider round"></span>
+                </label>
+            </div> */}
+
+            {/* Action Buttons */}
+            <div className="action-buttons">
+                <button className="btn-secondary">
+                    Change Password
+                </button>
+                <button className="btn-primary" onClick={handleSave}>
+                    <FiSave /> Save Changes
+                </button>
+            </div>
+
+
+          </div>
         </div>
-    );
+      </div>
+    </div>
+  );
 };
 
 export default Profile;
