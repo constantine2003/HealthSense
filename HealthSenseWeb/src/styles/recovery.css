@@ -1,0 +1,214 @@
+/* --- Overlay: Dims the background --- */
+.hs-recovery-overlay {
+  position: fixed !important;
+  inset: 0 !important; /* shorthand for top, left, right, bottom: 0 */
+  background: rgba(0, 0, 0, 0.7) !important; /* Deep dark transparent */
+  display: flex !important;
+  justify-content: center !important;
+  align-items: center !important;
+  z-index: 9999 !important; /* Ensures it sits on top of everything */
+  backdrop-filter: blur(5px) !important; /* Blurs the background for a modern feel */
+  padding: 20px !important;
+  animation: hsFadeIn 0.2s ease-out !important;
+  font-family: 'Lexend', sans-serif !important;
+}
+
+/* --- Modal Container --- */
+.hs-recovery-modal {
+  background: #ffffff !important;
+  width: 100% !important;
+  max-width: 420px !important;
+  border-radius: 16px !important;
+  box-shadow: 0 25px 50px -12px rgba(0, 0, 0, 0.4) !important;
+  overflow: hidden !important;
+  position: relative !important;
+  animation: hsSlideUp 0.3s ease-out !important;
+  font-family: 'Lexend', sans-serif !important;
+}
+
+/* --- Header Section --- */
+.hs-recovery-header {
+  padding: 20px 24px !important;
+  display: flex !important;
+  justify-content: space-between !important;
+  align-items: center !important;
+  border-bottom: 1px solid #f1f1f1 !important;
+  background-color: #ffffff !important;
+  font-family: 'Lexend', sans-serif !important;
+}
+
+.hs-recovery-header h3 {
+  margin: 0 !important;
+  font-size: 1.25rem !important;
+  font-weight: 700 !important;
+  color: #1a1a1a !important;
+  font-family: 'Lexend', sans-serif !important;
+}
+
+.hs-recovery-close {
+  background: none !important;
+  border: none !important;
+  font-size: 1.5rem !important;
+  cursor: pointer !important;
+  color: #888 !important;
+  display: flex !important;
+  align-items: center !important;
+  transition: color 0.2s, transform 0.2s !important;
+  font-family: 'Lexend', sans-serif !important;
+}
+
+.hs-recovery-close:hover {
+  color: #ff4d4f !important;
+  transform: scale(1.1) !important;
+}
+
+/* --- Body Content --- */
+.hs-recovery-body {
+  padding: 24px !important;
+  font-family: 'Lexend', sans-serif !important;
+}
+
+.hs-recovery-step p {
+  font-size: 0.95rem !important;
+  color: #555 !important;
+  margin-bottom: 20px !important;
+  line-height: 1.6 !important;
+  font-family: 'Lexend', sans-serif !important;
+}
+
+/* --- Error Message Box --- */
+.hs-recovery-error {
+  background: #fff1f0 !important;
+  color: #f5222d !important;
+  padding: 12px !important;
+  border-radius: 8px !important;
+  margin-bottom: 20px !important;
+  font-size: 0.88rem !important;
+  border: 1px solid #ffa39e !important;
+  display: flex !important;
+  align-items: center !important;
+  font-family: 'Lexend', sans-serif !important;
+}
+
+/* --- Input Field Wrapper --- */
+.hs-recovery-input-wrapper {
+  position: relative !important;
+  margin-bottom: 16px !important;
+  display: flex !important;
+  align-items: center !important;
+  font-family: 'Lexend', sans-serif !important;
+}
+
+.hs-recovery-icon {
+  position: absolute !important;
+  left: 14px !important;
+  color: #999 !important;
+  font-size: 1.1rem !important;
+  font-family: 'Lexend', sans-serif !important;
+}
+
+.hs-recovery-input-wrapper input {
+  width: 100% !important;
+  padding: 14px 14px 14px 44px !important; /* Space for the left icon */
+  border: 1.5px solid #e0e0e0 !important;
+  border-radius: 10px !important;
+  font-size: 1rem !important;
+  transition: all 0.2s !important;
+  background-color: #fafafa !important;
+  font-family: 'Lexend', sans-serif !important;
+}
+
+.hs-recovery-input-wrapper input:focus {
+  border-color: #007bff !important;
+  background-color: #fff !important;
+  outline: none !important;
+  box-shadow: 0 0 0 4px rgba(0, 123, 255, 0.1) !important;
+}
+
+/* --- Eye Toggle Button --- */
+.hs-recovery-eye {
+  position: absolute !important;
+  right: 14px !important;
+  background: none !important;
+  border: none !important;
+  color: #666 !important;
+  cursor: pointer !important;
+  display: flex !important;
+  align-items: center !important;
+  font-size: 1.1rem !important;
+  padding: 0 !important;
+  font-family: 'Lexend', sans-serif !important;
+}
+
+.hs-recovery-eye:hover {
+  color: #333 !important;
+}
+
+/* --- Primary Action Button --- */
+.hs-recovery-btn-primary {
+  width: 100% !important;
+  padding: 14px !important;
+  background: #007bff !important;
+  color: white !important;
+  border: none !important;
+  border-radius: 10px !important;
+  font-weight: 600 !important;
+  font-size: 1rem !important;
+  cursor: pointer !important;
+  transition: all 0.2s !important;
+  margin-top: 10px !important;
+  font-family: 'Lexend', sans-serif !important;
+}
+
+.hs-recovery-btn-primary:hover {
+  background: #0056b3 !important;
+  box-shadow: 0 4px 12px rgba(0, 123, 255, 0.3) !important;
+}
+
+.hs-recovery-btn-primary:disabled {
+  background: #b8d9ff !important;
+  cursor: not-allowed !important;
+  box-shadow: none !important;
+}
+
+/* --- Secondary Text Button (Back) --- */
+.hs-recovery-btn-text {
+  width: 100% !important;
+  background: none !important;
+  border: none !important;
+  color: #007bff !important;
+  margin-top: 20px !important;
+  cursor: pointer !important;
+  font-size: 0.9rem !important;
+  font-weight: 500 !important;
+  font-family: 'Lexend', sans-serif !important;
+}
+
+.hs-recovery-btn-text:hover {
+  text-decoration: underline !important;
+}
+
+/* --- Animations --- */
+@keyframes hsFadeIn {
+  from { opacity: 0; }
+  to { opacity: 1; }
+}
+
+@keyframes hsSlideUp {
+  from { opacity: 0; transform: translateY(30px); }
+  to { opacity: 1; transform: translateY(0); }
+}
+
+/* --- Responsiveness for Small Phones --- */
+@media (max-width: 480px) {
+  .hs-recovery-modal {
+    max-width: 100% !important;
+    border-radius: 12px !important;
+    font-family: 'Lexend', sans-serif !important;
+  }
+  
+  .hs-recovery-body {
+    padding: 20px !important;
+    font-family: 'Lexend', sans-serif !important;
+  }
+}
