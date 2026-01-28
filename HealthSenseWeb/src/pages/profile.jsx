@@ -1,7 +1,9 @@
 import React, { useState, useEffect } from "react";
 import Navbar from "../components/navbar3.jsx";
 import "../styles/profile.css";
-import { FiUser, FiMail, FiShield, FiSave } from "react-icons/fi";
+// Added FaEye, FaEyeSlash for password toggle, FiX for close button
+import { FiUser, FiMail, FiShield, FiSave, FiX } from "react-icons/fi";
+import { FaEye, FaEyeSlash } from "react-icons/fa"; 
 import { supabase } from "../supabaseClient";
 import { getProfile } from "../auth/getProfile";
 import SplashScreen from "../components/splashscreen";
@@ -9,71 +11,83 @@ import { useNavigate } from "react-router-dom";
 
 const Profile = () => {
   const navigate = useNavigate();
-
-  // Splash/loading state
   const [splash, setSplash] = useState(true);
-
-  // Loading and user data
   const [loading, setLoading] = useState(true);
+  
+  // Profile Data State
   const [userData, setUserData] = useState({
     fullName: "",
     email: "",
     recoveryEmail: "",
   });
 
+  // --- MODAL STATE ---
+  const [isModalOpen, setIsModalOpen] = useState(false);
+  const [passwords, setPasswords] = useState({
+    oldPassword: "",
+    newPassword: "",
+    confirmPassword: "",
+  });
+  // State to toggle visibility for individual fields
+  const [showPass, setShowPass] = useState({
+    old: false,
+    new: false,
+    confirm: false,
+  });
+
   // Fetch user profile
   useEffect(() => {
     const fetchUserData = async () => {
       try {
-        const {
-          data: { user },
-        } = await supabase.auth.getUser();
-
+        const { data: { user } } = await supabase.auth.getUser();
         if (!user) {
-          navigate("/"); // redirect if not logged in
+          navigate("/"); 
           return;
         }
 
         const profile = await getProfile(user.id);
-        console.log("Fetched profile:", profile);
-
+        
         setUserData({
           fullName: `${profile.first_name} ${profile.last_name}`,
           email: profile.email || user.email || "",
           recoveryEmail: profile.recovery_email || "",
         });
 
-        // Keep splash for 2 seconds
         setTimeout(() => {
           setSplash(false);
           setLoading(false);
         }, 2000);
       } catch (err) {
         console.error("Failed to fetch profile:", err.message);
-        navigate("/"); // redirect if error
+        navigate("/");
       }
     };
-
     fetchUserData();
   }, [navigate]);
 
+  // Handle Profile Inputs
   const handleChange = (e) => {
     const { name, value } = e.target;
-    setUserData((prev) => ({
-      ...prev,
-      [name]: value,
-    }));
+    setUserData((prev) => ({ ...prev, [name]: value }));
   };
 
+  // Handle Password Inputs
+  const handlePasswordChange = (e) => {
+    const { name, value } = e.target;
+    setPasswords((prev) => ({ ...prev, [name]: value }));
+  };
+
+  // Toggle Eye Visibility
+  const togglePassVisibility = (field) => {
+    setShowPass((prev) => ({ ...prev, [field]: !prev[field] }));
+  };
+
+  // Save Recovery Email
   const handleSave = async () => {
     try {
-      const {
-        data: { user },
-      } = await supabase.auth.getUser();
-
+      const { data: { user } } = await supabase.auth.getUser();
       if (!user) throw new Error("User not found");
 
-      // Update recovery email
       const { error } = await supabase
         .from("profiles")
         .update({ recovery_email: userData.recoveryEmail })
@@ -86,15 +100,30 @@ const Profile = () => {
     }
   };
 
+  // Handle Password Save (Frontend validation only for now)
+  const handleSavePassword = () => {
+    if (passwords.newPassword !== passwords.confirmPassword) {
+      alert("New passwords do not match!");
+      return;
+    }
+    if (passwords.newPassword.length < 6) {
+      alert("Password must be at least 6 characters.");
+      return;
+    }
+    // Call Supabase update password function here
+    console.log("Saving password...", passwords);
+    alert("Password logic would run here.");
+    closeModal();
+  };
+
+  const closeModal = () => {
+    setIsModalOpen(false);
+    setPasswords({ oldPassword: "", newPassword: "", confirmPassword: "" }); // Reset fields
+    setShowPass({ old: false, new: false, confirm: false }); // Reset eyes
+  };
+
   const getInitials = (name) => {
-    return name
-      ? name
-          .split(" ")
-          .map((n) => n[0])
-          .join("")
-          .toUpperCase()
-          .slice(0, 2)
-      : "User";
+    return name ? name.split(" ").map((n) => n[0]).join("").toUpperCase().slice(0, 2) : "User";
   };
 
   if (splash) return <SplashScreen />;
@@ -148,8 +177,6 @@ const Profile = () => {
               </div>
             </div>
 
-            {/* <div className="divider"></div> */}
-
             {/* Security & Preferences */}
             <div className="settings-section">
               <h3 className="section-title">
@@ -169,34 +196,111 @@ const Profile = () => {
                   />
                 </div>
               </div>
-              
             </div>
-            
-            {/* <div className="toggle-row">
-                <div className="toggle-info">
-                  <span className="toggle-label"><FiMoon className="icon" /> Dark Mode</span>
-                  <span className="toggle-desc">Switch between light and dark themes</span>
-                </div>
-                <label className="switch">
-                  <input type="checkbox" name="isDarkMode" checked={userData.isDarkMode} onChange={handleChange} />
-                  <span className="slider round"></span>
-                </label>
-            </div> */}
 
             {/* Action Buttons */}
             <div className="action-buttons">
-                <button className="btn-secondary">
-                    Change Password
-                </button>
-                <button className="btn-primary" onClick={handleSave}>
-                    <FiSave /> Save Changes
-                </button>
+              <button 
+                className="btn-secondary" 
+                onClick={() => setIsModalOpen(true)}
+              >
+                Change Password
+              </button>
+              <button className="btn-primary" onClick={handleSave}>
+                <FiSave /> Save Changes
+              </button>
             </div>
-
-
           </div>
         </div>
       </div>
+
+      {/* --- CHANGE PASSWORD MODAL --- */}
+      {isModalOpen && (
+        <div className="modal-overlay">
+          <div className="modal-content">
+            <div className="modal-header">
+              <h3>Change Password</h3>
+              <button className="close-modal-btn" onClick={closeModal}>
+                <FiX />
+              </button>
+            </div>
+            
+            <div className="modal-body">
+              {/* Old Password */}
+              <div className="form-group">
+                <label>Old Password</label>
+                <div className="password-wrapper">
+                  <input
+                    type={showPass.old ? "text" : "password"}
+                    name="oldPassword"
+                    placeholder="Enter current password"
+                    value={passwords.oldPassword}
+                    onChange={handlePasswordChange}
+                  />
+                  <button
+                    className="eye-btn"
+                    type="button"
+                    onClick={() => togglePassVisibility("old")}
+                  >
+                    {showPass.old ? <FaEyeSlash /> : <FaEye />}
+                  </button>
+                </div>
+              </div>
+
+              {/* New Password */}
+              <div className="form-group">
+                <label>New Password</label>
+                <div className="password-wrapper">
+                  <input
+                    type={showPass.new ? "text" : "password"}
+                    name="newPassword"
+                    placeholder="Enter new password"
+                    value={passwords.newPassword}
+                    onChange={handlePasswordChange}
+                  />
+                  <button
+                    className="eye-btn"
+                    type="button"
+                    onClick={() => togglePassVisibility("new")}
+                  >
+                    {showPass.new ? <FaEyeSlash /> : <FaEye />}
+                  </button>
+                </div>
+              </div>
+
+              {/* Confirm Password */}
+              <div className="form-group">
+                <label>Confirm New Password</label>
+                <div className="password-wrapper">
+                  <input
+                    type={showPass.confirm ? "text" : "password"}
+                    name="confirmPassword"
+                    placeholder="Re-enter new password"
+                    value={passwords.confirmPassword}
+                    onChange={handlePasswordChange}
+                  />
+                  <button
+                    className="eye-btn"
+                    type="button"
+                    onClick={() => togglePassVisibility("confirm")}
+                  >
+                    {showPass.confirm ? <FaEyeSlash /> : <FaEye />}
+                  </button>
+                </div>
+              </div>
+            </div>
+
+            <div className="modal-footer">
+              <button className="btn-secondary" onClick={closeModal}>
+                Cancel
+              </button>
+              <button className="btn-primary" onClick={handleSavePassword}>
+                Save Password
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
     </div>
   );
 };
