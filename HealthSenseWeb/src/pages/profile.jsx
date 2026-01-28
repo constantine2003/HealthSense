@@ -100,8 +100,8 @@ const Profile = () => {
     }
   };
 
-  // Handle Password Save (Frontend validation only for now)
-  const handleSavePassword = () => {
+  // Handle Password Save (with Supabase verification)
+  const handleSavePassword = async () => {
     if (passwords.newPassword !== passwords.confirmPassword) {
       alert("New passwords do not match!");
       return;
@@ -110,10 +110,30 @@ const Profile = () => {
       alert("Password must be at least 6 characters.");
       return;
     }
-    // Call Supabase update password function here
-    console.log("Saving password...", passwords);
-    alert("Password logic would run here.");
-    closeModal();
+    try {
+      // Get current user session
+      const { data: { session }, error: sessionError } = await supabase.auth.getSession();
+      if (sessionError || !session) throw sessionError || new Error("No session found");
+      const userEmail = session.user.email;
+      // Re-authenticate with old password
+      const { error: signInError } = await supabase.auth.signInWithPassword({
+        email: userEmail,
+        password: passwords.oldPassword,
+      });
+      if (signInError) {
+        alert("Old password is incorrect.");
+        return;
+      }
+      // Update password
+      const { error: updateError } = await supabase.auth.updateUser({
+        password: passwords.newPassword,
+      });
+      if (updateError) throw updateError;
+      alert("Password changed successfully!");
+      closeModal();
+    } catch (err) {
+      alert("Failed to change password: " + (err.message || err));
+    }
   };
 
   const closeModal = () => {
