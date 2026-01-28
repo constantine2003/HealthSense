@@ -65,6 +65,7 @@ const Home = () => {
                 )}
                 <label>Email</label>
                 <input
+                  className="login-input"
                   type="text"
                   placeholder="firstname.lastname"
                   value={emailInput}
@@ -77,6 +78,7 @@ const Home = () => {
                 <div className="password-wrapper">
                   <input
                     type={showPassword ? "text" : "password"}
+                    className="login-input"
                     placeholder="Password"
                     value={passwordInput}
                     onChange={(e) => setPasswordInput(e.target.value)}

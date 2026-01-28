@@ -1,3 +1,23 @@
+/* LOGIN PAGE ONLY - visually distinct input */
+.login-input {
+  height: 46px !important;
+  padding: 10px !important;
+  border-radius: 8px !important;
+  border: 2px solid #000 !important;
+  font-size: 14px !important;
+  outline: none !important;
+  box-sizing: border-box !important;
+  background: transparent !important;
+  color: #222 !important;
+  font-family: 'Lexend', sans-serif !important;
+  transition: border-color 0.2s !important;
+}
+.login-input:focus {
+  border-color: #139dc7 !important;
+}
+.login-input::placeholder {
+  color: #6C7278 !important;
+}
 /* Error message for login */
 .login-error {
   color: #e74c3c;
@@ -220,7 +240,29 @@ body,
 .form-group input::placeholder {
   color: #6C7278;
 }
+.form-group label {
+  font-size: 16px;
+  font-weight: 500;
+  letter-spacing: -2%;
+  color: #139dc7;
+}
 
+.form-input {
+  height: 46px;
+  padding: 10px;
+  border-radius: 8px;
+  border: 2px solid #585756;
+  font-size: 14px;
+  outline: none;
+  box-sizing: border-box;
+  background: transparent;
+  color: #585756;
+  width: 100%;
+}
+
+.form-input::placeholder {
+  color: #6C7278;
+}
 /* Password wrapper with eye button */
 .password-wrapper {
   position: relative;
