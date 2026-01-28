@@ -184,8 +184,15 @@ const History = () => {
           <div className="top">
             <BackButton />
             <p className="toptext">History</p>
+            
           </div>
 
+            <p className="toptext" style={{ fontSize: "1rem", color: "#666" }}>
+              {history.length === 0
+                ? "No data collected."
+                : "Review your past health checkups below."}
+            </p>
+          
           <div className="history-list">
             {history.map((item) => {
               const metrics = evaluateMetrics(item);
