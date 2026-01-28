@@ -169,14 +169,31 @@ const Profile = () => {
                   />
                 </div>
               </div>
+              
             </div>
+            
+            {/* <div className="toggle-row">
+                <div className="toggle-info">
+                  <span className="toggle-label"><FiMoon className="icon" /> Dark Mode</span>
+                  <span className="toggle-desc">Switch between light and dark themes</span>
+                </div>
+                <label className="switch">
+                  <input type="checkbox" name="isDarkMode" checked={userData.isDarkMode} onChange={handleChange} />
+                  <span className="slider round"></span>
+                </label>
+            </div> */}
 
             {/* Action Buttons */}
             <div className="action-buttons">
-              <button className="btn-primary" onClick={handleSave}>
-                <FiSave /> Save Changes
-              </button>
+                <button className="btn-secondary">
+                    Change Password
+                </button>
+                <button className="btn-primary" onClick={handleSave}>
+                    <FiSave /> Save Changes
+                </button>
             </div>
+
+            
           </div>
         </div>
       </div>

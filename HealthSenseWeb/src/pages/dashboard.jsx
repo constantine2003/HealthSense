@@ -54,7 +54,7 @@ const Dashboard = () => {
             <div className="dashboard-content-wrapper">
               <p className="welcome-user">Welcome</p>
               {fullName && (
-                <p className="welcome-username">{fullName}!!!</p>
+                <p className="welcome-username">{fullName}</p>
               )}
               <p className="description-text">
                 "Access your medical checkup results and history securely."
