@@ -5,6 +5,7 @@ import Navbar from "../components/navbar.jsx";
 import { useNavigate } from "react-router-dom";
 import { login } from "../auth/login"; 
 import { useAuth } from "../hooks/useAuth"; // your auth hook
+import PasswordRecoveryModal from "../components/PasswordRecoveryModal";
 
 const Home = () => {
   const navigate = useNavigate();
@@ -15,6 +16,7 @@ const Home = () => {
   const [passwordInput, setPasswordInput] = useState("");
   const [loginError, setLoginError] = useState("");
 
+  const [isModalOpen, setIsModalOpen] = useState(false);
   // Redirect immediately if user is already logged in
   useEffect(() => {
     if (!loading && user) {
@@ -98,7 +100,15 @@ const Home = () => {
                 Log in
               </button>
 
-              <a href="#" className="forgot-password">Forgot Password?</a>
+              <a 
+                href="#" 
+                className="forgot-password" 
+                onClick={(e) => { e.preventDefault(); setIsModalOpen(true); }}
+              >
+                Forgot Password?
+              </a>
+
+              
 
               <p className="terms-text">
                 By signing up, you agree to the{" "}
@@ -108,6 +118,10 @@ const Home = () => {
             </div>
           </div>
         </div>
+        <PasswordRecoveryModal 
+        isOpen={isModalOpen} 
+        onClose={() => setIsModalOpen(false)} 
+        />
       </div>
     </div>
   );
