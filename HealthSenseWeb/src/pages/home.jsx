@@ -3,8 +3,8 @@ import { FaEye, FaEyeSlash } from "react-icons/fa";
 import "../styles/home.css";
 import Navbar from "../components/navbar.jsx";
 import { useNavigate } from "react-router-dom";
-import { login } from "../auth/login"; 
-import { useAuth } from "../hooks/useAuth"; // your auth hook
+import { login } from "../auth/login";
+import { useAuth } from "../hooks/useAuth";
 import PasswordRecoveryModal from "../components/PasswordRecoveryModal";
 
 const Home = () => {
@@ -41,7 +41,9 @@ const Home = () => {
     }
   };
 
-  if (loading) return null; // wait for auth to load
+
+  if (loading) return null;
+
 
   return (
     <div className="main-container">
@@ -54,19 +56,18 @@ const Home = () => {
             View your health checkup results securely and conveniently online
           </p>
         </div>
-
         <div className="right-div">
           <div className="login-card">
             <div className="login-content">
               <h2 className="login-title">Welcome</h2>
               <p className="login-subtitle">Log in using your account to proceed</p>
-
               <div className="form-group">
                 {loginError && (
                   <div className="login-error" role="alert">{loginError}</div>
                 )}
-                <label>Email</label>
+                <label htmlFor="email-input">Email</label>
                 <input
+                  id="email-input"
                   className="login-input"
                   type="text"
                   placeholder="firstname.lastname"
@@ -74,11 +75,11 @@ const Home = () => {
                   onChange={(e) => setEmailInput(e.target.value)}
                 />
               </div>
-
               <div className="form-group">
-                <label>Password</label>
+                <label htmlFor="password-input">Password</label>
                 <div className="password-wrapper">
                   <input
+                    id="password-input"
                     type={showPassword ? "text" : "password"}
                     className="login-input"
                     placeholder="Password"
@@ -89,30 +90,28 @@ const Home = () => {
                     className="eye-btn"
                     type="button"
                     onClick={togglePasswordVisibility}
-                    style={{ color: "#585756" }}
+                    aria-label={showPassword ? "Hide password" : "Show password"}
                   >
                     {showPassword ? <FaEyeSlash /> : <FaEye />}
                   </button>
                 </div>
               </div>
-
               <button className="login-btn" onClick={handleLogin}>
                 Log in
               </button>
-
-              <a 
-                href="#" 
-                className="forgot-password" 
-                onClick={(e) => { e.preventDefault(); setIsModalOpen(true); }}
+              <a
+                href="#"
+                className="forgot-password"
+                onClick={(e) => {
+                  e.preventDefault();
+                  setIsModalOpen(true);
+                }}
               >
                 Forgot Password?
               </a>
-
-              
-
               <p className="terms-text">
-                By signing up, you agree to the{" "}
-                <span className="terms-highlight">Terms of Service</span> and{" "}
+                By signing up, you agree to the{' '}
+                <span className="terms-highlight">Terms of Service</span> and{' '}
                 <span className="terms-highlight">Data Processing Agreement</span>
               </p>
             </div>
