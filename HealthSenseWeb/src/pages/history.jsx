@@ -131,12 +131,14 @@ const evaluateMetrics = (checkup) => {
 // ================================
 // Main Component
 // ================================
+
 const History = () => {
   const navigate = useNavigate();
   const { user, loading: authLoading } = useAuth();
 
   const [splash, setSplash] = useState(true);
   const [history, setHistory] = useState([]);
+  const [selectedCheckup, setSelectedCheckup] = useState(null);
 
   // Fetch user history
   useEffect(() => {
@@ -216,13 +218,40 @@ const History = () => {
                     ))}
                   </div>
 
-                  <button className="details-arrow">View details</button>
+                  <button className="details-arrow" onClick={() => setSelectedCheckup(item)}>View details</button>
                 </div>
               );
             })}
           </div>
         </div>
       </div>
+      {/* Modal for details */}
+      {selectedCheckup && (
+        <div className="modal-overlay" onClick={() => setSelectedCheckup(null)}>
+          <div className="modal-content" onClick={e => e.stopPropagation()}>
+            <button className="modal-close" onClick={() => setSelectedCheckup(null)}>&times;</button>
+            <h2 style={{ marginBottom: 8 }}>Checkup Details</h2>
+            <div style={{ color: '#666', fontSize: 14, marginBottom: 12 }}>
+              {new Date(selectedCheckup.created_at).toLocaleString()}
+            </div>
+            <div className="modal-metrics">
+              {evaluateMetrics(selectedCheckup).map((m, idx) => (
+                <div key={idx} className={`modal-metric metric-${m.statusType}`}>
+                  <div className="metric-icon">{m.icon}</div>
+                  <div className="metric-info">
+                    <div className="metric-title">{m.title}</div>
+                    <div className="metric-value">{m.value}{m.unit}</div>
+                    <div className={`metric-status status-${m.statusType}`}>{m.status}</div>
+                  </div>
+                </div>
+              ))}
+            </div>
+            <div className="modal-extra">
+              <div><b>Notes:</b> {selectedCheckup.notes || "-"}</div>
+            </div>
+          </div>
+        </div>
+      )}
     </div>
   );
 };
