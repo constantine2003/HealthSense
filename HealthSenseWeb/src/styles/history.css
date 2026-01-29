@@ -27,15 +27,7 @@
   max-width: 100%;
   overflow-x: hidden;
 }
-/* .history-content {
-  display: flex;
-  width: 100%;
-  height: calc(100svh - 90px);
-  padding: clamp(10px, 3vw, 20px);
-  box-sizing: border-box;
-  justify-content: center;
-  align-content: center;
-} */
+
 .history-content {
   display: flex;
   width: 100%;
