@@ -1,3 +1,31 @@
+/* --- Save Status Message --- */
+.save-status-message {
+    margin-top: 6px;
+    font-size: 14px;
+    font-family: 'Lexend', sans-serif;
+    border-radius: 8px;
+    padding: 8px 12px;
+    text-align: left;
+    transition: background 0.2s, color 0.2s;
+    word-break: break-word;
+    max-width: 100%;
+}
+.save-status-message.success {
+    background: #e6f9f0;
+    color: #1a7f5a;
+    border: 1px solid #22c55e;
+}
+.save-status-message.error {
+    background: #fff0f0;
+    color: #c0392b;
+    border: 1px solid #e74c3c;
+}
+@media (max-width: 600px) {
+    .save-status-message {
+        font-size: 13px;
+        padding: 7px 8px;
+    }
+}
 /* --- Global Container Tweaks --- */
 .profile-page-content {
     display: flex;

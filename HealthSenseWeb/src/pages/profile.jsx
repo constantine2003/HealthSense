@@ -82,8 +82,10 @@ const Profile = () => {
     setShowPass((prev) => ({ ...prev, [field]: !prev[field] }));
   };
 
-  // Save Recovery Email
+  // Save Recovery Email with inline status message
+  const [saveStatus, setSaveStatus] = useState({ message: "", type: "" }); // type: 'success' | 'error' | ''
   const handleSave = async () => {
+    setSaveStatus({ message: "", type: "" });
     try {
       const { data: { user } } = await supabase.auth.getUser();
       if (!user) throw new Error("User not found");
@@ -94,9 +96,9 @@ const Profile = () => {
         .eq("id", user.id);
 
       if (error) throw error;
-      alert("Recovery email updated successfully!");
+      setSaveStatus({ message: "Recovery email updated successfully!", type: "success" });
     } catch (err) {
-      alert("Failed to save recovery email: " + (err.message || err));
+      setSaveStatus({ message: "Failed to save recovery email: " + (err.message || err), type: "error" });
     }
   };
 
@@ -215,6 +217,11 @@ const Profile = () => {
                     onChange={handleChange}
                   />
                 </div>
+                {saveStatus.message && (
+                  <div className={`save-status-message ${saveStatus.type}`}>
+                    {saveStatus.message}
+                  </div>
+                )}
               </div>
             </div>
 
