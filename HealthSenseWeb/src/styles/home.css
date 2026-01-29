@@ -218,13 +218,6 @@ body,
   
 }
 
-.form-group label {
-  font-size: 16px;
-  font-weight: 500;
-  letter-spacing: -2%;
-  color: #139dc7;
-}
-
 .form-group input {
   height: 46px;
   padding: 10px;
@@ -240,12 +233,7 @@ body,
 .form-group input::placeholder {
   color: #6C7278;
 }
-.form-group label {
-  font-size: 16px;
-  font-weight: 500;
-  letter-spacing: -2%;
-  color: #139dc7;
-}
+
 
 .form-input {
   height: 46px;

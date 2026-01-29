@@ -3,8 +3,7 @@
    ======================================== */
 
 .main-container {
-  min-height: 100svh; /* mobile-safe viewport */
-  min-height: 100vh;
+  min-height: 100vh; /* mobile-safe viewport */
   display: flex;
   flex-direction: column;
   background: linear-gradient(to bottom, #EAF4FF, #BFD9FF, #9FC5F8);
@@ -28,8 +27,8 @@
 
 
 /* ========================================
-   DASHBOARD BOX
-======================================== */
+  DASHBOARD BOX
+  ======================================== */
 .dashboard-box {
   position: relative;
   background: rgba(255, 255, 255, 0.13);
@@ -131,8 +130,8 @@
 }
 
 /* ========================================
-   WELCOME TEXT
-======================================== */
+  WELCOME TEXT
+  ======================================== */
 .welcome-user {
   font-family: 'Lexend', sans-serif;
   font-weight: 700;
@@ -175,8 +174,8 @@
 }
 
 /* ========================================
-   BUTTONS
-======================================== */
+  BUTTONS
+  ======================================== */
 .dashboard-buttons {
   display: flex;
   flex-direction: row;    /* Always side-by-side */
@@ -258,8 +257,8 @@
 }
 
 /* ========================================
-   MEDIA QUERIES
-======================================== */
+  MEDIA QUERIES
+  ======================================== */
 
 @media (min-width: 2560px) {
   .dashboard-box {

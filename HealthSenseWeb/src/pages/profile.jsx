@@ -82,8 +82,10 @@ const Profile = () => {
     setShowPass((prev) => ({ ...prev, [field]: !prev[field] }));
   };
 
-  // Save Recovery Email
+  // Save Recovery Email with inline status message
+  const [saveStatus, setSaveStatus] = useState({ message: "", type: "" }); // type: 'success' | 'error' | ''
   const handleSave = async () => {
+    setSaveStatus({ message: "", type: "" });
     try {
       const { data: { user } } = await supabase.auth.getUser();
       if (!user) throw new Error("User not found");
@@ -94,20 +96,22 @@ const Profile = () => {
         .eq("id", user.id);
 
       if (error) throw error;
-      alert("Recovery email updated successfully!");
+      setSaveStatus({ message: "Recovery email updated successfully!", type: "success" });
     } catch (err) {
-      alert("Failed to save recovery email: " + (err.message || err));
+      setSaveStatus({ message: "Failed to save recovery email: " + (err.message || err), type: "error" });
     }
   };
 
-  // Handle Password Save (with Supabase verification)
+  // Handle Password Save (with Supabase verification) and inline status
+  const [passwordStatus, setPasswordStatus] = useState({ message: "", type: "", field: "" }); // type: 'success' | 'error', field: 'old' | 'confirm' | ''
   const handleSavePassword = async () => {
+    setPasswordStatus({ message: "", type: "", field: "" });
     if (passwords.newPassword !== passwords.confirmPassword) {
-      alert("New passwords do not match!");
+      setPasswordStatus({ message: "New passwords do not match!", type: "error", field: "confirm" });
       return;
     }
     if (passwords.newPassword.length < 6) {
-      alert("Password must be at least 6 characters.");
+      setPasswordStatus({ message: "Password must be at least 6 characters.", type: "error", field: "confirm" });
       return;
     }
     try {
@@ -121,7 +125,7 @@ const Profile = () => {
         password: passwords.oldPassword,
       });
       if (signInError) {
-        alert("Old password is incorrect.");
+        setPasswordStatus({ message: "Old password is incorrect.", type: "error", field: "old" });
         return;
       }
       // Update password
@@ -129,10 +133,12 @@ const Profile = () => {
         password: passwords.newPassword,
       });
       if (updateError) throw updateError;
-      alert("Password changed successfully!");
-      closeModal();
+      setPasswordStatus({ message: "Password changed successfully!", type: "success", field: "confirm" });
+      setTimeout(() => {
+        closeModal();
+      }, 1200);
     } catch (err) {
-      alert("Failed to change password: " + (err.message || err));
+      setPasswordStatus({ message: "Failed to change password: " + (err.message || err), type: "error", field: "confirm" });
     }
   };
 
@@ -215,6 +221,11 @@ const Profile = () => {
                     onChange={handleChange}
                   />
                 </div>
+                {saveStatus.message && (
+                  <div className={`save-status-message ${saveStatus.type}`}>
+                    {saveStatus.message}
+                  </div>
+                )}
               </div>
             </div>
 
@@ -265,6 +276,9 @@ const Profile = () => {
                     {showPass.old ? <FaEyeSlash /> : <FaEye />}
                   </button>
                 </div>
+                {passwordStatus.message && passwordStatus.field === "old" && (
+                  <div className={`save-status-message ${passwordStatus.type}`}>{passwordStatus.message}</div>
+                )}
               </div>
 
               {/* New Password */}
@@ -307,6 +321,9 @@ const Profile = () => {
                     {showPass.confirm ? <FaEyeSlash /> : <FaEye />}
                   </button>
                 </div>
+                {passwordStatus.message && passwordStatus.field === "confirm" && (
+                  <div className={`save-status-message ${passwordStatus.type}`}>{passwordStatus.message}</div>
+                )}
               </div>
             </div>
 
