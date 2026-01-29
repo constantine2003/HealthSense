@@ -128,6 +128,18 @@ const evaluateMetrics = (checkup) => {
   return healthData;
 };
 
+// Generate a simple AI summary based on metrics
+const getAISummary = (metrics) => {
+  const types = metrics.map(m => m.statusType);
+  if (types.includes("danger")) {
+    return "Some results are at risk. Please consult a healthcare professional.";
+  } else if (types.includes("warning")) {
+    return "Some results are slightly out of range. Monitor your health.";
+  } else {
+    return "All results are within normal range. Keep up the good work!";
+  }
+};
+
 // ================================
 // Main Component
 // ================================
@@ -226,32 +238,39 @@ const History = () => {
         </div>
       </div>
       {/* Modal for details */}
-      {selectedCheckup && (
-        <div className="modal-overlay" onClick={() => setSelectedCheckup(null)}>
-          <div className="modal-content" onClick={e => e.stopPropagation()}>
-            <button className="modal-close" onClick={() => setSelectedCheckup(null)}>&times;</button>
-            <h2 style={{ marginBottom: 8 }}>Checkup Details</h2>
-            <div style={{ color: '#666', fontSize: 14, marginBottom: 12 }}>
-              {new Date(selectedCheckup.created_at).toLocaleString()}
-            </div>
-            <div className="modal-metrics">
-              {evaluateMetrics(selectedCheckup).map((m, idx) => (
-                <div key={idx} className={`modal-metric metric-${m.statusType}`}>
-                  <div className="metric-icon">{m.icon}</div>
-                  <div className="metric-info">
-                    <div className="metric-title">{m.title}</div>
-                    <div className="metric-value">{m.value}{m.unit}</div>
-                    <div className={`metric-status status-${m.statusType}`}>{m.status}</div>
+      {selectedCheckup && (() => {
+        const metrics = evaluateMetrics(selectedCheckup);
+        const aiSummary = getAISummary(metrics);
+        return (
+          <div className="modal-overlay" onClick={() => setSelectedCheckup(null)}>
+            <div className="modal-content" onClick={e => e.stopPropagation()}>
+              <button className="modal-close" onClick={() => setSelectedCheckup(null)}>&times;</button>
+              <h2 style={{ marginBottom: 8 }}>Checkup Details</h2>
+              <div style={{ color: '#666', fontSize: 14, marginBottom: 12 }}>
+                {new Date(selectedCheckup.created_at).toLocaleString()}
+              </div>
+              <div className="modal-metrics">
+                {metrics.map((m, idx) => (
+                  <div key={idx} className={`modal-metric metric-${m.statusType}`}>
+                    <div className="metric-icon">{m.icon}</div>
+                    <div className="metric-info">
+                      <div className="metric-title">{m.title}</div>
+                      <div className="metric-value">{m.value}{m.unit}</div>
+                      <div className={`metric-status status-${m.statusType}`}>{m.status}</div>
+                    </div>
                   </div>
+                ))}
+              </div>
+              <div className="modal-extra">
+                <div style={{ marginBottom: 6, color: '#168AAD', fontWeight: 600 }}>
+                  <b>System Summary:</b> {aiSummary}
                 </div>
-              ))}
-            </div>
-            <div className="modal-extra">
-              <div><b>Notes:</b> {selectedCheckup.notes || "-"}</div>
+                <div><b>Notes:</b> {selectedCheckup.notes || "-"}</div>
+              </div>
             </div>
           </div>
-        </div>
-      )}
+        );
+      })()}
     </div>
   );
 };
