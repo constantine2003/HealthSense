@@ -1,3 +1,11 @@
+// Format birthday from YYYY-MM-DD to 'Month Day Year' (e.g., December 23 2002)
+function formatBirthday(dateString) {
+  if (!dateString) return "";
+  const date = new Date(dateString);
+  if (isNaN(date)) return dateString;
+  const options = { year: 'numeric', month: 'long', day: 'numeric' };
+  return date.toLocaleDateString(undefined, options);
+}
 import React, { useState, useEffect } from "react";
 import Navbar from "../components/navbar3.jsx";
 import "../styles/profile.css";
@@ -19,6 +27,7 @@ const Profile = () => {
     fullName: "",
     email: "",
     recoveryEmail: "",
+    birthday: "",
   });
 
   // --- MODAL STATE ---
@@ -46,13 +55,12 @@ const Profile = () => {
         }
 
         const profile = await getProfile(user.id);
-        
         setUserData({
           fullName: `${profile.first_name} ${profile.last_name}`,
           email: profile.email || user.email || "",
           recoveryEmail: profile.recovery_email || "",
+          birthday: profile.birthday || "",
         });
-
         setTimeout(() => {
           setSplash(false);
           setLoading(false);
@@ -199,6 +207,21 @@ const Profile = () => {
                     disabled
                     className="input-disabled"
                   />
+                  <span className="helper-text">
+                    Email cannot be changed.
+                  </span>
+                </div>
+                <div className="form-group">
+                  <label>Birthday</label>
+                  <input
+                    type="text"
+                    value={loading ? "..." : (userData.birthday ? formatBirthday(userData.birthday) : "")}
+                    disabled
+                    className="input-disabled"
+                  />
+                  <span className="helper-text">
+                    Birthday cannot be changed. Contact support to update.
+                  </span>
                 </div>
               </div>
             </div>
