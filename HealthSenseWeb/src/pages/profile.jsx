@@ -215,7 +215,7 @@ const Profile = () => {
                   </span> */}
                 </div>
 
-                <div className="form-group">
+                {/* <div className="form-group">
                   <label>Email Address</label>
                   <input
                     type="email"
@@ -223,10 +223,10 @@ const Profile = () => {
                     disabled
                     className="input-disabled"
                   />
-                  {/* <span className="helper-text">
+                  <span className="helper-text">
                     Email cannot be changed.
-                  </span> */}
-                </div>
+                  </span>
+                </div> */}
                 <div className="form-group">
                   <label>Birthdate</label>
                   <input
