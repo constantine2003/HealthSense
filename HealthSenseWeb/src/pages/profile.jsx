@@ -1,11 +1,5 @@
 // Format birthday from YYYY-MM-DD to 'Month Day Year' (e.g., December 23 2002)
-function formatBirthday(dateString) {
-  if (!dateString) return "";
-  const date = new Date(dateString);
-  if (isNaN(date)) return dateString;
-  const options = { year: 'numeric', month: 'long', day: 'numeric' };
-  return date.toLocaleDateString(undefined, options);
-}
+
 import React, { useState, useEffect } from "react";
 import Navbar from "../components/navbar3.jsx";
 import "../styles/profile.css";
@@ -17,6 +11,13 @@ import { getProfile } from "../auth/getProfile";
 import SplashScreen from "../components/splashscreen";
 import { useNavigate } from "react-router-dom";
 
+function formatBirthday(dateString) {
+  if (!dateString) return "";
+  const date = new Date(dateString);
+  if (isNaN(date)) return dateString;
+  const options = { year: 'numeric', month: 'long', day: 'numeric' };
+  return date.toLocaleDateString(undefined, options);
+}
 const Profile = () => {
   const navigate = useNavigate();
   const [splash, setSplash] = useState(true);
@@ -28,6 +29,7 @@ const Profile = () => {
     email: "",
     recoveryEmail: "",
     birthday: "",
+    sex: "",
   });
 
   // --- MODAL STATE ---
@@ -60,6 +62,7 @@ const Profile = () => {
           email: profile.email || user.email || "",
           recoveryEmail: profile.recovery_email || "",
           birthday: profile.birthday || "",
+          sex: profile.sex || "",
         });
         setTimeout(() => {
           setSplash(false);
@@ -231,9 +234,9 @@ const Profile = () => {
                     disabled
                     className="input-disabled"
                   />
-                  {/* <span className="helper-text">
-                    Sex cannot be changed. Contact support to update.
-                  </span> */}
+                  <span className="helper-text">
+                    Personal information cannot be changed. Contact support to update.
+                  </span>
                 </div>
               </div>
             </div>
