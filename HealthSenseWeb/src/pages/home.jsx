@@ -17,6 +17,7 @@ const Home = () => {
   const [loginError, setLoginError] = useState("");
 
   const [isModalOpen, setIsModalOpen] = useState(false);
+
   // Redirect immediately if user is already logged in
   useEffect(() => {
     if (!loading && user) {
@@ -26,7 +27,10 @@ const Home = () => {
 
   const togglePasswordVisibility = () => setShowPassword(!showPassword);
 
-  const handleLogin = async () => {
+  const handleLogin = async (e) => {
+    // Prevent the browser from reloading the page on form submit
+    if (e) e.preventDefault();
+
     const email = emailInput.includes("@") ? emailInput : `${emailInput}@kiosk.local`;
     const password = passwordInput;
 
@@ -41,9 +45,7 @@ const Home = () => {
     }
   };
 
-
   if (loading) return null;
-
 
   return (
     <div className="main-container">
@@ -58,9 +60,11 @@ const Home = () => {
         </div>
         <div className="right-div">
           <div className="login-card">
-            <div className="login-content">
+            {/* Changed from <div> to <form> to enable 'Enter' key submission */}
+            <form className="login-content" onSubmit={handleLogin}>
               <h2 className="login-title">Welcome</h2>
               <p className="login-subtitle">Log in using your account to proceed</p>
+              
               <div className="form-group">
                 {loginError && (
                   <div className="login-error" role="alert">{loginError}</div>
@@ -73,8 +77,10 @@ const Home = () => {
                   placeholder="firstname.lastname"
                   value={emailInput}
                   onChange={(e) => setEmailInput(e.target.value)}
+                  required
                 />
               </div>
+
               <div className="form-group">
                 <label htmlFor="password-input">Password</label>
                 <div className="password-wrapper">
@@ -85,6 +91,7 @@ const Home = () => {
                     placeholder="Password"
                     value={passwordInput}
                     onChange={(e) => setPasswordInput(e.target.value)}
+                    required
                   />
                   <button
                     className="eye-btn"
@@ -96,9 +103,12 @@ const Home = () => {
                   </button>
                 </div>
               </div>
-              <button className="login-btn" onClick={handleLogin}>
+
+              {/* Added type="submit" to ensure the form captures the click/enter event */}
+              <button type="submit" className="login-btn">
                 Log in
               </button>
+
               <a
                 href="#"
                 className="forgot-password"
@@ -114,12 +124,12 @@ const Home = () => {
                 <span className="terms-highlight">Terms of Service</span> and{' '}
                 <span className="terms-highlight">Data Processing Agreement</span>
               </p>
-            </div>
+            </form>
           </div>
         </div>
         <PasswordRecoveryModal 
-        isOpen={isModalOpen} 
-        onClose={() => setIsModalOpen(false)} 
+          isOpen={isModalOpen} 
+          onClose={() => setIsModalOpen(false)} 
         />
       </div>
     </div>

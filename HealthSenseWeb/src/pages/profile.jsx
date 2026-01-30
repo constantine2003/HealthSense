@@ -1,3 +1,5 @@
+// Format birthday from YYYY-MM-DD to 'Month Day Year' (e.g., December 23 2002)
+
 import React, { useState, useEffect } from "react";
 import Navbar from "../components/navbar3.jsx";
 import "../styles/profile.css";
@@ -9,6 +11,26 @@ import { getProfile } from "../auth/getProfile";
 import SplashScreen from "../components/splashscreen";
 import { useNavigate } from "react-router-dom";
 
+function formatBirthday(dateString) {
+  if (!dateString) return "";
+  const date = new Date(dateString);
+  if (isNaN(date)) return dateString;
+  const options = { year: 'numeric', month: 'long', day: 'numeric' };
+  return date.toLocaleDateString(undefined, options);
+}
+
+function calculateAge(dateString) {
+  if (!dateString) return "";
+  const birthDate = new Date(dateString);
+  if (isNaN(birthDate)) return "";
+  const today = new Date();
+  let age = today.getFullYear() - birthDate.getFullYear();
+  const m = today.getMonth() - birthDate.getMonth();
+  if (m < 0 || (m === 0 && today.getDate() < birthDate.getDate())) {
+    age--;
+  }
+  return age;
+}
 const Profile = () => {
   const navigate = useNavigate();
   const [splash, setSplash] = useState(true);
@@ -19,6 +41,8 @@ const Profile = () => {
     fullName: "",
     email: "",
     recoveryEmail: "",
+    birthday: "",
+    sex: "",
   });
 
   // --- MODAL STATE ---
@@ -46,13 +70,13 @@ const Profile = () => {
         }
 
         const profile = await getProfile(user.id);
-        
         setUserData({
           fullName: `${profile.first_name} ${profile.last_name}`,
           email: profile.email || user.email || "",
           recoveryEmail: profile.recovery_email || "",
+          birthday: profile.birthday || "",
+          sex: profile.sex || "",
         });
-
         setTimeout(() => {
           setSplash(false);
           setLoading(false);
@@ -186,12 +210,12 @@ const Profile = () => {
                     disabled
                     className="input-disabled"
                   />
-                  <span className="helper-text">
+                  {/* <span className="helper-text">
                     Name cannot be changed. Contact support to update.
-                  </span>
+                  </span> */}
                 </div>
 
-                <div className="form-group">
+                {/* <div className="form-group">
                   <label>Email Address</label>
                   <input
                     type="email"
@@ -199,6 +223,39 @@ const Profile = () => {
                     disabled
                     className="input-disabled"
                   />
+                  <span className="helper-text">
+                    Email cannot be changed.
+                  </span>
+                </div> */}
+                <div className="form-group">
+                  <label>Birthdate</label>
+                  <input
+                    type="text"
+                    value={loading ? "..." : (userData.birthday ? formatBirthday(userData.birthday) : "")}
+                    disabled
+                    className="input-disabled"
+                  />
+                </div>
+                <div className="form-group">
+                  <label>Age</label>
+                  <input
+                    type="text"
+                    value={loading ? "..." : (userData.birthday ? calculateAge(userData.birthday) : "")}
+                    disabled
+                    className="input-disabled"
+                  />
+                </div>
+                <div className="form-group">
+                  <label>Sex</label>
+                  <input
+                    type="text"
+                    value={loading ? "..." : userData.sex}
+                    disabled
+                    className="input-disabled"
+                  />
+                  <span className="helper-text">
+                    Personal information cannot be changed. Contact support to update.
+                  </span>
                 </div>
               </div>
             </div>
