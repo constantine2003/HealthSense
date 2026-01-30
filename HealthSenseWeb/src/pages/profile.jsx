@@ -18,6 +18,19 @@ function formatBirthday(dateString) {
   const options = { year: 'numeric', month: 'long', day: 'numeric' };
   return date.toLocaleDateString(undefined, options);
 }
+
+function calculateAge(dateString) {
+  if (!dateString) return "";
+  const birthDate = new Date(dateString);
+  if (isNaN(birthDate)) return "";
+  const today = new Date();
+  let age = today.getFullYear() - birthDate.getFullYear();
+  const m = today.getMonth() - birthDate.getMonth();
+  if (m < 0 || (m === 0 && today.getDate() < birthDate.getDate())) {
+    age--;
+  }
+  return age;
+}
 const Profile = () => {
   const navigate = useNavigate();
   const [splash, setSplash] = useState(true);
@@ -215,16 +228,22 @@ const Profile = () => {
                   </span> */}
                 </div>
                 <div className="form-group">
-                  <label>Birthday</label>
+                  <label>Birthdate</label>
                   <input
                     type="text"
                     value={loading ? "..." : (userData.birthday ? formatBirthday(userData.birthday) : "")}
                     disabled
                     className="input-disabled"
                   />
-                  {/* <span className="helper-text">
-                    Birthday cannot be changed. Contact support to update.
-                  </span> */}
+                </div>
+                <div className="form-group">
+                  <label>Age</label>
+                  <input
+                    type="text"
+                    value={loading ? "..." : (userData.birthday ? calculateAge(userData.birthday) : "")}
+                    disabled
+                    className="input-disabled"
+                  />
                 </div>
                 <div className="form-group">
                   <label>Sex</label>
