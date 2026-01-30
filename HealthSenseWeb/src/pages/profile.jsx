@@ -194,9 +194,9 @@ const Profile = () => {
                     disabled
                     className="input-disabled"
                   />
-                  <span className="helper-text">
+                  {/* <span className="helper-text">
                     Name cannot be changed. Contact support to update.
-                  </span>
+                  </span> */}
                 </div>
 
                 <div className="form-group">
@@ -207,9 +207,9 @@ const Profile = () => {
                     disabled
                     className="input-disabled"
                   />
-                  <span className="helper-text">
+                  {/* <span className="helper-text">
                     Email cannot be changed.
-                  </span>
+                  </span> */}
                 </div>
                 <div className="form-group">
                   <label>Birthday</label>
@@ -219,9 +219,21 @@ const Profile = () => {
                     disabled
                     className="input-disabled"
                   />
-                  <span className="helper-text">
+                  {/* <span className="helper-text">
                     Birthday cannot be changed. Contact support to update.
-                  </span>
+                  </span> */}
+                </div>
+                <div className="form-group">
+                  <label>Sex</label>
+                  <input
+                    type="text"
+                    value={loading ? "..." : userData.sex}
+                    disabled
+                    className="input-disabled"
+                  />
+                  {/* <span className="helper-text">
+                    Sex cannot be changed. Contact support to update.
+                  </span> */}
                 </div>
               </div>
             </div>
