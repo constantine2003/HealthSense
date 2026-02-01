@@ -145,6 +145,7 @@ const evaluateHealthMetrics = (userData) => {
 const Results = () => {
   const [userData, setUserData] = useState(null);
   const [loading, setLoading] = useState(true);
+  const [language, setLanguage] = useState("english");
   const navigate = useNavigate();
 
   useEffect(() => {
@@ -156,7 +157,22 @@ const Results = () => {
           const { data: { user } } = await supabase.auth.getUser();
           if (!user) {
             navigate("/");
-            return null;
+            return { checkup: null, language: "english" };
+          }
+
+          // Fetch language from user profile
+          const { data: profile, error: profileError } = await supabase
+            .from("profiles")
+            .select("language")
+            .eq("id", user.id)
+            .single();
+
+          let userLanguage = "english";
+          if (profile && profile.language) {
+            const lang = profile.language.toLowerCase();
+            if (lang === "tagalog" || lang === "tl") {
+              userLanguage = "tagalog";
+            }
           }
 
           const { data, error } = await supabase
@@ -168,11 +184,14 @@ const Results = () => {
             .single();
 
           if (error) throw error;
-          return data;
+          return { checkup: data, language: userLanguage };
         };
 
-        const [data] = await Promise.all([fetchData(), timer]);
-        if (data) setUserData(data);
+        const [result] = await Promise.all([fetchData(), timer]);
+        if (result) {
+          setUserData(result.checkup);
+          setLanguage(result.language);
+        }
       } catch (err) {
         console.error("Failed to fetch latest checkup:", err.message);
         await timer;
@@ -204,11 +223,13 @@ const Results = () => {
           <div className="results-box">
             <div className="top">
               <BackButton />
-              <p className="toptext">Your Results</p>
+              <p className="toptext">{language === "tagalog" ? "Iyong mga Resulta" : "Your Results"}</p>
             </div>
             {/* Added the dynamic date and time here */}
             <p className="toptext" style={{ fontSize: "1rem", color: "#666", }}>
-              Latest Data collected on: {formattedDate}
+              {language === "tagalog"
+                ? `Pinakahuling datos na nakuha noong: ${formattedDate}`
+                : `Latest Data collected on: ${formattedDate}`}
             </p>
             <div className="results-grid">
               {healthData.map((item, index) => (
