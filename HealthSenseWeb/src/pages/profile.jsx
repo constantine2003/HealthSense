@@ -40,7 +40,11 @@ const Profile = () => {
     recoveryEmail: "",
     birthday: "",
     sex: "",
+    language: "English",
   });
+
+  // Language state for localization
+  const [language, setLanguage] = useState("english");
 
   // --- MODAL STATE ---
   const [isModalOpen, setIsModalOpen] = useState(false);
@@ -73,7 +77,19 @@ const Profile = () => {
           recoveryEmail: profile.recovery_email || "",
           birthday: profile.birthday || "",
           sex: profile.sex || "",
+          language: profile.language || "English",
         });
+        // Set language state for localization
+        if (profile.language) {
+          const lang = profile.language.toLowerCase();
+          if (lang === "tagalog" || lang === "tl") {
+            setLanguage("tagalog");
+          } else {
+            setLanguage("english");
+          }
+        } else {
+          setLanguage("english");
+        }
         setTimeout(() => {
           setSplash(false);
           setLoading(false);
@@ -189,8 +205,8 @@ const Profile = () => {
               {loading ? "..." : getInitials(userData.fullName)}
             </div>
             <div className="header-text">
-              <h2>Account Settings</h2>
-              <p>Manage your profile details and preferences</p>
+              <h2>{language === "tagalog" ? "Mga Setting ng Account" : "Account Settings"}</h2>
+              <p>{language === "tagalog" ? "I-manage ang iyong detalye ng profile at mga kagustuhan" : "Manage your profile details and preferences"}</p>
             </div>
           </div>
 
@@ -257,28 +273,6 @@ const Profile = () => {
                     Personal information cannot be changed. Contact support to update.
                   </span>
                 </div>
-              </div>
-            </div>
-
-            {/* Security & Preferences */}
-            <div className="settings-section">
-              <h3 className="section-title">
-                <FiShield className="icon" /> Security & Preferences
-              </h3>
-
-              <div className="form-group">
-                <label>Recovery Email</label>
-                <div className="input-with-icon">
-                  <FiMail className="input-icon" />
-                  <input
-                    type="email"
-                    name="recoveryEmail"
-                    placeholder="Enter a backup email address"
-                    value={userData.recoveryEmail}
-                    onChange={handleChange}
-                  />
-                </div>
-                
               </div>
             </div>
 

@@ -13,7 +13,7 @@ import { supabase } from "../supabaseClient";
 // ===============================
 // Evaluate health metrics
 // ===============================
-const evaluateHealthMetrics = (userData) => {
+const evaluateHealthMetrics = (userData, language = "english") => {
   const healthData = [];
 
   // Icon Responsive Style
@@ -52,7 +52,7 @@ const evaluateHealthMetrics = (userData) => {
     else { tempStatus = "High Fever"; tempType = "danger"; }
   }
   healthData.push({
-    title: "Temperature",
+    title: language === "tagalog" ? "Temperatura" : "Temperature",
     value: temp || "-",
     unit: "°C",
     status: tempStatus,
@@ -68,7 +68,7 @@ const evaluateHealthMetrics = (userData) => {
     else { heightStatus = "Above Average"; heightType = "success"; }
   }
   healthData.push({
-    title: "Height",
+    title: language === "tagalog" ? "Taas" : "Height",
     value: height || "-",
     unit: "m",
     status: heightStatus,
@@ -94,21 +94,21 @@ const evaluateHealthMetrics = (userData) => {
   }
 
   healthData.push({
-      title: "Weight",
-      value: weight || "-",
-      unit: "kg",
-      status: weightStatus,
-      statusType: weightType,
-      icon: <MdMonitorWeight color={weightType === "success" ? "#22c55e" : weightType === "warning" ? "#F97316" : "#EF4444"} style={iconStyle} />
+    title: language === "tagalog" ? "Timbang" : "Weight",
+    value: weight || "-",
+    unit: "kg",
+    status: weightStatus,
+    statusType: weightType,
+    icon: <MdMonitorWeight color={weightType === "success" ? "#22c55e" : weightType === "warning" ? "#F97316" : "#EF4444"} style={iconStyle} />
   });
 
   healthData.push({
-      title: "BMI",
-      value: bmiValue,
-      unit: "",
-      status: bmiStatus,
-      statusType: bmiType,
-      icon: <FiBarChart color={bmiType === "success" ? "#22c55e" : bmiType === "warning" ? "#F97316" : "#EF4444"} style={iconStyle} />
+    title: language === "tagalog" ? "BMI" : "BMI",
+    value: bmiValue,
+    unit: "",
+    status: bmiStatus,
+    statusType: bmiType,
+    icon: <FiBarChart color={bmiType === "success" ? "#22c55e" : bmiType === "warning" ? "#F97316" : "#EF4444"} style={iconStyle} />
   });
 
   // Blood Pressure
@@ -128,12 +128,12 @@ const evaluateHealthMetrics = (userData) => {
   }
 
   healthData.push({
-      title: "Blood Pressure",
-      value: bpValue,
-      unit: "mmHg",
-      status: bpStatus,
-      statusType: bpType,
-      icon: <FiHeart color={bpType === "success" ? "#22c55e" : bpType === "warning" ? "#F97316" : "#EF4444"} style={iconStyle} />
+    title: language === "tagalog" ? "Presyon ng Dugo" : "Blood Pressure",
+    value: bpValue,
+    unit: "mmHg",
+    status: bpStatus,
+    statusType: bpType,
+    icon: <FiHeart color={bpType === "success" ? "#22c55e" : bpType === "warning" ? "#F97316" : "#EF4444"} style={iconStyle} />
   });
 
   return healthData;
@@ -205,7 +205,7 @@ const Results = () => {
 
   if (loading) return <SplashScreen />;
 
-  const healthData = userData ? evaluateHealthMetrics(userData) : [];
+  const healthData = userData ? evaluateHealthMetrics(userData, language) : [];
   
   // Format the date from Supabase created_at
   const formattedDate = userData?.created_at 

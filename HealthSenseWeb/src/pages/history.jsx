@@ -12,7 +12,7 @@ import { MdHeight, MdMonitorWeight } from 'react-icons/md';
 // ================================
 // Evaluate metrics (same as dashboard logic)
 // ================================
-const evaluateMetrics = (checkup) => {
+const evaluateMetrics = (checkup, language = "english") => {
   const healthData = [];
 
   const isValidNumber = (n) => n !== null && n !== undefined && !isNaN(n);
@@ -32,7 +32,7 @@ const evaluateMetrics = (checkup) => {
     else { spo2Status = "Excellent"; spo2Type = "success"; }
   }
   healthData.push({
-    title: "SpO2",
+    title: language === "tagalog" ? "SpO2" : "SpO2",
     value: spo2 || "-",
     unit: "%",
     status: spo2Status,
@@ -50,7 +50,7 @@ const evaluateMetrics = (checkup) => {
     else { tempStatus = "High Fever"; tempType = "danger"; }
   }
   healthData.push({
-    title: "Temperature",
+    title: language === "tagalog" ? "Temperatura" : "Temperature",
     value: temp || "-",
     unit: "°C",
     status: tempStatus,
@@ -66,7 +66,7 @@ const evaluateMetrics = (checkup) => {
     else { heightStatus = "Above Average"; heightType = "success"; }
   }
   healthData.push({
-    title: "Height",
+    title: language === "tagalog" ? "Taas" : "Height",
     value: height || "-",
     unit: "m",
     status: heightStatus,
@@ -88,7 +88,7 @@ const evaluateMetrics = (checkup) => {
   }
 
   healthData.push({
-    title: "Weight",
+    title: language === "tagalog" ? "Timbang" : "Weight",
     value: weight || "-",
     unit: "kg",
     status: weightStatus,
@@ -97,7 +97,7 @@ const evaluateMetrics = (checkup) => {
   });
 
   healthData.push({
-    title: "BMI",
+    title: language === "tagalog" ? "BMI" : "BMI",
     value: bmiValue,
     unit: "",
     status: bmiStatus,
@@ -117,7 +117,7 @@ const evaluateMetrics = (checkup) => {
     }
   }
   healthData.push({
-    title: "Blood Pressure",
+    title: language === "tagalog" ? "Presyon ng Dugo" : "Blood Pressure",
     value: bp,
     unit: "mmHg",
     status: bpStatus,
@@ -129,14 +129,20 @@ const evaluateMetrics = (checkup) => {
 };
 
 // Generate a simple AI summary based on metrics
-const getAISummary = (metrics) => {
+const getAISummary = (metrics, language = "english") => {
   const types = metrics.map(m => m.statusType);
   if (types.includes("danger")) {
-    return "Some results are at risk. Please consult a healthcare professional.";
+    return language === "tagalog"
+      ? "May ilang resulta na nasa panganib. Mangyaring kumonsulta sa isang propesyonal sa kalusugan."
+      : "Some results are at risk. Please consult a healthcare professional.";
   } else if (types.includes("warning")) {
-    return "Some results are slightly out of range. Monitor your health.";
+    return language === "tagalog"
+      ? "May ilang resulta na bahagyang labas sa normal. Bantayan ang iyong kalusugan."
+      : "Some results are slightly out of range. Monitor your health.";
   } else {
-    return "All results are within normal range. Keep up the good work!";
+    return language === "tagalog"
+      ? "Lahat ng resulta ay nasa normal na saklaw. Ipagpatuloy ang mabuting kalusugan!"
+      : "All results are within normal range. Keep up the good work!";
   }
 };
 
@@ -151,6 +157,7 @@ const History = () => {
   const [splash, setSplash] = useState(true);
   const [history, setHistory] = useState([]);
   const [selectedCheckup, setSelectedCheckup] = useState(null);
+  const [language, setLanguage] = useState("english");
 
   // Fetch user history
   useEffect(() => {
@@ -161,6 +168,22 @@ const History = () => {
     }
 
     const fetchHistory = async () => {
+      // Fetch language from user profile
+      const { data: profile, error: profileError } = await supabase
+        .from("profiles")
+        .select("language")
+        .eq("id", user.id)
+        .single();
+
+      let userLanguage = "english";
+      if (profile && profile.language) {
+        const lang = profile.language.toLowerCase();
+        if (lang === "tagalog" || lang === "tl") {
+          userLanguage = "tagalog";
+        }
+      }
+      setLanguage(userLanguage);
+
       const { data, error } = await supabase
         .from("health_checkups")
         .select("*")
@@ -197,19 +220,19 @@ const History = () => {
         <div className="history-box">
           <div className="top">
             <BackButton />
-            <p className="toptext">History</p>
+            <p className="toptext">{language === "tagalog" ? "Tala ng Checkup" : "CheckupHistory"}</p>
             
           </div>
 
             <p className="toptext" style={{ fontSize: "1rem", color: "#666" }}>
               {history.length === 0
-                ? "No data collected."
-                : "Review your past health checkups below."}
+                ? (language === "tagalog" ? "Walang nakolektang datos." : "No data collected.")
+                : (language === "tagalog" ? "Suriin ang iyong mga nakaraang checkup sa ibaba." : "Review your past health checkups below.")}
             </p>
           
           <div className="history-list">
             {history.map((item) => {
-              const metrics = evaluateMetrics(item);
+              const metrics = evaluateMetrics(item, language);
               const overall = getOverallStatus(metrics);
               const dateObj = new Date(item.created_at);
               const dateStr = dateObj.toLocaleDateString();
@@ -230,7 +253,9 @@ const History = () => {
                     ))}
                   </div>
 
-                  <button className="details-arrow" onClick={() => setSelectedCheckup(item)}>View details</button>
+                  <button className="details-arrow" onClick={() => setSelectedCheckup(item)}>
+                    {language === "tagalog" ? "Detalye" : "View details"}
+                  </button>
                 </div>
               );
             })}
@@ -239,13 +264,13 @@ const History = () => {
       </div>
       {/* Modal for details */}
       {selectedCheckup && (() => {
-        const metrics = evaluateMetrics(selectedCheckup);
-        const aiSummary = getAISummary(metrics);
+        const metrics = evaluateMetrics(selectedCheckup, language);
+        const aiSummary = getAISummary(metrics, language);
         return (
           <div className="modal-overlay" onClick={() => setSelectedCheckup(null)}>
             <div className="modal-content" onClick={e => e.stopPropagation()}>
               <button className="modal-close" onClick={() => setSelectedCheckup(null)}>&times;</button>
-              <h2 style={{ marginBottom: 8 }}>Checkup Details</h2>
+              <h2 style={{ marginBottom: 8 }}>{language === "tagalog" ? "Detalye ng Checkup" : "Checkup Details"}</h2>
               <div style={{ color: '#666', fontSize: 14, marginBottom: 12 }}>
                 {new Date(selectedCheckup.created_at).toLocaleString()}
               </div>
