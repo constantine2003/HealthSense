@@ -1,9 +1,6 @@
-// Format birthday from YYYY-MM-DD to 'Month Day Year' (e.g., December 23 2002)
-
 import React, { useState, useEffect } from "react";
 import Navbar from "../components/navbar3.jsx";
 import "../styles/profile.css";
-// Added FaEye, FaEyeSlash for password toggle, FiX for close button
 import { FiUser, FiMail, FiShield, FiSave, FiX } from "react-icons/fi";
 import { FaEye, FaEyeSlash } from "react-icons/fa"; 
 import { supabase } from "../supabaseClient";
@@ -116,13 +113,16 @@ const Profile = () => {
 
       const { error } = await supabase
         .from("profiles")
-        .update({ recovery_email: userData.recoveryEmail })
+        .update({
+          recovery_email: userData.recoveryEmail,
+          language: userData.language // Ensure this column exists in your Supabase 'profiles' table
+        })
         .eq("id", user.id);
 
       if (error) throw error;
-      setSaveStatus({ message: "Recovery email updated successfully!", type: "success" });
+      setSaveStatus({ message: "Settings updated successfully!", type: "success" });
     } catch (err) {
-      setSaveStatus({ message: "Failed to save recovery email: " + (err.message || err), type: "error" });
+      setSaveStatus({ message: "Failed to save: " + (err.message || err), type: "error" });
     }
   };
 
@@ -278,6 +278,43 @@ const Profile = () => {
                     onChange={handleChange}
                   />
                 </div>
+                
+              </div>
+            </div>
+
+            {/* Security & Preferences */}
+            <div className="settings-section">
+              <h3 className="section-title">
+                <FiShield className="icon" /> Security & Preferences
+              </h3>
+
+              <div className="form-group">
+                <label>Recovery Email</label>
+                <div className="input-with-icon">
+                  <FiMail className="input-icon" />
+                  <input
+                    type="email"
+                    name="recoveryEmail"
+                    placeholder="Enter a backup email address"
+                    value={userData.recoveryEmail}
+                    onChange={handleChange}
+                  />
+                </div>
+              </div>
+
+              <div className="form-group" style={{ marginTop: 12 }}>
+                <label>Language Preference</label>
+                <select
+                  name="language"
+                  value={userData.language}
+                  onChange={handleChange}
+                  className="language-dropdown"
+                  style={{ width: '100%', padding: '10px 16px', borderRadius: 12, border: '1px solid #ddd', fontSize: 15, background: '#f7fbff', color: '#333', fontFamily: 'Lexend, sans-serif', marginTop: 4 }}
+                >
+                  <option value="English" className="language-dropdown-item">English</option>
+                  <option value="Tagalog" className="language-dropdown-item">Tagalog</option>
+                </select>
+                
                 {saveStatus.message && (
                   <div className={`save-status-message ${saveStatus.type}`}>
                     {saveStatus.message}

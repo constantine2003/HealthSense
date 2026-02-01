@@ -46,9 +46,7 @@
   transition: color 0.15s;
   z-index: 2;
 }
-.modal-close:hover {
-  color: #EF4444;
-}
+.modal-close:hover { color: #EF4444 }
 
 .modal-metrics {
   display: flex;
@@ -94,15 +92,9 @@
   font-weight: 500;
   margin-top: 2px;
 }
-.status-success {
-  color: #22c55e;
-}
-.status-warning {
-  color: #F97316;
-}
-.status-danger {
-  color: #EF4444;
-}
+.status-success { color: #22c55e; }
+.status-warning { color: #F97316; }
+.status-danger { color: #EF4444; }
 .modal-extra {
   margin-top: 10px;
   font-size: 1rem;
@@ -123,9 +115,7 @@
     padding: 8px 4px;
     font-size: 0.95rem;
   }
-  .modal-metrics {
-    gap: 8px;
-  }
+  .modal-metrics { gap: 8px; }
 }
 
 @media (max-width: 480px) {
@@ -142,17 +132,13 @@
     padding: 6px 2px;
     font-size: 0.9rem;
   }
-  .modal-metrics {
-    gap: 6px;
-  }
+  .modal-metrics { gap: 6px; }
   .modal-close {
     top: 4px;
     right: 8px;
     font-size: 1.5rem;
   }
-  .metric-title, .metric-value, .metric-status {
-    font-size: 0.9rem;
-  }
+  .metric-title, .metric-value, .metric-status { font-size: 0.9rem; }
 }
 
 @media (max-width: 375px) {
@@ -169,15 +155,9 @@
     padding: 4px 1px;
     font-size: 0.8rem;
   }
-  .modal-metrics {
-    gap: 4px;
-  }
-  .modal-close {
-    font-size: 1.2rem;
-  }
-  .metric-title, .metric-value, .metric-status {
-    font-size: 0.8rem;
-  }
+  .modal-metrics { gap: 4px; }
+  .modal-close { font-size: 1.2rem; }
+  .metric-title, .metric-value, .metric-status { font-size: 0.8rem; }
 }
 /* GLOBAL CUSTOM SCROLLBAR FOR ALL ELEMENTS */
 *::-webkit-scrollbar {
@@ -280,9 +260,7 @@
   overflow: hidden; /* IMPORTANT */
 }
 
-@keyframes fadeInBox {
-  to { opacity: 1; transform: scale(1); }
-}
+@keyframes fadeInBox { to { opacity: 1; transform: scale(1); } }
 
 .history-box::before {
   content: "";
