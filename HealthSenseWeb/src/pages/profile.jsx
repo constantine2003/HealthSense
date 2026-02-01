@@ -137,6 +137,9 @@ const Profile = () => {
 
       if (error) throw error;
       setSaveStatus({ message: "Settings updated successfully!", type: "success" });
+      setTimeout(() => {
+        window.location.reload();
+      }, 1000);
     } catch (err) {
       setSaveStatus({ message: "Failed to save: " + (err.message || err), type: "error" });
     }
@@ -325,8 +328,8 @@ const Profile = () => {
                   name="language"
                   value={userData.language}
                   onChange={handleChange}
-                  className="language-dropdown"
-                  style={{ width: '100%', padding: '10px 16px', borderRadius: 12, border: '1px solid #ddd', fontSize: 15, background: '#f7fbff', color: '#333', fontFamily: 'Lexend, sans-serif', marginTop: 4 }}
+                  className="language-dropdown custom-select"
+                  style={{ width: '100%', padding: '10px 16px', borderRadius: 12, border: '1px solid #ddd', fontSize: 15, background: '#f7fbff', color: '#333', fontFamily: 'Lexend, sans-serif', marginTop: 4, backgroundPosition: 'right 14px center', backgroundRepeat: 'no-repeat', backgroundImage: 'url("data:image/svg+xml;charset=UTF-8,%3Csvg xmlns=\'http://www.w3.org/2000/svg\' viewBox=\'0 0 24 24\' fill=\'none\' stroke=\'%23999\' stroke-width=\'2\' stroke-linecap=\'round\' stroke-linejoin=\'round\'%3E%3Cpolyline points=\'6 9 12 15 18 9\'%3E%3C/polyline%3E%3C/svg%3E")' }}
                 >
                   <option value="English" className="language-dropdown-item">English</option>
                   <option value="Tagalog" className="language-dropdown-item">Tagalog</option>
