@@ -35,8 +35,24 @@
     min-height: calc(100vh - 80px); /* Adjust based on navbar height */
     box-sizing: border-box;
     font-family: "Lexend", sans-serif;
-}
 
+    /* Entrance animation */
+    opacity: 0;
+    transform: scale(0.97);
+    animation: fadeInBox 0.6s cubic-bezier(0.4,0,0.2,1) forwards;
+    transition: max-width 0.3s, max-height 0.3s, padding 0.3s;
+}
+/* Animation keyframes */
+@keyframes fadeInBox {
+  0% {
+    opacity: 0;
+    transform: scale(0.9);
+  }
+  100% {
+    opacity: 1;
+    transform: scale(1);
+  }
+}
 /* --- Main Layout Wrapper --- */
 .settings-container {
     width: 100%;
