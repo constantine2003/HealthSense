@@ -22,7 +22,7 @@ function Navbar() {
       <div className="nav-right">
         <button className="about-btn" onClick={() => navigate("/profile") }>
           <FaUser style={{ marginRight: "6px" }} />
-          Profile
+          Account
         </button>
         <button className="about-btn" onClick={handleLogout}>
           <FiLogOut style={{ marginRight: "6px" }} />
