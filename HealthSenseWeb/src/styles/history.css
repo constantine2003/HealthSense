@@ -257,18 +257,22 @@
 ======================================== */
 .history-box {
   position: relative;
-  background: rgba(255, 255, 255, 0.13);
-  border-radius: 20px;
+  background: rgba(255, 255, 255, 0.18);
+  border-radius: 24px;
   padding: clamp(20px, 5vw, 50px);
-  backdrop-filter: blur(30px);
-  -webkit-backdrop-filter: blur(30px);
-  box-shadow: 0px 8px 24px rgba(0, 0, 0, 0.25);
+  backdrop-filter: blur(42px) saturate(160%) brightness(1.12);
+  -webkit-backdrop-filter: blur(42px) saturate(160%) brightness(1.12);
+  border: 1.5px solid rgba(255,255,255,0.32);
+  background-clip: padding-box;
+  box-shadow:
+    0 12px 32px 0 rgba(20, 60, 120, 0.18),
+    0 1.5px 8px 0 rgba(19,157,199,0.08),
+    inset 0 1.5px 16px 0 rgba(255,255,255,0.18);
   width: 100%;
   max-width: 1200px;
   max-height: 85vh;
   display: flex;
   flex-direction: column;
-  
 
   opacity: 0;
   transform: scale(0.95);
@@ -284,13 +288,15 @@
   content: "";
   position: absolute;
   inset: 0;
-  border-radius: 20px;
-  padding: 1px;
-  background: linear-gradient(to bottom, rgba(255,255,255,0.4), rgba(255,255,255,0.05));
+  border-radius: 24px;
+  padding: 2px;
+  background: linear-gradient(135deg, rgba(19,157,199,0.22) 0%, rgba(255,255,255,0.38) 100%);
   mask: linear-gradient(#fff 0 0) content-box, linear-gradient(#fff 0 0);
   mask-composite: exclude;
+  -webkit-mask: linear-gradient(#fff 0 0) content-box, linear-gradient(#fff 0 0);
   -webkit-mask-composite: xor;
   pointer-events: none;
+  z-index: 1;
 }
 
 /* ========================================
@@ -312,20 +318,36 @@
    HISTORY ITEM CARD
 ======================================== */
 .history-item {
-  background: rgba(255, 255, 255, 0.2);
-  border: 1px solid rgba(255, 255, 255, 0.3);
-  border-radius: 15px;
-  padding: 20px;
+  /* Brighter white to contrast against the parent's 0.18 opacity */
+  background: rgba(255, 255, 255, 0.55); 
+  
+  /* Thick, solid-feeling white border defines the shape without needing shadows */
+  border: 2px solid rgba(255, 255, 255, 0.8);
+  border-radius: 20px;
+  padding: 24px;
+  
   display: grid;
   grid-template-columns: 130px 1fr 100px 140px;
   align-items: center;
   gap: 20px;
-  transition: 0.3s ease;
+
+  /* We use blur and saturation to make the item look "denser" than the background */
+  backdrop-filter: blur(12px) saturate(180%);
+  -webkit-backdrop-filter: blur(12px) saturate(180%);
+  
+  /* No box-shadow here */
+  box-shadow: none; 
+
+  transition: all 0.3s ease-in-out;
 }
 
 .history-item:hover {
-  background: rgba(255, 255, 255, 0.3);
-  transform: translateY(-2px);
+  /* On hover, we make it nearly opaque white for maximum distinction */
+  background: rgba(255, 255, 255, 0.75);
+  border-color: rgba(255, 255, 255, 1);
+  
+  /* Slight lift without shadow looks very clean */
+  transform: translateY(-3px);
 }
 
 .date-section {

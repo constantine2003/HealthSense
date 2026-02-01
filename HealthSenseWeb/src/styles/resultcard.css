@@ -4,19 +4,39 @@
 
 /* Card Container */
 .health-card {
-  background: #FFFFFF;
+  /* Increased opacity to 0.55 for that "whiter" look */
+  background: rgba(255, 255, 255, 0.55);
+  
+  /* Thick white border to replace the shadow's depth */
+  border: 2px solid rgba(255, 255, 255, 0.8);
+  
+  /* Keeping your original sizing/spacing */
   padding: 24px;
   border-radius: 20px;
-  box-shadow: 0 4px 20px rgba(0, 0, 0, 0.05);
-  transition: transform 0.2s ease;
+  
+  /* Removing the shadow as requested */
+  box-shadow: none; 
+  
+  /* Glass effect for the card itself */
+  backdrop-filter: blur(12px) saturate(180%);
+  -webkit-backdrop-filter: blur(12px) saturate(180%);
+  
+  transition: transform 0.3s ease, background 0.3s ease, border-color 0.3s ease;
   display: flex;
   flex-direction: column;
   justify-content: space-between;
 }
 
 .health-card:hover {
+  /* Shifts toward solid white on hover */
+  background: rgba(255, 255, 255, 0.75);
+  border-color: rgba(255, 255, 255, 1);
+  
+  /* Keeping your original hover lift */
   transform: translateY(-5px);
-  box-shadow: 0 10px 25px rgba(0, 0, 0, 0.1);
+  
+  /* Ensuring shadow remains gone on hover */
+  box-shadow: none;
 }
 
 /* Header */
