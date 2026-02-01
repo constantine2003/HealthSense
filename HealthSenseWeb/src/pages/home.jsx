@@ -1,5 +1,4 @@
 import React, { useState, useEffect } from "react";
-import { useTranslation } from "react-i18next";
 import { FaEye, FaEyeSlash } from "react-icons/fa";
 import "../styles/home.css";
 import Navbar from "../components/navbar.jsx";
@@ -9,7 +8,6 @@ import { useAuth } from "../hooks/useAuth";
 import PasswordRecoveryModal from "../components/PasswordRecoveryModal";
 
 const Home = () => {
-  const { t } = useTranslation();
   const navigate = useNavigate();
   const { user, loading } = useAuth(); // check session
 
@@ -54,10 +52,10 @@ const Home = () => {
       <Navbar />
       <div className="page-content">
         <div className="left-div">
-          <p className="welcome-text">{t('welcome_to')}</p>
+          <p className="welcome-text">Welcome to</p>
           <p className="logo-text">HealthSense</p>
           <p className="ddescription-text">
-            {t('home_description')}
+            View your health checkup results securely and conveniently online
           </p>
         </div>
         <div className="right-div">
