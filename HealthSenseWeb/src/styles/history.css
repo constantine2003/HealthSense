@@ -318,20 +318,36 @@
    HISTORY ITEM CARD
 ======================================== */
 .history-item {
-  background: rgba(255, 255, 255, 0.2);
-  border: 1px solid rgba(255, 255, 255, 0.3);
-  border-radius: 15px;
-  padding: 20px;
+  /* Brighter white to contrast against the parent's 0.18 opacity */
+  background: rgba(255, 255, 255, 0.55); 
+  
+  /* Thick, solid-feeling white border defines the shape without needing shadows */
+  border: 2px solid rgba(255, 255, 255, 0.8);
+  border-radius: 20px;
+  padding: 24px;
+  
   display: grid;
   grid-template-columns: 130px 1fr 100px 140px;
   align-items: center;
   gap: 20px;
-  transition: 0.3s ease;
+
+  /* We use blur and saturation to make the item look "denser" than the background */
+  backdrop-filter: blur(12px) saturate(180%);
+  -webkit-backdrop-filter: blur(12px) saturate(180%);
+  
+  /* No box-shadow here */
+  box-shadow: none; 
+
+  transition: all 0.3s ease-in-out;
 }
 
 .history-item:hover {
-  background: rgba(255, 255, 255, 0.3);
-  transform: translateY(-2px);
+  /* On hover, we make it nearly opaque white for maximum distinction */
+  background: rgba(255, 255, 255, 0.75);
+  border-color: rgba(255, 255, 255, 1);
+  
+  /* Slight lift without shadow looks very clean */
+  transform: translateY(-3px);
 }
 
 .date-section {
