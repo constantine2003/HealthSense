@@ -40,7 +40,11 @@ const Profile = () => {
     recoveryEmail: "",
     birthday: "",
     sex: "",
+    language: "English",
   });
+
+  // Language state for localization
+  const [language, setLanguage] = useState("english");
 
   // --- MODAL STATE ---
   const [isModalOpen, setIsModalOpen] = useState(false);
@@ -73,7 +77,19 @@ const Profile = () => {
           recoveryEmail: profile.recovery_email || "",
           birthday: profile.birthday || "",
           sex: profile.sex || "",
+          language: profile.language || "English",
         });
+        // Set language state for localization
+        if (profile.language) {
+          const lang = profile.language.toLowerCase();
+          if (lang === "tagalog" || lang === "tl") {
+            setLanguage("tagalog");
+          } else {
+            setLanguage("english");
+          }
+        } else {
+          setLanguage("english");
+        }
         setTimeout(() => {
           setSplash(false);
           setLoading(false);
@@ -121,6 +137,9 @@ const Profile = () => {
 
       if (error) throw error;
       setSaveStatus({ message: "Settings updated successfully!", type: "success" });
+      setTimeout(() => {
+        window.location.reload();
+      }, 1000);
     } catch (err) {
       setSaveStatus({ message: "Failed to save: " + (err.message || err), type: "error" });
     }
@@ -131,11 +150,19 @@ const Profile = () => {
   const handleSavePassword = async () => {
     setPasswordStatus({ message: "", type: "", field: "" });
     if (passwords.newPassword !== passwords.confirmPassword) {
-      setPasswordStatus({ message: "New passwords do not match!", type: "error", field: "confirm" });
+      setPasswordStatus({ 
+        message: language === "tagalog" ? "Hindi magkatugma ang mga bagong password!" : "New passwords do not match!", 
+        type: "error", 
+        field: "confirm" 
+      });
       return;
     }
     if (passwords.newPassword.length < 6) {
-      setPasswordStatus({ message: "Password must be at least 6 characters.", type: "error", field: "confirm" });
+      setPasswordStatus({ 
+        message: language === "tagalog" ? "Ang password ay dapat hindi bababa sa 6 na karakter." : "Password must be at least 6 characters.", 
+        type: "error", 
+        field: "confirm" 
+      });
       return;
     }
     try {
@@ -149,7 +176,11 @@ const Profile = () => {
         password: passwords.oldPassword,
       });
       if (signInError) {
-        setPasswordStatus({ message: "Old password is incorrect.", type: "error", field: "old" });
+        setPasswordStatus({ 
+          message: language === "tagalog" ? "Mali ang lumang password." : "Old password is incorrect.", 
+          type: "error", 
+          field: "old" 
+        });
         return;
       }
       // Update password
@@ -157,12 +188,21 @@ const Profile = () => {
         password: passwords.newPassword,
       });
       if (updateError) throw updateError;
-      setPasswordStatus({ message: "Password changed successfully!", type: "success", field: "confirm" });
+      setPasswordStatus({ 
+        message: language === "tagalog" ? "Matagumpay na nabago ang password!" : "Password changed successfully!", 
+        type: "success", 
+        field: "confirm" 
+      });
       setTimeout(() => {
         closeModal();
+        window.location.reload();
       }, 1200);
     } catch (err) {
-      setPasswordStatus({ message: "Failed to change password: " + (err.message || err), type: "error", field: "confirm" });
+      setPasswordStatus({ 
+        message: (language === "tagalog" ? "Nabigong palitan ang password: " : "Failed to change password: ") + (err.message || err), 
+        type: "error", 
+        field: "confirm" 
+      });
     }
   };
 
@@ -189,8 +229,8 @@ const Profile = () => {
               {loading ? "..." : getInitials(userData.fullName)}
             </div>
             <div className="header-text">
-              <h2>Account Settings</h2>
-              <p>Manage your profile details and preferences</p>
+              <h2>{language === "tagalog" ? "Mga Setting ng Account" : "Account Settings"}</h2>
+              <p>{language === "tagalog" ? "I-manage ang iyong detalye ng profile at mga kagustuhan" : "Manage your profile details and preferences"}</p>
             </div>
           </div>
 
@@ -198,7 +238,7 @@ const Profile = () => {
             {/* Personal Info */}
             <div className="settings-section">
               <h3 className="section-title">
-                <FiUser className="icon" /> Personal Information
+                <FiUser className="icon" /> {language === "tagalog" ? "Personal na Impormasyon" : "Personal Information"}
               </h3>
               <div className="form-grid">
                 <div className="form-group">
@@ -228,7 +268,7 @@ const Profile = () => {
                   </span>
                 </div> */}
                 <div className="form-group">
-                  <label>Birthdate</label>
+                  <label>{language === "tagalog" ? "Araw ng Kapanganakan" : "Birthdate"}</label>
                   <input
                     type="text"
                     value={loading ? "..." : (userData.birthday ? formatBirthday(userData.birthday) : "")}
@@ -237,7 +277,7 @@ const Profile = () => {
                   />
                 </div>
                 <div className="form-group">
-                  <label>Age</label>
+                  <label>{language === "tagalog" ? "Edad" : "Age"}</label>
                   <input
                     type="text"
                     value={loading ? "..." : (userData.birthday ? calculateAge(userData.birthday) : "")}
@@ -246,7 +286,7 @@ const Profile = () => {
                   />
                 </div>
                 <div className="form-group">
-                  <label>Sex</label>
+                  <label>{language === "tagalog" ? "Kasarian" : "Sex"}</label>
                   <input
                     type="text"
                     value={loading ? "..." : userData.sex}
@@ -254,7 +294,9 @@ const Profile = () => {
                     className="input-disabled"
                   />
                   <span className="helper-text">
-                    Personal information cannot be changed. Contact support to update.
+                    {language === "tagalog"
+                      ? "Hindi maaaring baguhin ang personal na impormasyon. Makipag-ugnayan sa support para mag-update."
+                      : "Personal information cannot be changed. Contact support to update."}
                   </span>
                 </div>
               </div>
@@ -263,39 +305,17 @@ const Profile = () => {
             {/* Security & Preferences */}
             <div className="settings-section">
               <h3 className="section-title">
-                <FiShield className="icon" /> Security & Preferences
+                <FiShield className="icon" /> {language === "tagalog" ? "Seguridad at mga Kagustuhan" : "Security & Preferences"}
               </h3>
 
               <div className="form-group">
-                <label>Recovery Email</label>
+                <label>{language === "tagalog" ? "Backup Email" : "Recovery Email"}</label>
                 <div className="input-with-icon">
                   <FiMail className="input-icon" />
                   <input
                     type="email"
                     name="recoveryEmail"
-                    placeholder="Enter a backup email address"
-                    value={userData.recoveryEmail}
-                    onChange={handleChange}
-                  />
-                </div>
-                
-              </div>
-            </div>
-
-            {/* Security & Preferences */}
-            <div className="settings-section">
-              <h3 className="section-title">
-                <FiShield className="icon" /> Security & Preferences
-              </h3>
-
-              <div className="form-group">
-                <label>Recovery Email</label>
-                <div className="input-with-icon">
-                  <FiMail className="input-icon" />
-                  <input
-                    type="email"
-                    name="recoveryEmail"
-                    placeholder="Enter a backup email address"
+                    placeholder={language === "tagalog" ? "Maglagay ng backup na email address" : "Enter a backup email address"}
                     value={userData.recoveryEmail}
                     onChange={handleChange}
                   />
@@ -303,13 +323,13 @@ const Profile = () => {
               </div>
 
               <div className="form-group" style={{ marginTop: 12 }}>
-                <label>Language Preference</label>
+                <label>{language === "tagalog" ? "Wika" : "Language Preference"}</label>
                 <select
                   name="language"
                   value={userData.language}
                   onChange={handleChange}
-                  className="language-dropdown"
-                  style={{ width: '100%', padding: '10px 16px', borderRadius: 12, border: '1px solid #ddd', fontSize: 15, background: '#f7fbff', color: '#333', fontFamily: 'Lexend, sans-serif', marginTop: 4 }}
+                  className="language-dropdown custom-select"
+                  style={{ width: '100%', padding: '10px 16px', borderRadius: 12, border: '1px solid #ddd', fontSize: 15, background: '#f7fbff', color: '#333', fontFamily: 'Lexend, sans-serif', marginTop: 4, backgroundPosition: 'right 14px center', backgroundRepeat: 'no-repeat', backgroundImage: 'url("data:image/svg+xml;charset=UTF-8,%3Csvg xmlns=\'http://www.w3.org/2000/svg\' viewBox=\'0 0 24 24\' fill=\'none\' stroke=\'%23999\' stroke-width=\'2\' stroke-linecap=\'round\' stroke-linejoin=\'round\'%3E%3Cpolyline points=\'6 9 12 15 18 9\'%3E%3C/polyline%3E%3C/svg%3E")' }}
                 >
                   <option value="English" className="language-dropdown-item">English</option>
                   <option value="Tagalog" className="language-dropdown-item">Tagalog</option>
@@ -329,10 +349,10 @@ const Profile = () => {
                 className="btn-secondary" 
                 onClick={() => setIsModalOpen(true)}
               >
-                Change Password
+                {language === "tagalog" ? "Palitan ang Password" : "Change Password"}
               </button>
               <button className="btn-primary" onClick={handleSave}>
-                <FiSave /> Save Changes
+                <FiSave /> {language === "tagalog" ? "I-save ang mga Pagbabago" : "Save Changes"}
               </button>
             </div>
           </div>
@@ -344,7 +364,7 @@ const Profile = () => {
         <div className="modal-overlay">
           <div className="modal-content">
             <div className="modal-header">
-              <h3>Change Password</h3>
+              <h3>{language === "tagalog" ? "Palitan ang Password" : "Change Password"}</h3>
               <button className="close-modal-btn" onClick={closeModal}>
                 <FiX />
               </button>
@@ -353,12 +373,12 @@ const Profile = () => {
             <div className="modal-body">
               {/* Old Password */}
               <div className="form-group">
-                <label>Old Password</label>
+                <label>{language === "tagalog" ? "Lumang Password" : "Old Password"}</label>
                 <div className="password-wrapper">
                   <input
                     type={showPass.old ? "text" : "password"}
                     name="oldPassword"
-                    placeholder="Enter current password"
+                    placeholder={language === "tagalog" ? "Ilagay ang kasalukuyang password" : "Enter current password"}
                     value={passwords.oldPassword}
                     onChange={handlePasswordChange}
                   />
@@ -377,12 +397,12 @@ const Profile = () => {
 
               {/* New Password */}
               <div className="form-group">
-                <label>New Password</label>
+                <label>{language === "tagalog" ? "Bagong Password" : "New Password"}</label>
                 <div className="password-wrapper">
                   <input
                     type={showPass.new ? "text" : "password"}
                     name="newPassword"
-                    placeholder="Enter new password"
+                    placeholder={language === "tagalog" ? "Ilagay ang bagong password" : "Enter new password"}
                     value={passwords.newPassword}
                     onChange={handlePasswordChange}
                   />
@@ -398,12 +418,12 @@ const Profile = () => {
 
               {/* Confirm Password */}
               <div className="form-group">
-                <label>Confirm New Password</label>
+                <label>{language === "tagalog" ? "Kumpirmahin ang Bagong Password" : "Confirm New Password"}</label>
                 <div className="password-wrapper">
                   <input
                     type={showPass.confirm ? "text" : "password"}
                     name="confirmPassword"
-                    placeholder="Re-enter new password"
+                    placeholder={language === "tagalog" ? "Ilagay muli ang bagong password" : "Re-enter new password"}
                     value={passwords.confirmPassword}
                     onChange={handlePasswordChange}
                   />
@@ -423,10 +443,10 @@ const Profile = () => {
 
             <div className="modal-footer">
               <button className="btn-secondary" onClick={closeModal}>
-                Cancel
+                {language === "tagalog" ? "Kanselahin" : "Cancel"}
               </button>
               <button className="btn-primary" onClick={handleSavePassword}>
-                Save Password
+                {language === "tagalog" ? "I-save ang Password" : "Save Password"}
               </button>
             </div>
           </div>

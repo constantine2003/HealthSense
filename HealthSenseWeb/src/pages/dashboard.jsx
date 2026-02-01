@@ -16,8 +16,9 @@ const Dashboard = () => {
   // Local splash screen while fetching profile
   const [splash, setSplash] = useState(true);
 
-  // User full name state
+  // User full name and language state
   const [fullName, setFullName] = useState("");
+  const [language, setLanguage] = useState("english");
 
   // Fetch profile once the user is available
   useEffect(() => {
@@ -30,7 +31,16 @@ const Dashboard = () => {
     const fetchProfile = async () => {
       try {
         const profile = await getProfile(user.id);
+        console.log('Fetched profile:', profile); // Debug log
         setFullName(`${profile.first_name} ${profile.last_name}`);
+        if (profile.language) {
+          const lang = profile.language.toLowerCase();
+          if (lang === "tagalog" || lang === "tl") {
+            setLanguage("tagalog");
+          } else {
+            setLanguage("english");
+          }
+        }
       } catch (err) {
         console.error("Failed to fetch profile:", err.message);
       }
@@ -52,9 +62,13 @@ const Dashboard = () => {
         <div className="dashboard-box">
           <div className="dashboard-content-inner">
             <div className="dashboard-content-wrapper">
-              <p className="welcome-user">Welcome {fullName}</p>
+              <p className="welcome-user">
+                {language === "tagalog" ? "Maligayang pagdating," : "Welcome,"} {fullName}
+              </p>
               <p className="description-text">
-                Access your medical checkup results and history securely.
+                {language === "tagalog"
+                  ? "I-access ang iyong mga resulta at kasaysayan ng medikal na pagsusuri nang ligtas."
+                  : "Access your medical checkup results and history securely."}
               </p>
 
               <div className="dashboard-buttons">
@@ -64,8 +78,8 @@ const Dashboard = () => {
                 >
                   <FiClipboard size={100} color="#0077B6" className="btn-icon" />
                   <div className="btn-text-container">
-                    <span className="btn-label">View</span>
-                    <span className="btn-title">Results</span>
+                    <span className="btn-label">{language === "tagalog" ? "Tingnan" : "View"}</span>
+                    <span className="btn-title">{language === "tagalog" ? "Mga Resulta" : "Results"}</span>
                   </div>
                 </button>
 
@@ -75,8 +89,8 @@ const Dashboard = () => {
                 >
                   <FiClock size={100} color="#0077B6" className="btn-icon" />
                   <div className="btn-text-container">
-                    <span className="btn-label">View</span>
-                    <span className="btn-title">History</span>
+                    <span className="btn-label">{language === "tagalog" ? "Tingnan" : "View"}</span>
+                    <span className="btn-title">{language === "tagalog" ? "Kasaysayan" : "History"}</span>
                   </div>
                 </button>
               </div>

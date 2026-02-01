@@ -13,7 +13,7 @@ import { supabase } from "../supabaseClient";
 // ===============================
 // Evaluate health metrics
 // ===============================
-const evaluateHealthMetrics = (userData) => {
+const evaluateHealthMetrics = (userData, language = "english") => {
   const healthData = [];
 
   // Icon Responsive Style
@@ -52,7 +52,7 @@ const evaluateHealthMetrics = (userData) => {
     else { tempStatus = "High Fever"; tempType = "danger"; }
   }
   healthData.push({
-    title: "Temperature",
+    title: language === "tagalog" ? "Temperatura" : "Temperature",
     value: temp || "-",
     unit: "°C",
     status: tempStatus,
@@ -68,7 +68,7 @@ const evaluateHealthMetrics = (userData) => {
     else { heightStatus = "Above Average"; heightType = "success"; }
   }
   healthData.push({
-    title: "Height",
+    title: language === "tagalog" ? "Taas" : "Height",
     value: height || "-",
     unit: "m",
     status: heightStatus,
@@ -94,21 +94,21 @@ const evaluateHealthMetrics = (userData) => {
   }
 
   healthData.push({
-      title: "Weight",
-      value: weight || "-",
-      unit: "kg",
-      status: weightStatus,
-      statusType: weightType,
-      icon: <MdMonitorWeight color={weightType === "success" ? "#22c55e" : weightType === "warning" ? "#F97316" : "#EF4444"} style={iconStyle} />
+    title: language === "tagalog" ? "Timbang" : "Weight",
+    value: weight || "-",
+    unit: "kg",
+    status: weightStatus,
+    statusType: weightType,
+    icon: <MdMonitorWeight color={weightType === "success" ? "#22c55e" : weightType === "warning" ? "#F97316" : "#EF4444"} style={iconStyle} />
   });
 
   healthData.push({
-      title: "BMI",
-      value: bmiValue,
-      unit: "",
-      status: bmiStatus,
-      statusType: bmiType,
-      icon: <FiBarChart color={bmiType === "success" ? "#22c55e" : bmiType === "warning" ? "#F97316" : "#EF4444"} style={iconStyle} />
+    title: language === "tagalog" ? "BMI" : "BMI",
+    value: bmiValue,
+    unit: "",
+    status: bmiStatus,
+    statusType: bmiType,
+    icon: <FiBarChart color={bmiType === "success" ? "#22c55e" : bmiType === "warning" ? "#F97316" : "#EF4444"} style={iconStyle} />
   });
 
   // Blood Pressure
@@ -128,12 +128,12 @@ const evaluateHealthMetrics = (userData) => {
   }
 
   healthData.push({
-      title: "Blood Pressure",
-      value: bpValue,
-      unit: "mmHg",
-      status: bpStatus,
-      statusType: bpType,
-      icon: <FiHeart color={bpType === "success" ? "#22c55e" : bpType === "warning" ? "#F97316" : "#EF4444"} style={iconStyle} />
+    title: language === "tagalog" ? "Presyon ng Dugo" : "Blood Pressure",
+    value: bpValue,
+    unit: "mmHg",
+    status: bpStatus,
+    statusType: bpType,
+    icon: <FiHeart color={bpType === "success" ? "#22c55e" : bpType === "warning" ? "#F97316" : "#EF4444"} style={iconStyle} />
   });
 
   return healthData;
@@ -145,6 +145,7 @@ const evaluateHealthMetrics = (userData) => {
 const Results = () => {
   const [userData, setUserData] = useState(null);
   const [loading, setLoading] = useState(true);
+  const [language, setLanguage] = useState("english");
   const navigate = useNavigate();
 
   useEffect(() => {
@@ -156,7 +157,22 @@ const Results = () => {
           const { data: { user } } = await supabase.auth.getUser();
           if (!user) {
             navigate("/");
-            return null;
+            return { checkup: null, language: "english" };
+          }
+
+          // Fetch language from user profile
+          const { data: profile, error: profileError } = await supabase
+            .from("profiles")
+            .select("language")
+            .eq("id", user.id)
+            .single();
+
+          let userLanguage = "english";
+          if (profile && profile.language) {
+            const lang = profile.language.toLowerCase();
+            if (lang === "tagalog" || lang === "tl") {
+              userLanguage = "tagalog";
+            }
           }
 
           const { data, error } = await supabase
@@ -168,11 +184,14 @@ const Results = () => {
             .single();
 
           if (error) throw error;
-          return data;
+          return { checkup: data, language: userLanguage };
         };
 
-        const [data] = await Promise.all([fetchData(), timer]);
-        if (data) setUserData(data);
+        const [result] = await Promise.all([fetchData(), timer]);
+        if (result) {
+          setUserData(result.checkup);
+          setLanguage(result.language);
+        }
       } catch (err) {
         console.error("Failed to fetch latest checkup:", err.message);
         await timer;
@@ -186,7 +205,7 @@ const Results = () => {
 
   if (loading) return <SplashScreen />;
 
-  const healthData = userData ? evaluateHealthMetrics(userData) : [];
+  const healthData = userData ? evaluateHealthMetrics(userData, language) : [];
   
   // Format the date from Supabase created_at
   const formattedDate = userData?.created_at 
@@ -204,11 +223,13 @@ const Results = () => {
           <div className="results-box">
             <div className="top">
               <BackButton />
-              <p className="toptext">Your Results</p>
+              <p className="toptext">{language === "tagalog" ? "Iyong mga Resulta" : "Your Results"}</p>
             </div>
             {/* Added the dynamic date and time here */}
             <p className="toptext" style={{ fontSize: "1rem", color: "#666", }}>
-              Latest Data collected on: {formattedDate}
+              {language === "tagalog"
+                ? `Pinakahuling datos na nakuha noong: ${formattedDate}`
+                : `Latest Data collected on: ${formattedDate}`}
             </p>
             <div className="results-grid">
               {healthData.map((item, index) => (
