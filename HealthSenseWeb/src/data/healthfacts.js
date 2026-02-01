@@ -23,7 +23,7 @@ const healthFacts = [
   "Laughing daily improves cardiovascular health.",
   "Deep breathing exercises reduce stress.",
   "Reducing screen time improves sleep quality.",
-  "Fiber-rich foods improve digestion and gut health."
+  "Fiber-rich food improve digestion and gut health."
 ];
 
 export default healthFacts;
