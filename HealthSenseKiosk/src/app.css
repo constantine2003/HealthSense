@@ -1,0 +1,6 @@
+@import "tailwindcss";
+
+/* Kiosk-specific base styles */
+body {
+  @apply bg-slate-950 text-white overflow-hidden select-none;
+}
