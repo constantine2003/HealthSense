@@ -1,6 +1,7 @@
 <script lang="ts">
   export let onBack: () => void;
-  
+  export let onLogin: () => void;
+
   let pin: string = "";
   const maxLength: number = 4;
 
@@ -14,8 +15,7 @@
 
   function submit() {
     if (pin === "1234") {
-      alert("Access Granted");
-      // navigate('dashboard') logic goes here later
+      onLogin();
     } else {
       alert("Wrong PIN");
       pin = "";
