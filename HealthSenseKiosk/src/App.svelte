@@ -11,7 +11,9 @@
   const goBack = () => currentScreen = 'welcome';
 </script>
 
-<main class="fixed inset-0 h-screen w-screen bg-slate-950 text-white overflow-hidden select-none flex flex-col">
+<main 
+  class="fixed inset-0 h-screen w-screen overflow-hidden select-none flex flex-col text-slate-900 bg-[#9fc5f8]"
+>
   
   {#if currentScreen === 'welcome'}
     <div class="flex-1">
