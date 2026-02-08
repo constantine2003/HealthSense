@@ -10,3 +10,6 @@
 .DS_Store
 Thumbs.db
 HealthSenseWeb/.env
+
+# Claude Code temporary directories
+tmpclaude-*-cwd
