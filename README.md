@@ -1,29 +1,21 @@
 # HealthSense Project
 
-HealthSense is a **health monitoring system** with a **React web dashboard** and a **React Native mobile app**.  
+HealthSense is a **health monitoring system** with a **React web dashboard** and a **SvelteKit kiosk application**.  
 This README will guide you on how to set up, run, and test both projects.
 
 ---
 
 ## 🟢 A. Mobile App (React Native / TypeScript)
 
-1. **Navigate to the mobile project folder** `cd HealthSenseMobile`
+1. **Navigate to the mobile project folder** `cd HealthSenseKiosk`
 
 2. **Install dependencies** `npm install`  
 *(or if you are using Yarn: `yarn install`)*
 
-3. **Start the development server** `npm start`  
+3. **Start the development server** `npm run dev`  
 This will open the Expo developer tools in your browser.
 
 4. **Run the app on a device or emulator** * **iOS Simulator:** Press `i` in the terminal (macOS + Xcode required)
-* **Android Emulator:** Press `a` in the terminal (Android Studio + emulator required)
-* **Physical Device:** Scan the QR code in Expo Go app
-
-5. **Build the app for production (optional)** `expo build:android`  
-`expo build:ios`
-
-> ⚠️ **Note:** Make sure you have Expo CLI installed globally:  
-> `npm install -g expo-cli`
 
 ---
 
@@ -73,14 +65,12 @@ The production-ready build will be created in the `/build` folder.
 | `npm install` | Install dependencies |
 | `npm start` | Run the development server (web or mobile) |
 | `npm run build` | Build production version (web) |
-| `expo start` | Start Expo dev tools (mobile) |
 
 ---
 
 ## 📌 Notes
 
 * **Node.js v18+** is recommended.
-* Ensure your mobile environment has **Expo CLI** installed.
 * Health metrics are dynamically calculated and color-coded:
     * **Success (green)** → Normal / Excellent
     * **Warning (orange)** → Slightly abnormal
