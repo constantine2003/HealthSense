@@ -1,4 +1,4 @@
-# HealthSense Project
+# HealthSense Operation Project
 
 HealthSense is a **health monitoring system** with a **React web dashboard** and a **SvelteKit kiosk application**.  
 This README will guide you on how to set up, run, and test both projects.
@@ -34,11 +34,11 @@ The production-ready build will be created in the `/build` folder.
 
 ## 📁 Project Structure
 
-**HealthSenseMobile** – React Native (TypeScript) mobile app
+**HealthSenseKiosk** – SvelteKit (TypeScript) mobile app
 * `/components` -> UI components
-* `/screens`    -> App screens
+* `/pages`    -> App screens
 * `/services`   -> API & database services
-* `App.tsx`     -> Main entry point
+* `App.svelte`     -> Main entry point
 
 **HealthSenseWeb** – React (JavaScript) web dashboard
 * `/components` -> UI components
@@ -61,8 +61,8 @@ The production-ready build will be created in the `/build` folder.
 | Command | Description |
 | :--- | :--- |
 | `npm install` | Install dependencies |
-| `npm start` | Run the development server (web or mobile) |
-| `npm run build` | Build production version (web) |
+| `npm run dev` | Run the development server (web or kiosk) |
+| `npm run build` | Build production version (web or kiosk) |
 
 ---
 
