@@ -5,7 +5,7 @@ This README will guide you on how to set up, run, and test both projects.
 
 ---
 
-## 🟢 A. Single Page Application (SvelteKit / TypeScript)
+## 🟢 A. Single Page Application - Kiosk (SvelteKit / TypeScript)
 
 1. **Navigate to the mobile project folder** `cd HealthSenseKiosk`
 
