@@ -13,10 +13,8 @@ This README will guide you on how to set up, run, and test both projects.
 *(or if you are using Yarn: `yarn install`)*
 
 3. **Start the development server** `npm run dev`  
-This will open the Expo developer tools in your browser.
 
-4. **Run the app on a device or emulator** * **iOS Simulator:** Press `i` in the terminal (macOS + Xcode required)
-
+ 
 ---
 
 ## 🟢 B. Web Dashboard (React)
