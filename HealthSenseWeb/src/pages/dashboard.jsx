@@ -2,57 +2,81 @@ import React, { useState, useEffect } from "react";
 import "../styles/dashboard.css";
 import Navbar from "../components/navbar2";
 import { useNavigate } from "react-router-dom";
-import { FiClipboard, FiClock } from "react-icons/fi";
 import SplashScreen from "../components/splashscreen";
 import { getProfile } from "../auth/getProfile";
 import { useAuth } from "../hooks/useAuth";
 
+// --- Custom Fresh Dashboard SVGs ---
+
+const ClipboardIcon = ({ size = 100, color = "#0077B6" }) => (
+  <svg
+    width={size}
+    height={size}
+    viewBox="0 0 24 24"
+    fill="none"
+    stroke={color}
+    strokeWidth="1.5" /* Slightly thinner stroke for large scale icons looks more premium */
+    strokeLinecap="round"
+    strokeLinejoin="round"
+    className="btn-icon"
+  >
+    <path d="M16 4h2a2 2 0 0 1 2 2v14a2 2 0 0 1-2 2H6a2 2 0 0 1-2-2V6a2 2 0 0 1 2-2h2" />
+    <rect x="8" y="2" width="8" height="4" rx="1" ry="1" />
+    <path d="M9 12h6" />
+    <path d="M9 16h6" />
+  </svg>
+);
+
+const HistoryIcon = ({ size = 100, color = "#0077B6" }) => (
+  <svg
+    width={size}
+    height={size}
+    viewBox="0 0 24 24"
+    fill="none"
+    stroke={color}
+    strokeWidth="1.5"
+    strokeLinecap="round"
+    strokeLinejoin="round"
+    className="btn-icon"
+  >
+    <circle cx="12" cy="12" r="10" />
+    <polyline points="12 6 12 12 16 14" />
+    <path d="M3.3 7a10 10 0 1 0 1.8-2.6L3 7" /> 
+    <polyline points="3 2 3 7 8 7" />
+  </svg>
+);
+
 const Dashboard = () => {
   const navigate = useNavigate();
-
-  // Get user and loading state from auth hook
   const { user, loading: authLoading } = useAuth();
-
-  // Local splash screen while fetching profile
   const [splash, setSplash] = useState(true);
-
-  // User full name and language state
   const [fullName, setFullName] = useState("");
   const [language, setLanguage] = useState("english");
 
-  // Fetch profile once the user is available
   useEffect(() => {
-    if (authLoading) return; // wait for auth to resolve
+    if (authLoading) return;
     if (!user) {
-      navigate("/"); // redirect if not logged in
+      navigate("/");
       return;
     }
 
     const fetchProfile = async () => {
       try {
         const profile = await getProfile(user.id);
-        console.log('Fetched profile:', profile); // Debug log
         setFullName(`${profile.first_name} ${profile.last_name}`);
         if (profile.language) {
           const lang = profile.language.toLowerCase();
-          if (lang === "tagalog" || lang === "tl") {
-            setLanguage("tagalog");
-          } else {
-            setLanguage("english");
-          }
+          setLanguage(lang === "tagalog" || lang === "tl" ? "tagalog" : "english");
         }
       } catch (err) {
         console.error("Failed to fetch profile:", err.message);
       }
-
-      // Keep splash visible for 2 seconds even after profile is fetched
       setTimeout(() => setSplash(false), 2000);
     };
 
     fetchProfile();
   }, [authLoading, user, navigate]);
 
-  // Show splash screen while auth or local splash is active
   if (authLoading || splash) return <SplashScreen />;
 
   return (
@@ -72,22 +96,16 @@ const Dashboard = () => {
               </p>
 
               <div className="dashboard-buttons">
-                <button
-                  className="dashboard-btn"
-                  onClick={() => navigate("/results")}
-                >
-                  <FiClipboard size={100} color="#0077B6" className="btn-icon" />
+                <button className="dashboard-btn" onClick={() => navigate("/results")}>
+                  <ClipboardIcon />
                   <div className="btn-text-container">
                     <span className="btn-label">{language === "tagalog" ? "Tingnan" : "View"}</span>
                     <span className="btn-title">{language === "tagalog" ? "Mga Resulta" : "Results"}</span>
                   </div>
                 </button>
 
-                <button
-                  className="dashboard-btn"
-                  onClick={() => navigate("/history")}
-                >
-                  <FiClock size={100} color="#0077B6" className="btn-icon" />
+                <button className="dashboard-btn" onClick={() => navigate("/history")}>
+                  <HistoryIcon />
                   <div className="btn-text-container">
                     <span className="btn-label">{language === "tagalog" ? "Tingnan" : "View"}</span>
                     <span className="btn-title">{language === "tagalog" ? "Kasaysayan" : "History"}</span>

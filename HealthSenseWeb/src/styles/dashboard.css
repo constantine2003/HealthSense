@@ -2,14 +2,35 @@
    DASHBOARD STYLES
    ======================================== */
 
+/* 1. Root level handles the fixed background and the main scroll */
+html, body {
+  margin: 0;
+  padding: 0;
+  background: linear-gradient(to bottom, #EAF4FF, #BFD9FF, #9FC5F8);
+  background-attachment: fixed;
+  
+  /* FIX 1: Ensure the body is the primary scroll catcher */
+  height: 100%; 
+  overflow-x: hidden;
+  overflow-y: auto; 
+  
+  /* FIX 2: Remove overscroll-behavior from body if it's locking the wheel */
+  overscroll-behavior-y: auto; 
+}
+
 .main-container {
-  min-height: 100vh; /* mobile-safe viewport */
   display: flex;
   flex-direction: column;
-  background: linear-gradient(to bottom, #EAF4FF, #BFD9FF, #9FC5F8);
-  max-width: 100%;
-  overflow-x: hidden;
-  overflow-y: auto;
+  min-height: 100dvh;
+  width: 100%;
+  background: transparent;
+
+  /* FIX 3: Crucial - set overflow to visible */
+  /* If this is set to 'hidden' or 'auto', it can trap the mouse wheel */
+  overflow: visible; 
+
+  /* FIX 4: Remove 'none' if it's present; 'auto' lets the wheel pass through */
+  overscroll-behavior-y: auto; 
 }
 
 /* Main container content */
@@ -31,39 +52,38 @@
   ======================================== */
 .dashboard-box {
   position: relative;
+  /* Glassmorphism Styles */
   background: rgba(255, 255, 255, 0.18);
-  border-radius: 24px;
-  padding: clamp(2.5rem, 8vw, 5rem);
   backdrop-filter: blur(42px) saturate(160%) brightness(1.12);
   -webkit-backdrop-filter: blur(42px) saturate(160%) brightness(1.12);
-  border: 1.5px solid rgba(255,255,255,0.32);
+  border-radius: 24px;
+  border: 1.5px solid rgba(255, 255, 255, 0.32);
   background-clip: padding-box;
   box-shadow:
     0 12px 32px 0 rgba(20, 60, 120, 0.18),
-    0 1.5px 8px 0 rgba(19,157,199,0.08),
-    inset 0 1.5px 16px 0 rgba(255,255,255,0.18);
+    0 1.5px 8px 0 rgba(19, 157, 199, 0.08),
+    inset 0 1.5px 16px 0 rgba(255, 255, 255, 0.18);
 
-  width: 100%;
-  max-width: 100vw;
-  min-width: 0;
-  margin: 0 auto;
+  /* SIZE CONSISTENCY FIXES */
+  width: 90%;             /* Use a percentage to keep margins consistent on mobile */
+  max-width: 1000px;      /* Prevents it from stretching too far on desktop */
+  margin: 20px auto;      /* Ensures centering and vertical breathing room */
+  
+  /* PADDING FIX: clamp was too aggressive at 8vw */
+  padding: clamp(1.5rem, 5vw, 3.5rem); 
 
-  /* Dynamic height */
-  height: auto;
-  min-height: 0;
-
+  /* Layout */
   display: flex;
   flex-direction: column;
   align-items: center;
   justify-content: center;
+  box-sizing: border-box; /* Crucial: includes padding in width calculation */
 
-  overflow: visible;
-
-  /* Entrance animation */
+  /* Animation & Transition */
   opacity: 0;
   transform: scale(0.97);
-  animation: fadeInBox 0.6s cubic-bezier(0.4,0,0.2,1) forwards;
-  transition: max-width 0.3s, max-height 0.3s, padding 0.3s;
+  animation: fadeInBox 0.6s cubic-bezier(0.4, 0, 0.2, 1) forwards;
+  transition: all 0.3s ease;
 }
 /* Animation keyframes */
 @keyframes fadeInBox {
