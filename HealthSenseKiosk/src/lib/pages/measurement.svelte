@@ -1,12 +1,39 @@
 <script lang="ts">
+  import { deviceStore } from '../stores/device.store';
+
   export let onBack: () => void;
   export let onStart: () => void;
   export let measurementType: 'weight' | 'height' | 'blood-pressure' | 'heart-rate' | 'temperature';
 
   let selectedLanguage = 'ENGLISH';
+  let showError = false;
+  let errorMessage = '';
 
   function setLanguage(lang: string) {
     selectedLanguage = lang;
+  }
+
+  function handleStart() {
+    // Check if device is connected
+    if (!$deviceStore.connected) {
+      errorMessage = 'Device not connected! Please check the ESP32 connection in the top-right corner.';
+      showError = true;
+      setTimeout(() => showError = false, 5000);
+      return;
+    }
+
+    // Check if sensor is available for this measurement type
+    if (measurementType === 'heart-rate') {
+      if (!$deviceStore.deviceInfo?.sensors.heartRate || !$deviceStore.deviceInfo?.sensors.spO2) {
+        errorMessage = 'Heart rate sensor not available. Please check the MAX30102 sensor connection.';
+        showError = true;
+        setTimeout(() => showError = false, 5000);
+        return;
+      }
+    }
+
+    // All checks passed, start measurement
+    onStart();
   }
 
   // Define instructions for each measurement type
@@ -88,6 +115,36 @@
       <div class="grid grid-cols-2 gap-12 items-start">
         <!-- Instructions Column -->
         <div class="space-y-4">
+          <!-- Sensor Status -->
+          {#if measurementType === 'heart-rate'}
+            <div class="mb-4 p-4 rounded-xl {$deviceStore.deviceInfo?.sensors.heartRate && $deviceStore.deviceInfo?.sensors.spO2 ? 'bg-green-100 border border-green-400' : 'bg-yellow-100 border border-yellow-400'}">
+              <div class="flex items-center gap-2 mb-2">
+                <span class="text-lg">
+                  {#if $deviceStore.deviceInfo?.sensors.heartRate && $deviceStore.deviceInfo?.sensors.spO2}
+                    ✓
+                  {:else}
+                    ⚠
+                  {/if}
+                </span>
+                <span class="font-semibold text-sm">
+                  MAX30102 Sensor Status
+                </span>
+              </div>
+              <div class="text-xs space-y-1">
+                <div class="flex items-center gap-2">
+                  <span class="{$deviceStore.deviceInfo?.sensors.heartRate ? 'text-green-700' : 'text-yellow-700'}">
+                    {$deviceStore.deviceInfo?.sensors.heartRate ? '✓' : '○'} Heart Rate: {$deviceStore.deviceInfo?.sensors.heartRate ? 'Ready' : 'Not Detected'}
+                  </span>
+                </div>
+                <div class="flex items-center gap-2">
+                  <span class="{$deviceStore.deviceInfo?.sensors.spO2 ? 'text-green-700' : 'text-yellow-700'}">
+                    {$deviceStore.deviceInfo?.sensors.spO2 ? '✓' : '○'} SpO2: {$deviceStore.deviceInfo?.sensors.spO2 ? 'Ready' : 'Not Detected'}
+                  </span>
+                </div>
+              </div>
+            </div>
+          {/if}
+
           {#each config.instructions as instruction}
             <div class="flex gap-3 items-start">
               <span class="text-[#0891b2] text-2xl mt-1">•</span>
@@ -99,11 +156,20 @@
 
           <!-- Start Button -->
           <div class="pt-8">
+            <!-- Error Message -->
+            {#if showError}
+              <div class="mb-4 p-4 bg-red-100 border border-red-400 rounded-xl text-red-700 text-sm">
+                {errorMessage}
+              </div>
+            {/if}
+
             <button
-              on:click={onStart}
+              on:click={handleStart}
               class="w-full py-6 px-8 bg-gradient-to-r from-cyan-400 to-cyan-500 hover:from-cyan-500 hover:to-cyan-600
                      text-slate-900 text-2xl font-bold rounded-2xl shadow-lg
-                     transition-all duration-200 hover:shadow-xl hover:scale-[1.02] active:scale-[0.98]"
+                     transition-all duration-200 hover:shadow-xl hover:scale-[1.02] active:scale-[0.98]
+                     disabled:opacity-50 disabled:cursor-not-allowed"
+              disabled={showError}
             >
               Start
             </button>

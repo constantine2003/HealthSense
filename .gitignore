@@ -9,7 +9,20 @@
 # OS files
 .DS_Store
 Thumbs.db
-HealthSenseWeb/.env
+
+# Environment variables
+**/.env
+.env
 
 # Claude Code temporary directories
 tmpclaude-*-cwd
+
+# Documentation and setup guides
+HealthSenseKiosk/ESP32_CONNECTION_GUIDE.md
+HealthSenseKiosk/ESP32_SETUP_GUIDE.md
+HealthSenseKiosk/ESP32_UPLOAD_TROUBLESHOOTING.md
+HealthSenseKiosk/MAX30102_QUICK_START.md
+HealthSenseKiosk/MAX30102_SENSOR_SETUP.md
+HealthSenseKiosk/RASPBERRY_PI_DEPLOYMENT.md
+HealthSenseKiosk/TESTING_MAX30102.md
+HealthSenseKiosk/TESTING_SERIAL_SETUP.md

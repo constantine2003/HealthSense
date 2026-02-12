@@ -1,17 +1,22 @@
 <script lang="ts">
   import Welcome from './lib/pages/welcome.svelte';
   import Login from './lib/pages/login.svelte';
+  import SignUp from './lib/pages/signup.svelte';
   import Dashboard from './lib/pages/dashboard.svelte';
   import VitalsMenu from './lib/pages/vitals-menu.svelte';
   import Measurement from './lib/pages/measurement.svelte';
+  import Measuring from './lib/pages/measuring.svelte';
   import Placeholder from './lib/pages/placeholder.svelte';
+  import ConnectionStatus from './lib/components/ConnectionStatus.svelte';
+  import type { MeasurementType } from './lib/types/measurement.types';
 
   // State management
-  type ScreenState = 'welcome' | 'login' | 'dashboard' | 'vitals-menu' |
+  type ScreenState = 'welcome' | 'login' | 'signup' | 'dashboard' | 'vitals-menu' |
     'measure-weight' | 'measure-height' | 'measure-blood-pressure' |
     'measure-heart-rate' | 'measure-temperature' |
-    'medical-history' | 'personal-info';
+    'measuring' | 'medical-history' | 'personal-info';
   let currentScreen: ScreenState = 'welcome';
+  let activeMeasurementType: MeasurementType | null = null;
 
   // Navigation handlers
   const startKiosk = () => currentScreen = 'login';
@@ -19,6 +24,11 @@
   const goBackFromDashboard = () => currentScreen = 'login';
   const goToDashboard = () => currentScreen = 'dashboard';
   const logout = () => currentScreen = 'welcome';
+
+  // Sign up handlers
+  const goToSignUp = () => currentScreen = 'signup';
+  const goBackToLogin = () => currentScreen = 'login';
+  const handleSignUpSuccess = () => currentScreen = 'login';
 
   // Dashboard option handlers
   const goToVitals = () => currentScreen = 'vitals-menu';
@@ -40,16 +50,32 @@
   const backToVitalsMenu = () => currentScreen = 'vitals-menu';
   const backToDashboard = () => currentScreen = 'dashboard';
 
-  const startMeasurement = () => {
-    // This will be implemented when we add the actual measurement logic
-    alert('Starting measurement...');
+  const startMeasurement = (type: MeasurementType) => {
+    activeMeasurementType = type;
+    currentScreen = 'measuring';
+  };
+
+  const handleMeasurementComplete = (result: any) => {
+    console.log('Measurement complete:', result);
+    // TODO: Save measurement result
+    // For now, just go back to vitals menu
+    setTimeout(() => {
+      currentScreen = 'vitals-menu';
+    }, 2000);
+  };
+
+  const cancelMeasurement = () => {
+    activeMeasurementType = null;
+    currentScreen = 'vitals-menu';
   };
 </script>
 
-<main 
+<main
   class="fixed inset-0 h-screen w-screen overflow-hidden select-none flex flex-col text-slate-900 bg-[#9fc5f8]"
 >
-  
+  <!-- ESP32 Connection Status (Always Visible) -->
+  <ConnectionStatus />
+
   {#if currentScreen === 'welcome'}
     <div class="flex-1">
        <Welcome onStart={startKiosk} />
@@ -57,7 +83,12 @@
   
   {:else if currentScreen === 'login'}
     <div class="flex-1">
-       <Login onBack={goBackFromLogin} onLogin={goToDashboard} />
+       <Login onBack={goBackFromLogin} onLogin={goToDashboard} onSignUp={goToSignUp} />
+    </div>
+
+  {:else if currentScreen === 'signup'}
+    <div class="flex-1">
+      <SignUp onBack={goBackToLogin} onSignUpSuccess={handleSignUpSuccess} />
     </div>
 
   {:else if currentScreen === 'dashboard'}
@@ -85,7 +116,7 @@
       <Measurement
         measurementType="weight"
         onBack={backToVitalsMenu}
-        onStart={startMeasurement}
+        onStart={() => startMeasurement('weight')}
       />
     </div>
 
@@ -94,7 +125,7 @@
       <Measurement
         measurementType="height"
         onBack={backToVitalsMenu}
-        onStart={startMeasurement}
+        onStart={() => startMeasurement('height')}
       />
     </div>
 
@@ -103,7 +134,7 @@
       <Measurement
         measurementType="blood-pressure"
         onBack={backToVitalsMenu}
-        onStart={startMeasurement}
+        onStart={() => startMeasurement('bloodPressure')}
       />
     </div>
 
@@ -112,7 +143,7 @@
       <Measurement
         measurementType="heart-rate"
         onBack={backToVitalsMenu}
-        onStart={startMeasurement}
+        onStart={() => startMeasurement('heartRate')}
       />
     </div>
 
@@ -121,8 +152,19 @@
       <Measurement
         measurementType="temperature"
         onBack={backToVitalsMenu}
-        onStart={startMeasurement}
+        onStart={() => startMeasurement('temperature')}
       />
+    </div>
+
+  {:else if currentScreen === 'measuring'}
+    <div class="flex-1">
+      {#if activeMeasurementType}
+        <Measuring
+          measurementType={activeMeasurementType}
+          onComplete={handleMeasurementComplete}
+          onCancel={cancelMeasurement}
+        />
+      {/if}
     </div>
 
   {:else if currentScreen === 'medical-history'}
