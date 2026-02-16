@@ -1,17 +1,21 @@
 <script lang="ts">
   import Welcome from './lib/pages/welcome.svelte';
   import Login from './lib/pages/login.svelte';
+  import Home from './lib/pages/home.svelte';
 
   // State management
-  type ScreenState = 'welcome' | 'login' | 'dashboard';
+  type ScreenState = 'welcome' | 'login' | 'home';
   let currentScreen: ScreenState = 'welcome';
 
   // Navigation handlers
   const startKiosk = () => currentScreen = 'login';
   const goBack = () => currentScreen = 'welcome';
+  const loginSuccess = () => currentScreen = 'home';
+  const logout = () => currentScreen = 'welcome';
 </script>
 
 <main 
+  on:contextmenu|preventDefault
   class="fixed inset-0 h-screen w-screen overflow-hidden select-none flex flex-col text-slate-900 bg-[#9fc5f8]"
 >
   
@@ -22,14 +26,12 @@
   
   {:else if currentScreen === 'login'}
     <div class="flex-1">
-       <Login onBack={goBack} />
+       <Login onBack={goBack} onLogin={loginSuccess} />
     </div>
     
-  {:else if currentScreen === 'dashboard'}
-    <div class="flex items-center justify-center h-full flex-1">
-      <h1 class="text-4xl font-black tracking-widest animate-pulse text-blue-500">
-        DASHBOARD_ACTIVE
-      </h1>
+  {:else if currentScreen === 'home'}
+    <div class="flex-1">
+       <Home onLogout={logout} />
     </div>
   {/if}
 
@@ -40,9 +42,24 @@
   :global(body, html) {
     margin: 0;
     padding: 0;
-    background-color: #020617; /* Matches slate-950 */
+    background-color: #020617; 
     width: 100vw;
     height: 100vh;
     overflow: hidden;
+    
+    /* TOUCH LOCKDOWN */
+    -webkit-touch-callout: none; 
+    -webkit-user-select: none;
+    user-select: none;
+    -webkit-tap-highlight-color: transparent;
+    overscroll-behavior: none;
+    
+    /* 'none' is the most aggressive lockdown for kiosks to prevent all browser gestures */
+    touch-action: none;
+  }
+
+  /* Keep buttons clickable while blocking browser gestures */
+  :global(button) {
+    touch-action: manipulation;
   }
 </style>
