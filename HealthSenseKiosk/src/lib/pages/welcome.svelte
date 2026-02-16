@@ -1,5 +1,26 @@
 <script lang="ts">
+  import { onMount } from 'svelte';
   export let onStart: () => void;
+
+  // Real-time connectivity state
+  let isOnline = true; 
+
+  onMount(() => {
+    // Check initial status
+    isOnline = navigator.onLine;
+
+    const updateStatus = () => {
+      isOnline = navigator.onLine;
+    };
+
+    window.addEventListener('online', updateStatus);
+    window.addEventListener('offline', updateStatus);
+
+    return () => {
+      window.removeEventListener('online', updateStatus);
+      window.removeEventListener('offline', updateStatus);
+    };
+  });
 
   function handleKeydown(event: KeyboardEvent) {
     if (event.key === 'Enter' || event.key === ' ') {
@@ -37,48 +58,34 @@
   </div>
 
   <div class="flex-1 flex flex-col items-center justify-center">
-    
     <div class="text-center mb-20">
-      <h1 class="text-8xl font-[1000] text-blue-950 tracking-tighter leading-none">
-        WELCOME
-      </h1>
+      <h1 class="text-8xl font-[1000] text-blue-950 tracking-tighter leading-none">WELCOME</h1>
     </div>
 
     <div class="w-full flex justify-center">
       <div class="relative space-y-14">
-        
         <div class="absolute left-8 top-3 bottom-3 w-px bg-blue-900/10"></div>
-
         <div class="flex items-center gap-8 relative z-10">
-          <div class="w-16 h-16 rounded-full bg-white border border-blue-100 shadow-sm flex items-center justify-center text-xl font-black text-blue-600 shrink-0">
-            01
-          </div>
+          <div class="w-16 h-16 rounded-full bg-white border border-blue-100 shadow-sm flex items-center justify-center text-xl font-black text-blue-600 shrink-0">01</div>
           <div class="flex flex-col">
             <span class="text-[11px] font-black uppercase tracking-[0.25em] text-blue-400 mb-0.5">Step One</span>
             <span class="text-3xl font-bold text-blue-900 leading-tight">Identify</span>
           </div>
         </div>
-
         <div class="flex items-center gap-8 relative z-10">
-          <div class="w-16 h-16 rounded-full bg-white border border-blue-100 shadow-sm flex items-center justify-center text-xl font-black text-blue-600 shrink-0">
-            02
-          </div>
+          <div class="w-16 h-16 rounded-full bg-white border border-blue-100 shadow-sm flex items-center justify-center text-xl font-black text-blue-600 shrink-0">02</div>
           <div class="flex flex-col">
             <span class="text-[11px] font-black uppercase tracking-[0.25em] text-blue-400 mb-0.5">Step Two</span>
             <span class="text-3xl font-bold text-blue-900 leading-tight">Measure</span>
           </div>
         </div>
-
         <div class="flex items-center gap-8 relative z-10">
-          <div class="w-16 h-16 rounded-full bg-white border border-blue-100 shadow-sm flex items-center justify-center text-xl font-black text-blue-600 shrink-0">
-            03
-          </div>
+          <div class="w-16 h-16 rounded-full bg-white border border-blue-100 shadow-sm flex items-center justify-center text-xl font-black text-blue-600 shrink-0">03</div>
           <div class="flex flex-col">
             <span class="text-[11px] font-black uppercase tracking-[0.25em] text-blue-400 mb-0.5">Step Three</span>
             <span class="text-3xl font-bold text-blue-900 leading-tight">Complete</span>
           </div>
         </div>
-
       </div>
     </div>
   </div>
@@ -89,18 +96,17 @@
         <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2.5" d="M19 14l-7 7m0 0l-7-7m7 7V3" />
       </svg>
     </div>
-    
-    <span class="text-blue-900 font-black text-3xl uppercase tracking-[0.25em] opacity-80">
-      Tap to Start
-    </span>
-    
+    <span class="text-blue-900 font-black text-3xl uppercase tracking-[0.25em] opacity-80">Tap to Start</span>
     <div class="w-14 h-1 bg-blue-900/10 rounded-full"></div>
   </div>
 
   <div class="p-8 flex items-center justify-between border-t border-blue-900/5 bg-white/20 backdrop-blur-sm pointer-events-none">
-    <div class="flex items-center gap-2 opacity-40">
-      <div class="w-2 h-2 rounded-full bg-green-500 animate-pulse"></div>
-      <span class="text-[10px] font-bold uppercase tracking-widest text-blue-900">System Ready</span>
+    <div class="flex items-center gap-2 transition-opacity duration-500">
+      <div class="w-2.5 h-2.5 rounded-full {isOnline ? 'bg-green-500 animate-pulse' : 'bg-red-500'} transition-colors duration-300"></div>
+      
+      <span class="text-[10px] font-bold uppercase tracking-widest {isOnline ? 'text-blue-900' : 'text-red-600'}">
+        {isOnline ? 'System Ready' : 'Offline Mode'}
+      </span>
     </div>
     <span class="text-[10px] font-black uppercase tracking-widest text-blue-900/30">HealthSense v1.0</span>
   </div>

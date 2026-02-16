@@ -1,6 +1,30 @@
 @import "tailwindcss";
 
 /* Kiosk-specific base styles */
-body {
+:global(html), body {
+  /* Existing styles */
   @apply bg-slate-950 text-white overflow-hidden select-none;
+  
+  /* Kill the long-press 'X' bubble and magnifying glass */
+  -webkit-touch-callout: none;
+  
+  /* Stop the browser from handling gestures like pinch-to-zoom 
+     (This is a major reason the 'X' bubble appears) */
+  touch-action: none;
+
+  /* Prevent 'pull-to-refresh' or bounce effects if the user drags down */
+  overscroll-behavior: none;
+
+  /* Remove the blue highlight that appears when tapping buttons */
+  -webkit-tap-highlight-color: transparent;
+
+  /* Ensure the app fills the 1080x1920 portrait screen perfectly */
+  width: 100vw;
+  height: 100vh;
+}
+
+/* Optional: Make sure buttons feel snappy on the touchscreen */
+button {
+  touch-action: manipulation;
+  cursor: pointer;
 }
