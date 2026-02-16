@@ -2,7 +2,13 @@
   export let onLogout: () => void;
   
   // Placeholder for user name (You'll likely pull this from a store later)
-  let fullName = "John Doe";
+  let fullName = "Daniel Maglasang Montesclaros";
+
+  // Logic to format the name for the Kiosk UI
+  $: nameParts = fullName.trim().split(" ");
+  $: firstName = nameParts[0] || "";
+  $: middleInitial = nameParts.length > 2 ? `${nameParts[1].charAt(0)}.` : "";
+  $: lastName = nameParts.length > 1 ? nameParts[nameParts.length - 1] : "";
 
   // Navigation handlers for the next phases
   const startCheckup = () => {
@@ -37,9 +43,16 @@
 
   <div class="mb-12">
     <p class="text-3xl font-medium text-blue-900/60 mb-2">Hello,</p>
-    <h1 class="text-6xl font-[1000] text-blue-950 tracking-tighter leading-tight uppercase">
-      {fullName}
-    </h1>
+    
+    <div class="flex flex-col">
+      <h1 class="text-6xl font-[1000] text-blue-950 tracking-tighter leading-none uppercase">
+        {firstName} {middleInitial}
+      </h1>
+      
+      <h1 class="text-6xl font-[1000] text-blue-600 tracking-tighter leading-tight uppercase">
+        {lastName}
+      </h1>
+    </div>
   </div>
 
   <div class="flex-1 flex flex-col gap-8 justify-center">
