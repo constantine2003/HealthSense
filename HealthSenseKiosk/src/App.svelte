@@ -3,9 +3,10 @@
   import Login from './lib/pages/login.svelte';
   import Home from './lib/pages/home.svelte';
   import History from './lib/pages/history.svelte';
+  import Checkup from './lib/pages/checkup.svelte';
 
   // State management
-  type ScreenState = 'welcome' | 'login' | 'home' | 'history';
+  type ScreenState = 'welcome' | 'login' | 'home' | 'history' | 'checkup';
   let currentScreen: ScreenState = 'welcome';
 
   // Navigation handlers
@@ -13,10 +14,16 @@
   const goBack = () => currentScreen = 'welcome';
   const loginSuccess = () => currentScreen = 'home';
   const logout = () => currentScreen = 'welcome';
-  
-  // New handlers for history
   const showHistory = () => currentScreen = 'history';
   const closeHistory = () => currentScreen = 'home';
+
+  // Checkup handlers
+  const startCheckup = () => currentScreen = 'checkup';
+  const finishCheckup = (data: any) => {
+    console.log("Checkup Data Received:", data);
+    currentScreen = 'home'; 
+    // Data saving logic for Phase 2 goes here
+  };
 </script>
 
 <main 
@@ -36,12 +43,21 @@
     
   {:else if currentScreen === 'home'}
     <div class="flex-1">
-       <Home onLogout={logout} onViewHistory={showHistory} />
+       <Home 
+         onLogout={logout} 
+         onViewHistory={showHistory} 
+         onStartCheckup={startCheckup} 
+       />
     </div>
   
   {:else if currentScreen === 'history'}
     <div class="flex-1">
        <History onBack={closeHistory} />
+    </div>
+
+  {:else if currentScreen === 'checkup'}
+    <div class="flex-1">
+       <Checkup onFinish={finishCheckup} onCancel={closeHistory} />
     </div>
   {/if}
 
