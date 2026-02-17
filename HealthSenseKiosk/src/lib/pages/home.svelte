@@ -1,6 +1,6 @@
 <script lang="ts">
   export let onLogout: () => void;
-  
+  export let onViewHistory: () => void; // 1. Define the prop
   // Placeholder for user name (You'll likely pull this from a store later)
   let fullName = "Daniel Maglasang Montesclaros";
 
@@ -19,6 +19,7 @@
   const viewHistory = () => {
     console.log("Navigating to History...");
     // currentScreen = 'history'; (Update App.svelte later to handle this)
+    onViewHistory();
   };
 </script>
 

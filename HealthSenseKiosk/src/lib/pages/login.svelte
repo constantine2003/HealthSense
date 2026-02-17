@@ -62,7 +62,9 @@
     </button>
 
     <div class="text-center mb-16">
-      <h1 class="text-6xl font-[1000] text-blue-950 tracking-tighter mb-4">LOG-IN</h1>
+      <h1 class="text-8xl font-[1000] tracking-tighter leading-none mb-4">
+        <span class="text-blue-950">LOG</span><span class="text-blue-500">IN</span>
+      </h1>
       <p class="text-blue-900/50 font-bold uppercase tracking-[0.2em] text-xs">Access HealthSense Portal</p>
     </div>
 
