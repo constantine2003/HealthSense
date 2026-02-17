@@ -4,25 +4,28 @@
   import Home from './lib/pages/home.svelte';
   import History from './lib/pages/history.svelte';
   import Checkup from './lib/pages/checkup.svelte';
+  import CreateAccount from './lib/pages/createaccount.svelte'; 
 
-  // State management
-  type ScreenState = 'welcome' | 'login' | 'home' | 'history' | 'checkup';
+  // 1. Explicitly define the type
+  type ScreenState = 'welcome' | 'login' | 'signup' | 'home' | 'history' | 'checkup';
+  
+  // 2. Initialize with the explicit type
   let currentScreen: ScreenState = 'welcome';
 
-  // Navigation handlers
-  const startKiosk = () => currentScreen = 'login';
-  const goBack = () => currentScreen = 'welcome';
-  const loginSuccess = () => currentScreen = 'home';
-  const logout = () => currentScreen = 'welcome';
-  const showHistory = () => currentScreen = 'history';
-  const closeHistory = () => currentScreen = 'home';
+  // 3. Ensure handlers are explicitly typed to return void, not 'string'
+  // (TS sometimes infers a return if the arrow function is one line)
+  const startKiosk = (): void => { currentScreen = 'login' };
+  const goBack = (): void => { currentScreen = 'welcome' };
+  const goToSignUp = (): void => { currentScreen = 'signup' }; 
+  const loginSuccess = (): void => { currentScreen = 'home' };
+  const logout = (): void => { currentScreen = 'welcome' };
+  const showHistory = (): void => { currentScreen = 'history' };
+  const closeHistory = (): void => { currentScreen = 'home' };
 
-  // Checkup handlers
-  const startCheckup = () => currentScreen = 'checkup';
-  const finishCheckup = (data: any) => {
+  const startCheckup = (): void => { currentScreen = 'checkup' };
+  const finishCheckup = (data: any): void => {
     console.log("Checkup Data Received:", data);
     currentScreen = 'home'; 
-    // Data saving logic for Phase 2 goes here
   };
 </script>
 
@@ -38,7 +41,19 @@
   
   {:else if currentScreen === 'login'}
     <div class="flex-1">
-       <Login onBack={goBack} onLogin={loginSuccess} />
+       <Login 
+         onBack={goBack} 
+         onLogin={loginSuccess} 
+         onCreateAccount={goToSignUp} 
+       />
+    </div>
+
+  {:else if currentScreen === 'signup'}
+    <div class="flex-1">
+       <CreateAccount 
+         onBack={() => currentScreen = 'login'} 
+         onCreated={loginSuccess} 
+       />
     </div>
     
   {:else if currentScreen === 'home'}

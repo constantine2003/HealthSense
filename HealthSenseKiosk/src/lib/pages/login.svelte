@@ -4,6 +4,7 @@
 
   export let onBack: () => void;
   export let onLogin: () => void; // <--- Add this line
+  export let onCreateAccount: () => void; // <--- Add this line
 
   let username = "";
   let password = "";
@@ -38,12 +39,39 @@
   }
 
   function toggleFingerprint() { showFingerprintModal = true; }
-  function closeFingerprint() { showFingerprintModal = false; }
+  // Update close function to reset status
+  function closeFingerprint() { 
+    showFingerprintModal = false; 
+    scanStatus = 'idle';
+  }
 
+  // --- NEW SIMULATION STATES ---
+  let scanStatus: 'scanning' | 'success' | 'idle' = 'idle';
+
+  function simulateScan() {
+    if (scanStatus !== 'idle') return; // Prevent double clicks
+    
+    scanStatus = 'scanning';
+    
+    // Simulate the time it takes to read a finger (1.5 seconds)
+    setTimeout(() => {
+      scanStatus = 'success';
+      
+      // Wait another 1 second so the user sees the green "Success"
+      setTimeout(() => {
+        showFingerprintModal = false;
+        scanStatus = 'idle'; // Reset for next time
+        onLogin(); // Trigger the actual login navigation
+      }, 1000);
+    }, 1500);
+  }
+  
   function handleSignIn() {
     console.log("Sign In triggered");
     onLogin(); 
   }
+
+  
 </script>
 
 <div 
@@ -162,7 +190,10 @@
 
     <div class="mt-16 flex flex-col items-center gap-4">
       <p class="text-blue-900/40 font-bold text-sm">Don't have an account?</p>
-      <button class="text-blue-600 font-black uppercase tracking-[0.2em] text-lg hover:underline">
+      <button 
+        on:click={onCreateAccount}
+        class="text-blue-600 font-black uppercase tracking-[0.2em] text-lg hover:underline"
+      >
         Create Account
       </button>
     </div>
@@ -214,31 +245,83 @@
   {#if showFingerprintModal}
     <div 
       transition:fade={{ duration: 200 }}
-      class="fixed inset-0 z-50 flex items-center justify-center bg-blue-950/40 backdrop-blur-md p-10"
+      class="fixed inset-0 z-50 flex items-center justify-center bg-blue-950/60 backdrop-blur-md p-10"
       on:click|stopPropagation={closeFingerprint}
-      on:keydown={(e) => e.key === 'Escape' && closeFingerprint()}
       role="presentation"
     >
       <div 
         transition:scale={{ start: 0.9, duration: 300 }}
-        class="bg-white w-full max-w-sm rounded-[3rem] p-12 flex flex-col items-center text-center shadow-2xl"
+        class="bg-white w-full max-w-sm rounded-[3rem] p-12 flex flex-col items-center text-center shadow-2xl border border-blue-100/20"
         on:click|stopPropagation
         role="presentation"
       >
-        <div class="w-32 h-32 bg-blue-50 rounded-full flex items-center justify-center mb-8 animate-pulse">
-          <div class="w-32 h-32 bg-blue-50 rounded-full flex items-center justify-center mb-8 overflow-hidden">
-            <img 
-              src={fingerprintIcon} 
-              alt="Scanning" 
-              class="w-16 h-16 animate-pulse pointer-events-none" 
-              style="filter: brightness(0) saturate(100%) invert(27%) sepia(91%) saturate(2053%) hue-rotate(205deg) brightness(96%) contrast(92%);"
-            />
-          </div>
-        </div>
-        <h3 class="text-2xl font-black text-blue-950 uppercase tracking-tighter mb-2">Scanning...</h3>
-        <p class="text-blue-900/50 font-bold text-sm leading-relaxed mb-10">Please place your finger on the biometric scanner below the screen.</p>
-        <button on:click={closeFingerprint} class="px-8 py-4 border-2 border-blue-100 rounded-2xl text-blue-400 font-black uppercase tracking-widest text-xs active:bg-blue-50">Cancel</button>
+        <button 
+          on:click={simulateScan}
+          class="relative w-48 h-48 rounded-full flex items-center justify-center mb-10 transition-all duration-500 overflow-hidden bg-slate-50 border border-blue-50 shadow-inner group"
+        >
+          {#if scanStatus === 'success'}
+            <div class="absolute inset-0 bg-green-500 flex items-center justify-center z-50" in:fade>
+              <svg in:scale xmlns="http://www.w3.org/2000/svg" class="w-24 h-24 text-white" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="3">
+                <path stroke-linecap="round" stroke-linejoin="round" d="M5 13l4 4L19 7" />
+              </svg>
+            </div>
+          {:else}
+            {#if scanStatus === 'scanning'}
+              <div 
+                class="absolute inset-3 border-[3px] border-slate-200 rounded-full z-10"
+              ></div>
+              <div 
+                class="absolute inset-3 border-[3px] border-transparent border-t-blue-500 rounded-full animate-spin z-20"
+                style="transform: rotate(15deg);" 
+              ></div>
+            {/if}
+
+            <div class="relative w-32 h-32 rounded-full overflow-hidden flex items-center justify-center">
+              <img 
+                src={fingerprintIcon} 
+                alt="Scanning" 
+                class="w-20 h-20 z-10 transition-all duration-500 {scanStatus === 'scanning' ? 'opacity-100 scale-105' : 'opacity-20'}" 
+                style="filter: {scanStatus === 'scanning' ? 'brightness(0) saturate(100%) invert(48%) sepia(79%) saturate(2500%) hue-rotate(200deg) brightness(100%) contrast(105%)' : 'grayscale(100%)'};"
+              />
+              
+              {#if scanStatus === 'scanning'}
+                <div class="absolute inset-0 z-20 pointer-events-none" style="clip-path: circle(50% at 50% 50%);">
+                  <div class="w-full h-0.75 bg-blue-400 shadow-[0_0_20px_#3b82f6] animate-[scan_2s_linear_infinite] opacity-0"></div>
+                </div>
+                
+                <div class="absolute inset-0 bg-blue-500/10 animate-pulse z-0"></div>
+              {/if}
+            </div>
+          {/if}
+        </button>
+
+        <h3 class="text-3xl font-[1000] uppercase tracking-tighter mb-2 
+          {scanStatus === 'success' ? 'text-green-600' : 'text-blue-950'}">
+          {#if scanStatus === 'idle'} Tap To Scan
+          {:else if scanStatus === 'scanning'} Verifying...
+          {:else} Success
+          {/if}
+        </h3>
+
+        <p class="text-blue-900/40 font-bold text-[10px] uppercase tracking-[0.2em] mb-10">
+          HealthSense Biometric Auth
+        </p>
+
+        {#if scanStatus !== 'success'}
+          <button on:click={closeFingerprint} class="px-6 py-2 rounded-full bg-slate-100 text-slate-400 font-black uppercase text-[10px] tracking-widest active:bg-red-50 active:text-red-400 transition-colors">
+            Cancel
+          </button>
+        {/if}
       </div>
     </div>
   {/if}
 </div>
+
+<style>
+  @keyframes scan {
+    0% { transform: translateY(-10px); opacity: 0; }
+    15% { opacity: 1; }
+    85% { opacity: 1; }
+    100% { transform: translateY(140px); opacity: 0; }
+  }
+</style>
