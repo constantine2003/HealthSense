@@ -166,10 +166,10 @@
       {/if}
 
       <div class="grid grid-cols-2 gap-4">
-        <button on:click={startSequence} disabled={isScanning || isCountingDown} class="py-6 bg-white border-2 border-blue-50 text-blue-900/40 rounded-[2rem] font-black uppercase text-xs tracking-widest">
+        <button on:click={startSequence} disabled={isScanning || isCountingDown} class="py-6 bg-white border-2 border-blue-50 text-blue-900/40 rounded-4xl font-black uppercase text-xs tracking-widest">
           Retry
         </button>
-        <button on:click={skipPhase} disabled={isScanning || isCountingDown} class="py-6 bg-red-50 text-red-400 rounded-[2rem] font-black uppercase text-xs tracking-widest">
+        <button on:click={skipPhase} disabled={isScanning || isCountingDown} class="py-6 bg-red-50 text-red-400 rounded-4xl font-black uppercase text-xs tracking-widest">
           Skip
         </button>
       </div>
@@ -181,15 +181,18 @@
       
       <div class="grid grid-cols-1 gap-3 overflow-y-auto pr-2">
         {#each Object.entries(phases) as [key, config]}
-          <div class="p-5 bg-white rounded-[2rem] border border-blue-50 flex justify-between items-center shadow-sm">
+          <div class="p-5 bg-white rounded-4xl border border-blue-50 flex justify-between items-center shadow-sm">
             <div class="flex flex-col">
               <span class="font-black text-blue-400 uppercase text-[10px] tracking-widest">{config.title}</span>
               <span class="text-2xl font-black text-blue-950">{results[key as keyof typeof results]} <span class="text-sm text-blue-900/30">{config.unit}</span></span>
             </div>
             
             <button 
+                type="button"
                 on:click={() => redoSpecific(key as Phase)}
-                class="p-4 bg-blue-50 text-blue-600 rounded-2xl active:scale-90 transition-transform">
+                aria-label="Redo {key} phase"
+                class="p-4 bg-blue-50 text-blue-600 rounded-2xl active:scale-90 transition-transform"
+            >
                 <svg xmlns="http://www.w3.org/2000/svg" class="w-6 h-6" fill="none" viewBox="0 0 24 24" stroke="currentColor">
                     <path stroke-linecap="round" stroke-linejoin="round" stroke-width="3" d="M4 4v5h.582m15.356 2A8.001 8.001 0 004.582 9m0 0H9m11 11v-5h-.581m0 0a8.003 8.003 0 01-15.357-2m15.357 2H15" />
                 </svg>
