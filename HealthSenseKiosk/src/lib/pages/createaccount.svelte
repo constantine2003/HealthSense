@@ -98,6 +98,52 @@
       alert("Please fill in all fields (Biometrics optional)");
     }
   };
+
+  // --- MOUSE DRAG LOGIC ---
+  let isDragging = false;
+  let startY: number;
+  let scrollTop: number;
+
+  function dragScroll(node: HTMLElement) {
+    const onMouseDown = (e: MouseEvent) => {
+      isDragging = true;
+      node.style.cursor = 'grabbing';
+      startY = e.pageY - node.offsetTop;
+      scrollTop = node.scrollTop;
+    };
+
+    const onMouseLeave = () => {
+      isDragging = false;
+      node.style.cursor = 'grab';
+    };
+
+    const onMouseUp = () => {
+      isDragging = false;
+      node.style.cursor = 'grab';
+    };
+
+    const onMouseMove = (e: MouseEvent) => {
+      if (!isDragging) return;
+      e.preventDefault();
+      const y = e.pageY - node.offsetTop;
+      const walk = (y - startY) * 2; // Multiplier for speed
+      node.scrollTop = scrollTop - walk;
+    };
+
+    node.addEventListener('mousedown', onMouseDown);
+    node.addEventListener('mouseleave', onMouseLeave);
+    node.addEventListener('mouseup', onMouseUp);
+    node.addEventListener('mousemove', onMouseMove);
+
+    return {
+      destroy() {
+        node.removeEventListener('mousedown', onMouseDown);
+        node.removeEventListener('mouseleave', onMouseLeave);
+        node.removeEventListener('mouseup', onMouseUp);
+        node.removeEventListener('mousemove', onMouseMove);
+      }
+    };
+  }
 </script>
 
 <div
@@ -171,22 +217,37 @@
           <span class="text-[10px] font-black uppercase tracking-widest text-blue-400">Birthday</span>
           <span class="text-[9px] font-black text-blue-500 bg-blue-50 px-2 py-0.5 rounded-full">{age} YEARS OLD</span>
         </div>
-        <div class="relative h-32 bg-white rounded-2xl border border-blue-100 shadow-sm overflow-hidden flex p-1">
-          <div class="absolute inset-y-2 left-1 right-1 bg-blue-500/5 rounded-xl pointer-events-none border use:scrollSelect={'m'} border-blue-500/10"></div>
+        
+        <div class="relative h-40 bg-white rounded-2xl border border-blue-100 shadow-sm overflow-hidden flex p-1 cursor-grab">
+          <div class="absolute inset-y-2 left-1 right-1 bg-blue-500/5 rounded-xl pointer-events-none border border-blue-500/10 z-20"></div>
           
-          <div class="flex-1 overflow-y-auto snap-y snap-mandatory scrollbar-hide py-10" use:scrollSelect={'m'}>
+          <div 
+            class="flex-1 overflow-y-auto snap-y snap-mandatory scrollbar-hide py-14 z-10 touch-pan-y" 
+            use:scrollSelect={'m'} 
+            use:dragScroll
+          >
             {#each months as m}
-              <div data-value={m} class="h-10 snap-center flex items-center justify-center text-xs font-black transition-all {selM === m ? 'text-blue-600 scale-125' : 'text-blue-950/20'}">{m}</div>
+              <div data-value={m} class="h-10 snap-center flex items-center justify-center text-xs font-black transition-all {selM === m ? 'text-blue-600 scale-125' : 'text-blue-950/20'} pointer-events-none">{m}</div>
             {/each}
           </div>
-          <div class="flex-1 overflow-y-auto snap-y snap-mandatory scrollbar-hide py-10" use:scrollSelect={'d'}>
+
+          <div 
+            class="flex-1 overflow-y-auto snap-y snap-mandatory scrollbar-hide py-14 z-10 touch-pan-y" 
+            use:scrollSelect={'d'} 
+            use:dragScroll
+          >
             {#each days as d}
-              <div data-value={d} class="h-10 snap-center flex items-center justify-center text-xs font-black transition-all {selD === d ? 'text-blue-600 scale-125' : 'text-blue-950/20'}">{d}</div>
+              <div data-value={d} class="h-10 snap-center flex items-center justify-center text-xs font-black transition-all {selD === d ? 'text-blue-600 scale-125' : 'text-blue-950/20'} pointer-events-none">{d}</div>
             {/each}
           </div>
-          <div class="flex-1 overflow-y-auto snap-y snap-mandatory scrollbar-hide py-10" use:scrollSelect={'y'}>
+
+          <div 
+            class="flex-1 overflow-y-auto snap-y snap-mandatory scrollbar-hide py-14 z-10 touch-pan-y" 
+            use:scrollSelect={'y'} 
+            use:dragScroll
+          >
             {#each years as y}
-              <div data-value={y} class="h-10 snap-center flex items-center justify-center text-xs font-black transition-all {selY === y ? 'text-blue-600 scale-110' : 'text-blue-950/20'}">{y}</div>
+              <div data-value={y} class="h-10 snap-center flex items-center justify-center text-xs font-black transition-all {selY === y ? 'text-blue-600 scale-110' : 'text-blue-950/20'} pointer-events-none">{y}</div>
             {/each}
           </div>
         </div>
@@ -317,22 +378,27 @@
 </div>
 
 <style>
-  .scrollbar-hide { 
-    -ms-overflow-style: none; 
-    scrollbar-width: none; 
-    /* This is the secret sauce for touchscreens */
-    -webkit-overflow-scrolling: touch; 
-    overscroll-behavior-y: contain;
-  }
-  
-  .scrollbar-hide::-webkit-scrollbar { 
-    display: none; 
+  /* Kiosk-specific CSS for smooth dragging */
+  .scrollbar-hide {
+    -ms-overflow-style: none;
+    scrollbar-width: none;
+    overflow-y: scroll;
+    -webkit-overflow-scrolling: touch; /* Critical for iOS/Chrome touch hardware */
   }
 
-  /* Ensure the container and items don't try to "select" text while dragging */
+  .scrollbar-hide::-webkit-scrollbar {
+    display: none;
+  }
+
+  /* Fade effect at top and bottom to make it look like a wheel */
+  .scrollbar-hide {
+    mask-image: linear-gradient(to bottom, transparent, black 40%, black 60%, transparent);
+    -webkit-mask-image: linear-gradient(to bottom, transparent, black 40%, black 60%, transparent);
+  }
+
+  /* Prevent the user from accidentally highlighting text while dragging on the kiosk screen */
   .snap-center {
-    scroll-snap-align: center;
     user-select: none;
-    -webkit-user-drag: none;
+    -webkit-user-select: none;
   }
 </style>
