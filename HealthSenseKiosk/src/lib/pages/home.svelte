@@ -1,26 +1,24 @@
 <script lang="ts">
   export let onLogout: () => void;
-  export let onViewHistory: () => void; // 1. Define the prop
-  export let onStartCheckup: () => void; // 1. Accept the prop
-  // Placeholder for user name (You'll likely pull this from a store later)
-  let fullName = "Daniel Maglasang Montesclaros";
+  export let onViewHistory: () => void;
+  export let onStartCheckup: () => void;
+  
+  // 1. Accept the user object from the Login component
+  export let user: any;
 
-  // Logic to format the name for the Kiosk UI
-  $: nameParts = fullName.trim().split(" ");
-  $: firstName = nameParts[0] || "";
-  $: middleInitial = nameParts.length > 2 ? `${nameParts[1].charAt(0)}.` : "";
-  $: lastName = nameParts.length > 1 ? nameParts[nameParts.length - 1] : "";
+  // 2. Logic to format the name for the Kiosk UI
+  // We use the raw profile data to ensure "Daniel M. Montesclaros" format
+  $: firstName = user?.first_name || "Guest";
+  $: middleInitial = user?.middle_name ? `${user.middle_name.trim().charAt(0)}.` : "";
+  $: lastName = user?.last_name || "";
 
-  // Navigation handlers for the next phases
   const startCheckup = () => {
     console.log("Navigating to Checkup...");
-    // currentScreen = 'checkup'; (Update App.svelte later to handle this)
     onStartCheckup();
   };
 
   const viewHistory = () => {
     console.log("Navigating to History...");
-    // currentScreen = 'history'; (Update App.svelte later to handle this)
     onViewHistory();
   };
 </script>

@@ -1,18 +1,20 @@
 <script lang="ts">
   import { fade, slide, scale } from 'svelte/transition';
+  import { supabase } from './supabaseClient'; // Ensure this path is correct
   import fingerprintIcon from '../../assets/fingerprint-svgrepo-com.svg';
 
   export let onBack: () => void;
-  export let onLogin: () => void; // <--- Add this line
-  export let onCreateAccount: () => void; // <--- Add this line
+  export let onLogin: (user: any) => void; // Pass the user data back
+  export let onCreateAccount: () => void;
 
-  let username = "";
+  let username = ""; // User types: joy.arenas
   let password = "";
   let focusedField: 'username' | 'password' | null = null;
   let showFingerprintModal = false;
   let showPassword = false;
-  let isCaps = true; // Defaults to Caps automatically
-  
+  let isCaps = true;
+  let isSubmitting = false; 
+
   const rows = {
     numbers: ['1','2','3','4','5','6','7','8','9','0'],
     letters: [
@@ -34,55 +36,81 @@
     if (focusedField === 'password') password = password.slice(0, -1);
   }
 
-  function handleBackgroundKey(e: KeyboardEvent) {
-    if (e.key === 'Escape') focusedField = null;
-  }
-
   function toggleFingerprint() { showFingerprintModal = true; }
-  // Update close function to reset status
   function closeFingerprint() { 
     showFingerprintModal = false; 
     scanStatus = 'idle';
   }
 
-  // --- NEW SIMULATION STATES ---
+  // --- BIOMETRIC SCAN SIMULATION ---
   let scanStatus: 'scanning' | 'success' | 'idle' = 'idle';
 
   function simulateScan() {
-    if (scanStatus !== 'idle') return; // Prevent double clicks
-    
+    if (scanStatus !== 'idle') return;
     scanStatus = 'scanning';
     
-    // Simulate the time it takes to read a finger (1.5 seconds)
     setTimeout(() => {
       scanStatus = 'success';
-      
-      // Wait another 1 second so the user sees the green "Success"
       setTimeout(() => {
         showFingerprintModal = false;
-        scanStatus = 'idle'; // Reset for next time
-        onLogin(); // Trigger the actual login navigation
+        scanStatus = 'idle';
+        // Note: For a real thesis, you'd fetch the last registered user here
+        onLogin({ first_name: "Biometric", last_name: "User" }); 
       }, 1000);
     }, 1500);
   }
   
-  function handleSignIn() {
-    console.log("Sign In triggered");
-    onLogin(); 
-  }
+  // --- ACTUAL LOGIN LOGIC ---
+  async function handleSignIn() {
+    if (!username || !password) {
+      alert("Please enter both username and password");
+      return;
+    }
 
-  
+    isSubmitting = true;
+
+    // 1. Construct the email automatically
+    const cleanUser = username.toLowerCase().trim();
+    const fullEmail = `${cleanUser}@kiosk.local`; // Matches registration logic
+
+    try {
+      // 2. Auth Sign In
+      const { data: authData, error: authError } = await supabase.auth.signInWithPassword({
+        email: fullEmail,
+        password: password,
+      });
+
+      if (authError) throw authError;
+
+      // 3. Fetch Profile Data (to get names for the Dashboard)
+      if (authData.user) {
+        const { data: profile, error: profileError } = await supabase
+          .from('profiles')
+          .select('*')
+          .eq('id', authData.user.id)
+          .single();
+
+        if (profileError) throw profileError;
+
+        // 4. Success! Pass profile to the Dashboard
+        onLogin(profile); 
+      }
+    } catch (err: any) {
+      alert("Login Failed: " + err.message);
+    } finally {
+      isSubmitting = false;
+    }
+  }
 </script>
 
 <div 
   class="relative h-full w-full flex flex-col bg-linear-to-b from-[#f0f7ff] to-[#9fc5f8] select-none overflow-hidden"
   on:click={() => focusedField = null}
-  on:keydown={handleBackgroundKey}
   role="presentation"
 >
   <div class="flex-1 flex flex-col items-center justify-center max-w-lg mx-auto w-full px-6" on:click|stopPropagation role="presentation">
     
-    <button on:click={onBack} class="absolute top-16 left-12 text-blue-900/40 font-black tracking-widest text-sm flex items-center gap-2 hover:text-blue-600 transition-colors z-20">
+    <button on:click={onBack} class="absolute top-16 left-12 text-blue-900/40 font-black tracking-widest text-sm flex items-center gap-2 z-20">
       <svg xmlns="http://www.w3.org/2000/svg" class="w-5 h-5" fill="none" viewBox="0 0 24 24" stroke="currentColor">
         <path stroke-linecap="round" stroke-linejoin="round" stroke-width="3" d="M15 19l-7-7 7-7" />
       </svg>
@@ -90,7 +118,7 @@
     </button>
 
     <div class="text-center mb-16">
-      <h1 class="text-8xl font-[1000] tracking-tighter leading-none mb-4">
+      <h1 class="text-8xl font-[1000] tracking-tighter leading-none mb-4 uppercase">
         <span class="text-blue-950">LOG</span><span class="text-blue-500">IN</span>
       </h1>
       <p class="text-blue-900/50 font-bold uppercase tracking-[0.2em] text-xs">Access HealthSense Portal</p>
@@ -98,55 +126,58 @@
 
     <div class="w-full space-y-6">
       <div class="space-y-2">
-        <span class="ml-4 text-[10px] font-black uppercase tracking-widest text-blue-400">Username</span>
-        <div 
-          on:click={() => focusedField = 'username'}
-          on:keydown={(e) => e.key === 'Enter' && (focusedField = 'username')}
-          role="button"
-          tabindex="0"
-          class="relative w-full h-20 px-8 rounded-3xl bg-white border flex items-center text-xl font-bold transition-all outline-none
-          {focusedField === 'username' ? 'border-blue-500 ring-4 ring-blue-500/10' : 'border-blue-100 shadow-sm'}"
-        >
-          {#if !username && focusedField !== 'username'}
-            <span class="absolute left-8 text-blue-900/20 pointer-events-none">Enter username</span>
-          {/if}
-          
-          <span class="text-blue-900">{username}</span>
-          
-          {#if focusedField === 'username'}
-            <div class="ml-1 w-0.5 h-6 bg-blue-500 animate-pulse"></div>
-          {/if}
+        <div class="space-y-2">
+          <span class="ml-4 text-[10px] font-black uppercase tracking-widest text-blue-400">Username</span>
+          <button 
+            type="button"
+            on:click|stopPropagation={() => focusedField = 'username'}
+            class="relative w-full h-20 px-8 rounded-3xl bg-white border flex items-center text-xl font-bold transition-all outline-none text-left
+            {focusedField === 'username' ? 'border-blue-500 ring-4 ring-blue-500/10' : 'border-blue-100 shadow-sm'}"
+          >
+            <div class="flex items-baseline overflow-hidden w-full">
+              <span class="text-blue-900 whitespace-nowrap">{username}</span>
+              
+              {#if focusedField === 'username'}
+                <div class="ml-1 w-0.5 h-6 bg-blue-500 animate-pulse"></div>
+              {/if}
+              
+              {#if !username && focusedField !== 'username'}
+                <span class="text-blue-900/20">firstname.lastname</span>
+              {/if}
+              
+              <!-- <span class="ml-1 text-blue-300 font-medium select-none">@kiosk.local</span> -->
+            </div>
+          </button>
         </div>
       </div>
 
       <div class="space-y-2">
         <span class="ml-4 text-[10px] font-black uppercase tracking-widest text-blue-400">Password</span>
+        
         <div 
-          on:click={() => focusedField = 'password'}
+          on:click|stopPropagation={() => focusedField = 'password'}
           on:keydown={(e) => e.key === 'Enter' && (focusedField = 'password')}
           role="button"
           tabindex="0"
-          class="relative w-full h-20 px-8 rounded-3xl bg-white border flex items-center justify-between text-xl font-bold transition-all outline-none
+          class="relative w-full h-20 px-8 rounded-3xl bg-white border flex items-center justify-between text-xl font-bold transition-all outline-none cursor-pointer
           {focusedField === 'password' ? 'border-blue-500 ring-4 ring-blue-500/10' : 'border-blue-100 shadow-sm'}"
         >
-          <div class="flex items-center flex-1 h-full">
-             {#if !password && focusedField !== 'password'}
-              <span class="absolute left-8 text-blue-900/20 pointer-events-none">••••••••</span>
-            {/if}
-            
+          <div class="flex items-center flex-1 h-full pointer-events-none">
             <span class="text-blue-900">
               {password ? (showPassword ? password : '•'.repeat(password.length)) : ''}
+              {#if !password && focusedField !== 'password'}
+                <span class="text-blue-900/20">••••••••</span>
+              {/if}
             </span>
-
             {#if focusedField === 'password'}
               <div class="ml-1 w-0.5 h-6 bg-blue-500 animate-pulse"></div>
             {/if}
           </div>
           
           <button 
-            on:click|stopPropagation={() => showPassword = !showPassword}
-            aria-label={showPassword ? "Hide password" : "Show password"}
-            class="text-blue-900/30 hover:text-blue-600 transition-colors p-2"
+            type="button"
+            on:click|stopPropagation={() => showPassword = !showPassword} 
+            class="text-blue-900/30 p-2 z-10 hover:text-blue-600 active:scale-90 transition-all"
           >
             {#if showPassword}
               <svg xmlns="http://www.w3.org/2000/svg" class="w-6 h-6" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="2">
@@ -154,7 +185,7 @@
               </svg>
             {:else}
               <svg xmlns="http://www.w3.org/2000/svg" class="w-6 h-6" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="2">
-                <path d="M15 12a3 3 0 11-6 0 3 3 0 016 0z" /><path d="M2.458 12C3.732 7.943 7.523 5 12 5c4.478 0 8.268 2.943 9.542 7-1.274 4.057-5.064 7-9.542 7-4.477 0-8.268-2.943-9.542-7z" />
+                <path d="M15 12a3 3 0 11-6 0 3 3 0 016 0z" /><path d="M2.458 12C3.732 7.943 7.523 5 12 5c4.478 0 8.268-2.943 9.542 7-1.274 4.057-5.064 7-9.542 7-4.477 0-8.268-2.943-9.542-7z" />
               </svg>
             {/if}
           </button>
@@ -162,10 +193,11 @@
       </div>
 
       <button 
-        on:click|stopPropagation={onLogin} 
-        class="w-full h-20 bg-blue-950 rounded-3xl text-white font-black text-xl uppercase tracking-widest shadow-xl shadow-blue-900/20 active:scale-[0.98] transition-transform"
+        on:click|stopPropagation={handleSignIn} 
+        disabled={isSubmitting}
+        class="w-full h-20 bg-blue-950 rounded-3xl text-white font-black text-xl uppercase tracking-widest shadow-xl shadow-blue-900/20 active:scale-[0.98] transition-transform disabled:opacity-50"
       >
-        Sign In
+        {isSubmitting ? "Verifying..." : "Sign In"}
       </button>
     </div>
 
@@ -179,21 +211,13 @@
       on:click|stopPropagation={toggleFingerprint}
       class="w-full h-24 rounded-3xl bg-white/50 border-2 border-dashed border-blue-200 flex items-center justify-center gap-4 group active:bg-white transition-colors"
     >
-      <img 
-        src={fingerprintIcon} 
-        alt="Fingerprint" 
-        class="w-10 h-10 opacity-80 group-active:opacity-100 transition-opacity"
-        style="filter: invert(33%) sepia(87%) saturate(1915%) hue-rotate(202deg) brightness(91%) contrast(92%);"
-      />
+      <img src={fingerprintIcon} alt="Fingerprint" class="w-10 h-10 opacity-80" style="filter: invert(33%) sepia(87%) saturate(1915%) hue-rotate(202deg) brightness(91%) contrast(92%);" />
       <span class="text-blue-900 font-bold uppercase tracking-widest">Use Fingerprint</span>
     </button>
 
     <div class="mt-16 flex flex-col items-center gap-4">
       <p class="text-blue-900/40 font-bold text-sm">Don't have an account?</p>
-      <button 
-        on:click={onCreateAccount}
-        class="text-blue-600 font-black uppercase tracking-[0.2em] text-lg hover:underline"
-      >
+      <button on:click={onCreateAccount} class="text-blue-600 font-black uppercase tracking-[0.2em] text-lg hover:underline">
         Create Account
       </button>
     </div>
@@ -202,41 +226,84 @@
   {#if focusedField}
     <div 
       on:click|stopPropagation
-      on:keydown={handleBackgroundKey}
+      on:keydown={(e) => e.key === 'Escape' && (focusedField = null)}
+      role="dialog"
+      aria-label="Virtual Keyboard"
+      tabindex="-1" 
       transition:slide={{ axis: 'y', duration: 400 }} 
-      class="fixed bottom-0 left-0 right-0 bg-white/95 backdrop-blur-xl border-t border-blue-100 p-6 pb-12 z-40"
-      role="presentation"
+      class="fixed bottom-0 left-0 right-0 bg-white/95 backdrop-blur-xl border-t border-blue-100 p-6 pb-12 z-40 outline-none"
     >
       <div class="max-w-4xl mx-auto space-y-3">
         <div class="flex justify-center gap-2">
           {#each rows.numbers as num}
-            <button on:mousedown|preventDefault={() => handleKeyPress(num)} class="h-14 flex-1 bg-white border border-blue-50 rounded-xl font-bold text-blue-950 shadow-xs active:bg-blue-500 active:text-white transition-colors text-xl">{num}</button>
+            <button 
+              type="button"
+              on:mousedown|preventDefault={() => handleKeyPress(num)} 
+              class="h-14 flex-1 bg-white border border-blue-50 rounded-xl font-bold text-blue-950 shadow-xs active:bg-blue-500 active:text-white transition-colors text-xl"
+            >
+              {num}
+            </button>
           {/each}
         </div>
+
         {#each rows.letters as row, i}
           <div class="flex justify-center gap-2">
             {#if i === 2}
               <button 
+                type="button"
                 on:mousedown|preventDefault={() => isCaps = !isCaps} 
-                class="w-20 h-16 {isCaps ? 'bg-blue-600 text-white' : 'bg-blue-50 text-blue-600'} border border-blue-100 rounded-xl font-black text-xs uppercase"
+                class="w-20 h-16 {isCaps ? 'bg-blue-600 text-white' : 'bg-blue-50 text-blue-600'} border border-blue-100 rounded-xl font-black text-xs"
               >
                 CAPS
               </button>
             {/if}
+
             {#each row as key}
-              <button on:mousedown|preventDefault={() => handleKeyPress(key)} class="h-16 flex-1 bg-white border border-blue-50 rounded-xl font-bold text-blue-950 shadow-xs active:bg-blue-500 active:text-white transition-colors text-xl">
+              <button 
+                type="button"
+                on:mousedown|preventDefault={() => handleKeyPress(key)} 
+                class="h-16 flex-1 bg-white border border-blue-50 rounded-xl font-bold text-blue-950 shadow-xs active:bg-blue-500 active:text-white transition-colors text-xl"
+              >
                 {isCaps ? key : key.toLowerCase()}
               </button>
             {/each}
+
             {#if i === 2}
-              <button on:mousedown|preventDefault={backspace} class="w-20 h-16 bg-blue-50 text-blue-600 border border-blue-100 rounded-xl font-bold flex items-center justify-center">⌫</button>
+              <button 
+                type="button"
+                on:mousedown|preventDefault={backspace} 
+                aria-label="Backspace"
+                class="w-20 h-16 bg-blue-50 text-blue-600 border border-blue-100 rounded-xl font-bold flex items-center justify-center"
+              >
+                ⌫
+              </button>
             {/if}
           </div>
         {/each}
-        
+
         <div class="flex justify-center mt-4 gap-4">
-          <button on:mousedown|preventDefault={() => handleKeyPress(' ')} aria-label="space" class="w-64 h-14 bg-white border border-blue-100 rounded-xl shadow-xs active:bg-blue-50"></button>
-          <button on:click={() => focusedField = null} class="px-12 py-3 bg-blue-900/5 rounded-full text-[10px] font-black uppercase tracking-[0.4em] text-blue-400 active:bg-blue-100">Done</button>
+          <button 
+            type="button"
+            on:mousedown|preventDefault={() => handleKeyPress('.')} 
+            class="w-16 h-14 bg-white border border-blue-100 rounded-xl font-black text-blue-900 text-xl"
+          >
+            .
+          </button>
+
+          <button 
+            type="button"
+            aria-label="Space"
+            on:mousedown|preventDefault={() => handleKeyPress(' ')} 
+            class="w-64 h-14 bg-white border border-blue-100 rounded-xl active:bg-blue-50"
+          ></button>
+
+          <button 
+            type="button"
+            on:click={() => focusedField = null} 
+            class="px-12 py-3 bg-blue-900/5 rounded-full text-[10px] font-black uppercase tracking-[0.4em] text-blue-400"
+          >
+            Done
+          </button>
         </div>
       </div>
     </div>

@@ -1,16 +1,54 @@
 <script lang="ts">
   import { fade, slide, scale } from 'svelte/transition';
+  import { supabase } from './supabaseClient';
   import fingerprintIcon from '../../assets/fingerprint-svgrepo-com.svg';
 
   export let onBack: () => void;
-  export let onCreated: () => void;
+  export let onCreated: (user: any) => void;
 
   // --- FORM STATE ---
   let firstName = "";
+  let middleName = ""; // Added
   let lastName = "";
-  let birthday = "";
-  let sex: 'Male' | 'Female' | '' = '';
-  let focusedField: 'first' | 'last' | 'birthday' | null = null;
+  let sex: 'Male' | 'Female' | 'Other' | '' = '';
+  let focusedField: 'first' | 'middle' | 'last' | null = null; // Updated
+  let isSubmitting = false;
+
+  // --- BIRTHDAY SCROLLER STATE ---
+  const months = ["JAN", "FEB", "MAR", "APR", "MAY", "JUN", "JUL", "AUG", "SEP", "OCT", "NOV", "DEC"];
+  const days = Array.from({ length: 31 }, (_, i) => (i + 1).toString().padStart(2, '0'));
+  const years = Array.from({ length: 100 }, (_, i) => (2026 - i).toString());
+
+  let selM = "JAN", selD = "01", selY = "1990";
+  
+  $: birthday = `${selM} ${selD}, ${selY}`;
+  $: age = (() => {
+    const monthIndex = months.indexOf(selM);
+    const birthDate = new Date(parseInt(selY), monthIndex, parseInt(selD));
+    const today = new Date();
+    let calculatedAge = today.getFullYear() - birthDate.getFullYear();
+    const m = today.getMonth() - birthDate.getMonth();
+    if (m < 0 || (m === 0 && today.getDate() < birthDate.getDate())) calculatedAge--;
+    return calculatedAge >= 0 ? calculatedAge : 0;
+  })();
+
+  function scrollSelect(node: HTMLElement, type: 'm' | 'd' | 'y') {
+    const handleScroll = () => {
+      const center = node.scrollTop + node.offsetHeight / 2;
+      const items = Array.from(node.children) as HTMLElement[];
+      items.forEach((item) => {
+        const itemCenter = item.offsetTop + item.offsetHeight / 2;
+        if (Math.abs(center - itemCenter) < 25) {
+          const val = item.getAttribute('data-value') || "";
+          if (type === 'm') selM = val;
+          if (type === 'd') selD = val;
+          if (type === 'y') selY = val;
+        }
+      });
+    };
+    node.addEventListener('scroll', handleScroll, { passive: true });
+    return { destroy() { node.removeEventListener('scroll', handleScroll); } };
+  }
 
   // --- BIOMETRIC MODAL STATE ---
   let showBiometricModal = false;
@@ -33,23 +71,19 @@
     if (!focusedField) return;
     const char = isCaps ? key.toUpperCase() : key.toLowerCase();
     if (focusedField === 'first') firstName += char;
+    if (focusedField === 'middle') middleName += char; // Added
     if (focusedField === 'last') lastName += char;
-    if (focusedField === 'birthday') {
-      if (birthday.length < 10) birthday += key;
-    }
   }
 
   function backspace() {
     if (focusedField === 'first') firstName = firstName.slice(0, -1);
+    if (focusedField === 'middle') middleName = middleName.slice(0, -1); // Added
     if (focusedField === 'last') lastName = lastName.slice(0, -1);
-    if (focusedField === 'birthday') birthday = birthday.slice(0, -1);
   }
 
   function startFingerprintScan() {
     showBiometricModal = true;
     scanStatus = 'scanning';
-    
-    // Simulate scan: 80% Success, 20% Fail/Retry
     setTimeout(() => {
       if (Math.random() > 0.2) {
         scanStatus = 'success';
@@ -61,28 +95,103 @@
     }, 2500);
   }
 
-  function retryScan() {
-    scanStatus = 'scanning';
-    startFingerprintScan();
+  // --- UPDATED SUBMIT WITH MIDDLE NAME & .COM FIX ---
+  async function handleSubmit() {
+    if (firstName && lastName && sex) {
+      isSubmitting = true;
+      
+      const cleanFirst = firstName.toLowerCase().trim().replace(/\s+/g, '');
+      const cleanLast = lastName.toLowerCase().trim().replace(/\s+/g, '');
+      const generatedUsername = `${cleanFirst}.${cleanLast}`;
+      
+      // Changed to .com to bypass strict local validation/rate limits
+      const generatedEmail = `${generatedUsername}@kiosk.local`; 
+      const generatedPassword = `${generatedUsername}123`; 
+
+      try {
+        const { data: authData, error: authError } = await supabase.auth.signUp({
+          email: generatedEmail,
+          password: generatedPassword,
+          options: {
+            data: { display_name: firstName }
+          }
+        });
+
+        if (authError) throw authError;
+
+        const monthIdx = months.indexOf(selM) + 1;
+        const dbDate = `${selY}-${monthIdx.toString().padStart(2, '0')}-${selD}`;
+
+       if (authData.user) {
+          const profilePayload = {
+            id: authData.user.id,
+            first_name: firstName,
+            middle_name: middleName || null,
+            last_name: lastName,
+            username: generatedUsername,
+            birthday: dbDate,
+            sex: sex,
+            created_at: new Date().toISOString()
+          };
+
+          const { error: profileError } = await supabase
+            .from('profiles')
+            .insert(profilePayload);
+
+          if (profileError) throw profileError;
+
+          // SUCCESS: Pass the payload to the parent!
+          onCreated(profilePayload); 
+        }
+      } catch (err: any) {
+        alert("Registration Error: " + err.message);
+      } finally {
+        isSubmitting = false;
+      }
+    } else {
+      alert("Please fill in First Name, Last Name, and Gender");
+    }
   }
 
-  const handleSubmit = () => {
-    if (firstName && lastName && birthday && sex) {
-      onCreated();
-    } else {
-      alert("Please fill in all fields (Biometrics optional)");
-    }
-  };
+  // --- MOUSE DRAG LOGIC ---
+  let isDragging = false;
+  let startY: number;
+  let scrollTop: number;
 
-  function handleKeydown(event: KeyboardEvent) {
-    if (event.key === 'Escape') focusedField = null;
+  function dragScroll(node: HTMLElement) {
+    const onMouseDown = (e: MouseEvent) => {
+      isDragging = true;
+      node.style.cursor = 'grabbing';
+      startY = e.pageY - node.offsetTop;
+      scrollTop = node.scrollTop;
+    };
+    const onMouseLeave = () => { isDragging = false; node.style.cursor = 'grab'; };
+    const onMouseUp = () => { isDragging = false; node.style.cursor = 'grab'; };
+    const onMouseMove = (e: MouseEvent) => {
+      if (!isDragging) return;
+      e.preventDefault();
+      const y = e.pageY - node.offsetTop;
+      const walk = (y - startY) * 2;
+      node.scrollTop = scrollTop - walk;
+    };
+    node.addEventListener('mousedown', onMouseDown);
+    node.addEventListener('mouseleave', onMouseLeave);
+    node.addEventListener('mouseup', onMouseUp);
+    node.addEventListener('mousemove', onMouseMove);
+    return {
+      destroy() {
+        node.removeEventListener('mousedown', onMouseDown);
+        node.removeEventListener('mouseleave', onMouseLeave);
+        node.removeEventListener('mouseup', onMouseUp);
+        node.removeEventListener('mousemove', onMouseMove);
+      }
+    };
   }
 </script>
 
 <div
   class="relative h-full w-full flex flex-col bg-linear-to-b from-[#f0f7ff] to-[#9fc5f8] select-none overflow-hidden"
   on:click={() => focusedField = null}
-  on:keydown={handleKeydown}
   role="presentation"
 >
   <button
@@ -106,7 +215,6 @@
     </div>
 
     <div class="w-full space-y-5">
-      
       <div class="space-y-1">
         <span class="ml-4 text-[10px] font-black uppercase tracking-widest text-blue-400">First Name</span>
         <button
@@ -120,8 +228,23 @@
               <div class="ml-0.5 w-0.5 h-6 bg-blue-500 animate-pulse"></div>
             {:else}
               <span class={firstName ? 'text-blue-950' : 'text-blue-900/20'}>
-                {firstName || 'John'}
+                {firstName || 'Juan'}
               </span>
+            {/if}
+          </div>
+        </button>
+      </div>
+
+      <div class="space-y-1">
+        <span class="ml-4 text-[10px] font-black uppercase tracking-widest text-blue-400">Middle Name (Optional)</span>
+        <button type="button" on:click|stopPropagation={() => focusedField = 'middle'}
+          class="w-full h-16 px-8 rounded-2xl bg-white border flex items-center text-lg font-bold transition-all {focusedField === 'middle' ? 'border-blue-500 ring-4 ring-blue-500/10' : 'border-blue-100 shadow-sm'}">
+          <div class="flex items-center">
+            {#if focusedField === 'middle'}
+              <span class="text-blue-950">{middleName}</span>
+              <div class="ml-0.5 w-0.5 h-6 bg-blue-500 animate-pulse"></div>
+            {:else}
+              <span class={middleName ? 'text-blue-950' : 'text-blue-900/20'}>{middleName || 'Dela'}</span>
             {/if}
           </div>
         </button>
@@ -140,60 +263,85 @@
               <div class="ml-0.5 w-0.5 h-6 bg-blue-500 animate-pulse"></div>
             {:else}
               <span class={lastName ? 'text-blue-950' : 'text-blue-900/20'}>
-                {lastName || 'Doe'}
+                {lastName || 'Cruz'}
               </span>
             {/if}
           </div>
         </button>
       </div>
 
-      <div class="flex gap-4">
-        <div class="flex-1 space-y-1">
-          <span class="ml-4 text-[10px] font-black uppercase tracking-widest text-blue-400">Birthday</span>
+      <div class="w-full space-y-1">
+        <div class="flex justify-between items-center px-4">
+          <span class="text-[10px] font-black uppercase tracking-widest text-blue-400">Birthday</span>
+          <span class="text-[9px] font-black text-blue-500 bg-blue-50 px-2 py-0.5 rounded-full">{age} YEARS OLD</span>
+        </div>
+        
+        <div class="relative h-40 bg-white rounded-2xl border border-blue-100 shadow-sm overflow-hidden flex p-1 cursor-grab">
+          <div class="absolute inset-y-2 left-1 right-1 bg-blue-500/5 rounded-xl pointer-events-none border border-blue-500/10 z-20"></div>
+          
+          <div 
+            class="flex-1 overflow-y-auto snap-y snap-mandatory scrollbar-hide py-14 z-10 touch-pan-y" 
+            use:scrollSelect={'m'} 
+            use:dragScroll
+          >
+            {#each months as m}
+              <div data-value={m} class="h-10 snap-center flex items-center justify-center text-xs font-black transition-all {selM === m ? 'text-blue-600 scale-125' : 'text-blue-950/20'} pointer-events-none">{m}</div>
+            {/each}
+          </div>
+
+          <div 
+            class="flex-1 overflow-y-auto snap-y snap-mandatory scrollbar-hide py-14 z-10 touch-pan-y" 
+            use:scrollSelect={'d'} 
+            use:dragScroll
+          >
+            {#each days as d}
+              <div data-value={d} class="h-10 snap-center flex items-center justify-center text-xs font-black transition-all {selD === d ? 'text-blue-600 scale-125' : 'text-blue-950/20'} pointer-events-none">{d}</div>
+            {/each}
+          </div>
+
+          <div 
+            class="flex-1 overflow-y-auto snap-y snap-mandatory scrollbar-hide py-14 z-10 touch-pan-y" 
+            use:scrollSelect={'y'} 
+            use:dragScroll
+          >
+            {#each years as y}
+              <div data-value={y} class="h-10 snap-center flex items-center justify-center text-xs font-black transition-all {selY === y ? 'text-blue-600 scale-110' : 'text-blue-950/20'} pointer-events-none">{y}</div>
+            {/each}
+          </div>
+        </div>
+      </div>
+
+      <div class="w-full space-y-1">
+        <span class="ml-4 text-[10px] font-black uppercase tracking-widest text-blue-400">Sex / Gender</span>
+        <div class="flex h-16 bg-white rounded-2xl border border-blue-100 p-1 shadow-sm gap-1">
           <button
             type="button"
-            on:click|stopPropagation={() => focusedField = 'birthday'}
-            class="w-full h-16 px-6 rounded-2xl bg-white border flex items-center text-lg font-bold transition-all {focusedField === 'birthday' ? 'border-blue-500 ring-4 ring-blue-500/10' : 'border-blue-100 shadow-sm'}"
-          >
-            <div class="flex items-center">
-              {#if focusedField === 'birthday'}
-                <span class="text-blue-950">{birthday}</span>
-                <div class="ml-0.5 w-0.5 h-6 bg-blue-500 animate-pulse"></div>
-              {:else}
-                <span class={birthday ? 'text-blue-950' : 'text-blue-900/20'}>
-                  {birthday || 'MM/DD/YYYY'}
-                </span>
-              {/if}
-            </div>
-          </button>
-        </div>
-
-        <div class="flex-1 space-y-1">
-          <span class="ml-4 text-[10px] font-black uppercase tracking-widest text-blue-400">Sex</span>
-          <div class="flex h-16 bg-white rounded-2xl border border-blue-100 p-1 shadow-sm">
-            <button
-              type="button"
-              on:click={() => sex = 'Male'}
-              class="flex-1 rounded-xl font-bold transition-all {sex === 'Male' ? 'bg-blue-600 text-white' : 'text-blue-400'}"
-            >M</button>
-            <button
-              type="button"
-              on:click={() => sex = 'Female'}
-              class="flex-1 rounded-xl font-bold transition-all {sex === 'Female' ? 'bg-pink-500 text-white' : 'text-blue-400'}"
-            >F</button>
-          </div>
+            on:click={() => sex = 'Male'}
+            class="flex-1 rounded-xl font-bold text-xs transition-all {sex === 'Male' ? 'bg-blue-600 text-white shadow-lg' : 'text-blue-400 active:bg-blue-50'}"
+          >MALE</button>
+          <button
+            type="button"
+            on:click={() => sex = 'Female'}
+            class="flex-1 rounded-xl font-bold text-xs transition-all {sex === 'Female' ? 'bg-pink-500 text-white shadow-lg' : 'text-blue-400 active:bg-pink-50'}"
+          >FEMALE</button>
+          <button
+            type="button"
+            on:click={() => sex = 'Other'}
+            class="flex-1 rounded-xl font-bold text-[9px] transition-all {sex === 'Other' ? 'bg-purple-500 text-white shadow-lg' : 'text-blue-400 active:bg-purple-50'}"
+          >OTHER / PREFER NOT TO SAY</button>
         </div>
       </div>
 
       <button
         type="button"
         on:click={handleSubmit}
-        class="w-full h-20 bg-blue-950 rounded-3xl text-white font-black text-xl uppercase tracking-widest shadow-xl shadow-blue-900/20 mt-8 active:scale-[0.98] transition-transform"
+        disabled={isSubmitting}
+        class="w-full h-20 bg-blue-950 rounded-3xl text-white font-black text-xl uppercase tracking-widest shadow-xl shadow-blue-900/20 mt-4 active:scale-[0.98] transition-transform disabled:opacity-50"
       >
-        Complete Registration
+        {isSubmitting ? 'Processing...' : 'Complete Registration'}
       </button>
 
-      <div class="flex items-center gap-4 w-full pt-4">
+      <div class="flex items-center gap-4 w-full pt-2">
         <div class="h-px flex-1 bg-blue-900/10"></div>
         <span class="text-[10px] font-black text-blue-900/30 uppercase tracking-widest">Biometric Option</span>
         <div class="h-px flex-1 bg-blue-900/10"></div>
@@ -207,8 +355,8 @@
       >
         {#if fingerprintRegistered}
           <div class="flex items-center gap-2" in:scale>
-             <svg class="w-6 h-6 text-green-600" fill="currentColor" viewBox="0 0 20 20"><path d="M10 18a8 8 0 100-16 8 8 0 000 16zm3.707-9.293a1 1 0 00-1.414-1.414L9 10.586 7.707 9.293a1 1 0 00-1.414 1.414l2 2a1 1 0 001.414 0l4-4z"/></svg>
-             <span class="text-green-600 font-bold uppercase tracking-widest text-[10px]">Fingerprint Linked</span>
+              <svg class="w-6 h-6 text-green-600" fill="currentColor" viewBox="0 0 20 20"><path d="M10 18a8 8 0 100-16 8 8 0 000 16zm3.707-9.293a1 1 0 00-1.414-1.414L9 10.586 7.707 9.293a1 1 0 00-1.414 1.414l2 2a1 1 0 001.414 0l4-4z"/></svg>
+              <span class="text-green-600 font-bold uppercase tracking-widest text-[10px]">Fingerprint Linked</span>
           </div>
         {:else}
           <img src={fingerprintIcon} alt="" class="w-8 h-8 opacity-40" style="filter: grayscale(100%)" />
@@ -221,7 +369,6 @@
   {#if showBiometricModal}
     <div class="fixed inset-0 z-50 flex items-center justify-center p-8 bg-blue-950/40 backdrop-blur-md" transition:fade>
       <div class="bg-white w-full max-w-sm rounded-[40px] p-10 shadow-2xl flex flex-col items-center text-center space-y-8" transition:scale>
-        
         <div class="relative">
           <div class="w-32 h-32 rounded-full border-4 {scanStatus === 'error' ? 'border-red-100' : 'border-blue-50'} flex items-center justify-center">
             <img 
@@ -237,7 +384,6 @@
             <div class="absolute inset-0 border-4 border-blue-500 rounded-full border-t-transparent animate-spin"></div>
           {/if}
         </div>
-
         <div class="space-y-2">
           {#if scanStatus === 'scanning'}
             <h2 class="text-2xl font-black text-blue-950 uppercase tracking-tight">Scanning...</h2>
@@ -250,13 +396,6 @@
             <p class="text-red-900/40 font-bold text-xs uppercase tracking-widest">Sensor error or movement</p>
           {/if}
         </div>
-
-        {#if scanStatus === 'error'}
-          <div class="flex flex-col w-full gap-3">
-            <button on:click={retryScan} class="w-full py-4 bg-blue-600 text-white rounded-2xl font-black uppercase tracking-widest text-xs shadow-lg shadow-blue-600/20">Retry Scan</button>
-            <button on:click={() => showBiometricModal = false} class="w-full py-2 text-blue-900/40 font-bold uppercase tracking-widest text-[10px]">Cancel</button>
-          </div>
-        {/if}
       </div>
     </div>
   {/if}
@@ -266,8 +405,8 @@
       transition:slide={{ axis: 'y', duration: 400 }}
       class="fixed bottom-0 left-0 right-0 bg-white/95 backdrop-blur-xl border-t border-blue-100 p-6 pb-12 z-40"
       on:click|stopPropagation
-      on:keydown|stopPropagation
-      role="presentation"
+      role="none"
+      on:keydown|stopPropagation={() => {}}
     >
       <div class="max-w-4xl mx-auto space-y-3">
         <div class="flex justify-center gap-2">
@@ -296,3 +435,23 @@
     </div>
   {/if}
 </div>
+
+<style>
+  .scrollbar-hide {
+    -ms-overflow-style: none;
+    scrollbar-width: none;
+    overflow-y: scroll;
+    -webkit-overflow-scrolling: touch;
+  }
+  .scrollbar-hide::-webkit-scrollbar {
+    display: none;
+  }
+  .scrollbar-hide {
+    mask-image: linear-gradient(to bottom, transparent, black 40%, black 60%, transparent);
+    -webkit-mask-image: linear-gradient(to bottom, transparent, black 40%, black 60%, transparent);
+  }
+  .snap-center {
+    user-select: none;
+    -webkit-user-select: none;
+  }
+</style>
