@@ -5,24 +5,36 @@
   import History from './lib/pages/history.svelte';
   import Checkup from './lib/pages/checkup.svelte';
   import CreateAccount from './lib/pages/createaccount.svelte'; 
+  
+  // FIX 1: Import supabase so the logout function works
+  import { supabase } from './lib/pages/supabaseClient';
 
-  // 1. Explicitly define the type
   type ScreenState = 'welcome' | 'login' | 'signup' | 'home' | 'history' | 'checkup';
   
-  // 2. Initialize with the explicit type
   let currentScreen: ScreenState = 'welcome';
+  let user: any = null;
 
-  // 3. Ensure handlers are explicitly typed to return void, not 'string'
-  // (TS sometimes infers a return if the arrow function is one line)
   const startKiosk = (): void => { currentScreen = 'login' };
   const goBack = (): void => { currentScreen = 'welcome' };
   const goToSignUp = (): void => { currentScreen = 'signup' }; 
-  const loginSuccess = (): void => { currentScreen = 'home' };
-  const logout = (): void => { currentScreen = 'welcome' };
+  
+  // FIX 2: Ensure this is correctly typed for props
+  const loginSuccess = (userData: any): void => { 
+    user = userData; 
+    currentScreen = 'home'; 
+  };
+
+  // FIX 3: Async functions must return Promise<void>
+  const logout = async (): Promise<void> => { 
+    await supabase.auth.signOut();
+    user = null; 
+    currentScreen = 'welcome'; 
+  };
+
   const showHistory = (): void => { currentScreen = 'history' };
   const closeHistory = (): void => { currentScreen = 'home' };
-
   const startCheckup = (): void => { currentScreen = 'checkup' };
+
   const finishCheckup = (data: any): void => {
     console.log("Checkup Data Received:", data);
     currentScreen = 'home'; 
@@ -43,7 +55,7 @@
     <div class="flex-1">
        <Login 
          onBack={goBack} 
-         onLogin={loginSuccess} 
+         onLogin={(data) => loginSuccess(data)} 
          onCreateAccount={goToSignUp} 
        />
     </div>
@@ -51,14 +63,15 @@
   {:else if currentScreen === 'signup'}
     <div class="flex-1">
        <CreateAccount 
-         onBack={() => currentScreen = 'login'} 
-         onCreated={loginSuccess} 
-       />
+          onBack={() => currentScreen = 'login'} 
+          onCreated={(data) => loginSuccess(data)} 
+        />
     </div>
     
   {:else if currentScreen === 'home'}
     <div class="flex-1">
        <Home 
+         {user}
          onLogout={logout} 
          onViewHistory={showHistory} 
          onStartCheckup={startCheckup} 
@@ -75,7 +88,6 @@
        <Checkup onFinish={finishCheckup} onCancel={closeHistory} />
     </div>
   {/if}
-
 </main>
 
 <style>

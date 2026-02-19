@@ -4,7 +4,7 @@
   import fingerprintIcon from '../../assets/fingerprint-svgrepo-com.svg';
 
   export let onBack: () => void;
-  export let onCreated: () => void;
+  export let onCreated: (user: any) => void;
 
   // --- FORM STATE ---
   let firstName = "";
@@ -122,22 +122,26 @@
         const monthIdx = months.indexOf(selM) + 1;
         const dbDate = `${selY}-${monthIdx.toString().padStart(2, '0')}-${selD}`;
 
-        if (authData.user) {
+       if (authData.user) {
+          const profilePayload = {
+            id: authData.user.id,
+            first_name: firstName,
+            middle_name: middleName || null,
+            last_name: lastName,
+            username: generatedUsername,
+            birthday: dbDate,
+            sex: sex,
+            created_at: new Date().toISOString()
+          };
+
           const { error: profileError } = await supabase
             .from('profiles')
-            .insert({
-              id: authData.user.id,
-              first_name: firstName,
-              middle_name: middleName || null, // Handles null if empty
-              last_name: lastName,
-              username: generatedUsername,
-              birthday: dbDate,
-              sex: sex,
-              created_at: new Date().toISOString()
-            });
+            .insert(profilePayload);
 
           if (profileError) throw profileError;
-          onCreated(); 
+
+          // SUCCESS: Pass the payload to the parent!
+          onCreated(profilePayload); 
         }
       } catch (err: any) {
         alert("Registration Error: " + err.message);
