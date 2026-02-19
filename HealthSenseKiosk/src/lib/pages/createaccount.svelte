@@ -1,5 +1,6 @@
 <script lang="ts">
   import { fade, slide, scale } from 'svelte/transition';
+  import { supabase } from './supabaseClient';
   import fingerprintIcon from '../../assets/fingerprint-svgrepo-com.svg';
 
   export let onBack: () => void;
@@ -7,9 +8,11 @@
 
   // --- FORM STATE ---
   let firstName = "";
+  let middleName = ""; // Added
   let lastName = "";
   let sex: 'Male' | 'Female' | 'Other' | '' = '';
-  let focusedField: 'first' | 'last' | null = null;
+  let focusedField: 'first' | 'middle' | 'last' | null = null; // Updated
+  let isSubmitting = false;
 
   // --- BIRTHDAY SCROLLER STATE ---
   const months = ["JAN", "FEB", "MAR", "APR", "MAY", "JUN", "JUL", "AUG", "SEP", "OCT", "NOV", "DEC"];
@@ -18,7 +21,6 @@
 
   let selM = "JAN", selD = "01", selY = "1990";
   
-  // Reactive birthday string and age calculation
   $: birthday = `${selM} ${selD}, ${selY}`;
   $: age = (() => {
     const monthIndex = months.indexOf(selM);
@@ -69,11 +71,13 @@
     if (!focusedField) return;
     const char = isCaps ? key.toUpperCase() : key.toLowerCase();
     if (focusedField === 'first') firstName += char;
+    if (focusedField === 'middle') middleName += char; // Added
     if (focusedField === 'last') lastName += char;
   }
 
   function backspace() {
     if (focusedField === 'first') firstName = firstName.slice(0, -1);
+    if (focusedField === 'middle') middleName = middleName.slice(0, -1); // Added
     if (focusedField === 'last') lastName = lastName.slice(0, -1);
   }
 
@@ -91,13 +95,59 @@
     }, 2500);
   }
 
-  const handleSubmit = () => {
-    if (firstName && lastName && birthday && sex) {
-      onCreated();
+  // --- UPDATED SUBMIT WITH MIDDLE NAME & .COM FIX ---
+  async function handleSubmit() {
+    if (firstName && lastName && sex) {
+      isSubmitting = true;
+      
+      const cleanFirst = firstName.toLowerCase().trim().replace(/\s+/g, '');
+      const cleanLast = lastName.toLowerCase().trim().replace(/\s+/g, '');
+      const generatedUsername = `${cleanFirst}.${cleanLast}`;
+      
+      // Changed to .com to bypass strict local validation/rate limits
+      const generatedEmail = `${generatedUsername}@kiosk.local`; 
+      const generatedPassword = `${generatedUsername}123`; 
+
+      try {
+        const { data: authData, error: authError } = await supabase.auth.signUp({
+          email: generatedEmail,
+          password: generatedPassword,
+          options: {
+            data: { display_name: firstName }
+          }
+        });
+
+        if (authError) throw authError;
+
+        const monthIdx = months.indexOf(selM) + 1;
+        const dbDate = `${selY}-${monthIdx.toString().padStart(2, '0')}-${selD}`;
+
+        if (authData.user) {
+          const { error: profileError } = await supabase
+            .from('profiles')
+            .insert({
+              id: authData.user.id,
+              first_name: firstName,
+              middle_name: middleName || null, // Handles null if empty
+              last_name: lastName,
+              username: generatedUsername,
+              birthday: dbDate,
+              sex: sex,
+              created_at: new Date().toISOString()
+            });
+
+          if (profileError) throw profileError;
+          onCreated(); 
+        }
+      } catch (err: any) {
+        alert("Registration Error: " + err.message);
+      } finally {
+        isSubmitting = false;
+      }
     } else {
-      alert("Please fill in all fields (Biometrics optional)");
+      alert("Please fill in First Name, Last Name, and Gender");
     }
-  };
+  }
 
   // --- MOUSE DRAG LOGIC ---
   let isDragging = false;
@@ -111,30 +161,19 @@
       startY = e.pageY - node.offsetTop;
       scrollTop = node.scrollTop;
     };
-
-    const onMouseLeave = () => {
-      isDragging = false;
-      node.style.cursor = 'grab';
-    };
-
-    const onMouseUp = () => {
-      isDragging = false;
-      node.style.cursor = 'grab';
-    };
-
+    const onMouseLeave = () => { isDragging = false; node.style.cursor = 'grab'; };
+    const onMouseUp = () => { isDragging = false; node.style.cursor = 'grab'; };
     const onMouseMove = (e: MouseEvent) => {
       if (!isDragging) return;
       e.preventDefault();
       const y = e.pageY - node.offsetTop;
-      const walk = (y - startY) * 2; // Multiplier for speed
+      const walk = (y - startY) * 2;
       node.scrollTop = scrollTop - walk;
     };
-
     node.addEventListener('mousedown', onMouseDown);
     node.addEventListener('mouseleave', onMouseLeave);
     node.addEventListener('mouseup', onMouseUp);
     node.addEventListener('mousemove', onMouseMove);
-
     return {
       destroy() {
         node.removeEventListener('mousedown', onMouseDown);
@@ -185,8 +224,23 @@
               <div class="ml-0.5 w-0.5 h-6 bg-blue-500 animate-pulse"></div>
             {:else}
               <span class={firstName ? 'text-blue-950' : 'text-blue-900/20'}>
-                {firstName || 'John'}
+                {firstName || 'Juan'}
               </span>
+            {/if}
+          </div>
+        </button>
+      </div>
+
+      <div class="space-y-1">
+        <span class="ml-4 text-[10px] font-black uppercase tracking-widest text-blue-400">Middle Name (Optional)</span>
+        <button type="button" on:click|stopPropagation={() => focusedField = 'middle'}
+          class="w-full h-16 px-8 rounded-2xl bg-white border flex items-center text-lg font-bold transition-all {focusedField === 'middle' ? 'border-blue-500 ring-4 ring-blue-500/10' : 'border-blue-100 shadow-sm'}">
+          <div class="flex items-center">
+            {#if focusedField === 'middle'}
+              <span class="text-blue-950">{middleName}</span>
+              <div class="ml-0.5 w-0.5 h-6 bg-blue-500 animate-pulse"></div>
+            {:else}
+              <span class={middleName ? 'text-blue-950' : 'text-blue-900/20'}>{middleName || 'Dela'}</span>
             {/if}
           </div>
         </button>
@@ -205,7 +259,7 @@
               <div class="ml-0.5 w-0.5 h-6 bg-blue-500 animate-pulse"></div>
             {:else}
               <span class={lastName ? 'text-blue-950' : 'text-blue-900/20'}>
-                {lastName || 'Doe'}
+                {lastName || 'Cruz'}
               </span>
             {/if}
           </div>
@@ -277,9 +331,10 @@
       <button
         type="button"
         on:click={handleSubmit}
-        class="w-full h-20 bg-blue-950 rounded-3xl text-white font-black text-xl uppercase tracking-widest shadow-xl shadow-blue-900/20 mt-4 active:scale-[0.98] transition-transform"
+        disabled={isSubmitting}
+        class="w-full h-20 bg-blue-950 rounded-3xl text-white font-black text-xl uppercase tracking-widest shadow-xl shadow-blue-900/20 mt-4 active:scale-[0.98] transition-transform disabled:opacity-50"
       >
-        Complete Registration
+        {isSubmitting ? 'Processing...' : 'Complete Registration'}
       </button>
 
       <div class="flex items-center gap-4 w-full pt-2">
@@ -378,25 +433,19 @@
 </div>
 
 <style>
-  /* Kiosk-specific CSS for smooth dragging */
   .scrollbar-hide {
     -ms-overflow-style: none;
     scrollbar-width: none;
     overflow-y: scroll;
-    -webkit-overflow-scrolling: touch; /* Critical for iOS/Chrome touch hardware */
+    -webkit-overflow-scrolling: touch;
   }
-
   .scrollbar-hide::-webkit-scrollbar {
     display: none;
   }
-
-  /* Fade effect at top and bottom to make it look like a wheel */
   .scrollbar-hide {
     mask-image: linear-gradient(to bottom, transparent, black 40%, black 60%, transparent);
     -webkit-mask-image: linear-gradient(to bottom, transparent, black 40%, black 60%, transparent);
   }
-
-  /* Prevent the user from accidentally highlighting text while dragging on the kiosk screen */
   .snap-center {
     user-select: none;
     -webkit-user-select: none;
