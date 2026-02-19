@@ -79,9 +79,9 @@
     </div>
   
   {:else if currentScreen === 'history'}
-    <div class="flex-1">
-       <History onBack={closeHistory} />
-    </div>
+  <div class="flex-1">
+     <History {user} onBack={closeHistory} />
+  </div>
 
   {:else if currentScreen === 'checkup'}
     <div class="flex-1">
