@@ -214,7 +214,7 @@ const History = () => {
   };
 
   return (
-    <div className="main-container">
+    <div className="mainn-container">
       <Navbar />
       <div className="history-content">
         <div className="history-box">
