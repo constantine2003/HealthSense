@@ -1,3 +1,20 @@
+# SvelteKit specific
+.svelte-kit
+.vercel
+.netlify
+.output
+build/
+
+# Production
+node_modules
+dist
+dist-ssr
+
+# Environment Secrets (CRITICAL)
+.env
+.env.*
+!.env.example
+
 # Logs
 logs
 *.log
@@ -5,14 +22,8 @@ npm-debug.log*
 yarn-debug.log*
 yarn-error.log*
 pnpm-debug.log*
-lerna-debug.log*
 
-node_modules
-dist
-dist-ssr
-*.local
-
-# Editor directories and files
+# OS & IDE
 .vscode/*
 !.vscode/extensions.json
 .idea
@@ -22,3 +33,9 @@ dist-ssr
 *.njsproj
 *.sln
 *.sw?
+
+# Testing & Playwright
+/test-results
+/playwright-report
+/blob-report
+/test-results
