@@ -113,8 +113,10 @@ const Dashboard: React.FC = () => {
             </div>
           </button>
 
-          {/* VIEW HISTORY */}
-          <button className="group relative bg-gradient-to-br from-[#139dc7] to-[#34A0A4] p-10 rounded-[40px] shadow-2xl shadow-[#139dc7]/30 transition-all hover:-translate-y-2 flex flex-col items-start text-left overflow-hidden min-h-[320px]">
+          <button 
+            onClick={() => navigate('/history')} // Added navigation logic
+            className="group relative bg-gradient-to-br from-[#139dc7] to-[#34A0A4] p-10 rounded-[40px] shadow-2xl shadow-[#139dc7]/30 transition-all hover:-translate-y-2 flex flex-col items-start text-left overflow-hidden min-h-[320px] w-full"
+          >
             <div className="absolute top-0 right-0 p-8 opacity-20 group-hover:scale-110 transition-transform">
                 <FaHistory size={120} className="text-white" />
             </div>
@@ -122,7 +124,9 @@ const Dashboard: React.FC = () => {
                 <FaHistory size={32} />
             </div>
             <h2 className="text-4xl font-bold text-white mb-3">Checkup History</h2>
-            <p className="text-white/80 text-lg max-w-[300px] leading-relaxed">Review previous consultations, medical trends, and archived files.</p>
+            <p className="text-white/80 text-lg max-w-[300px] leading-relaxed">
+              Review previous consultations, medical trends, and archived files.
+            </p>
             <div className="mt-auto flex items-center gap-2 font-bold text-white group-hover:gap-4 transition-all">
                 Browse Archive <FaChevronRight />
             </div>

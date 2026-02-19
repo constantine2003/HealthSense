@@ -1,10 +1,11 @@
 import { BrowserRouter, Routes, Route, Navigate } from 'react-router-dom'
 import Login from './pages/Login'
 import Dashboard from './pages/Dashboard'
-import Profile from './pages/Profile' // New Import
+import Profile from './pages/Profile'
+import History from './pages/History' // Import the new History page
 
 function App() {
-  // Logic placeholder: currently set to true for development
+  // Logic placeholder: replace with your actual auth state
   const isAuthenticated = true; 
 
   return (
@@ -25,8 +26,15 @@ function App() {
           element={isAuthenticated ? <Profile /> : <Navigate to="/" />} 
         />
 
-        {/* 404 / REDIRECT - Essential for Kiosk Mode */}
+        {/* HISTORY ROUTE */}
+        <Route 
+          path="/history" 
+          element={isAuthenticated ? <History /> : <Navigate to="/" />} 
+        />
+
+        {/* 404 / REDIRECT */}
         <Route path="*" element={<Navigate to="/" />} />
+        
       </Routes>
     </BrowserRouter>
   )
