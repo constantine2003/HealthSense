@@ -219,7 +219,7 @@ const Profile = () => {
   if (splash) return <SplashScreen />;
 
   return (
-    <div className="main-container">
+    <div className="mainsn-container">
       <Navbar />
 
       <div className="profile-page-content">
