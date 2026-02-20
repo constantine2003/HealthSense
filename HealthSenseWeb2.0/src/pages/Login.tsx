@@ -33,25 +33,44 @@ const Home: React.FC = () => {
     setIsLoading(true);
 
     try {
-      // SECRETLY APPEND DOMAIN: "user.name" -> "user.name@kiosk.local"
-      // This allows you to use Supabase Auth without forcing users to type @...
-      const secretEmail = emailInput.includes("@") 
-        ? emailInput 
-        : `${emailInput}@kiosk.local`;
+      const userInput = emailInput.toLowerCase().trim();
+      let loginEmail = "";
 
-      const { data, error } = await supabase.auth.signInWithPassword({
-        email: secretEmail,
+      // 1. LOOKUP: Check if the user exists in your profiles table
+      // This handles both the 'first.last' and 'first.last@gmail.com' scenarios
+      const { data: profile, error: profileError } = await supabase
+        .from('profiles')
+        .select('recovery_email, username')
+        .eq('username', userInput)
+        .maybeSingle();
+
+      if (profile) {
+        // IF profile exists: use recovery_email if they have one, 
+        // otherwise use the kiosk.local fallback
+        loginEmail = profile.recovery_email 
+          ? profile.recovery_email 
+          : `${profile.username}@kiosk.local`;
+      } else {
+        // IF no profile found by username: maybe they typed their full email?
+        // We fall back to your original "secretEmail" logic just in case
+        loginEmail = userInput.includes("@") 
+          ? userInput 
+          : `${userInput}@kiosk.local`;
+      }
+
+      // 2. AUTHENTICATE: Use the resolved email to sign in
+      const { data, error: authError } = await supabase.auth.signInWithPassword({
+        email: loginEmail,
         password: passwordInput,
       });
 
-      if (error) throw error;
+      if (authError) throw authError;
 
       console.log("Kiosk Login successful:", data.user?.email);
       navigate("/dashboard");
 
     } catch (err: any) {
       console.error("Auth Error:", err.message);
-      // Friendly error for the kiosk
       setLoginError("Access denied. Please check your Patient ID and Password.");
     } finally {
       setIsLoading(false);
