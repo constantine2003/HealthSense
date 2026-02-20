@@ -3,37 +3,38 @@ import Login from './pages/Login'
 import Dashboard from './pages/Dashboard'
 import Profile from './pages/Profile'
 import History from './pages/History'
-import Result from './pages/Results' // [1] Import the new Result page
+import Result from './pages/Results'
+import ResetPassword from './pages/RecoveryPassword' // Added this
 
 function App() {
-  // Logic placeholder: replace with your actual auth state
+  // Logic placeholder: replace with your actual auth state (e.g., Supabase session)
   const isAuthenticated = true; 
 
   return (
     <BrowserRouter>
       <Routes>
-        {/* LOGIN ROUTE */}
+        {/* PUBLIC ROUTES */}
         <Route path="/" element={<Login />} />
+        
+        {/* This must be public so users can reset after clicking their email link */}
+        <Route path="/reset-password" element={<ResetPassword />} />
 
-        {/* DASHBOARD ROUTE */}
+        {/* PROTECTED ROUTES */}
         <Route 
           path="/dashboard" 
           element={isAuthenticated ? <Dashboard /> : <Navigate to="/" />} 
         />
 
-        {/* PROFILE ROUTE */}
         <Route 
           path="/profile" 
           element={isAuthenticated ? <Profile /> : <Navigate to="/" />} 
         />
 
-        {/* HISTORY ROUTE */}
         <Route 
           path="/history" 
           element={isAuthenticated ? <History /> : <Navigate to="/" />} 
         />
 
-        {/* LATEST RESULTS ROUTE [2] */}
         <Route 
           path="/results" 
           element={isAuthenticated ? <Result /> : <Navigate to="/" />} 

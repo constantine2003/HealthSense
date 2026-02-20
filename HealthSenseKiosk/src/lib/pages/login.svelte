@@ -9,11 +9,12 @@
 
   let username = ""; // User types: joy.arenas
   let password = "";
-  let focusedField: 'username' | 'password' | null = null;
+  let focusedField: 'username' | 'password' | 'recoveryEmail' | null = null;
   let showFingerprintModal = false;
   let showPassword = false;
   let isCaps = true;
   let isSubmitting = false; 
+  let recoveryEmail = "";
 
   const rows = {
     numbers: ['1','2','3','4','5','6','7','8','9','0'],
@@ -61,7 +62,7 @@
   }
   
   // --- ACTUAL LOGIN LOGIC ---
-  async function handleSignIn() {
+ async function handleSignIn() {
     if (!username || !password) {
       alert("Please enter both username and password");
       return;
@@ -69,20 +70,39 @@
 
     isSubmitting = true;
 
-    // 1. Construct the email automatically
-    const cleanUser = username.toLowerCase().trim();
-    const fullEmail = `${cleanUser}@kiosk.local`; // Matches registration logic
-
     try {
-      // 2. Auth Sign In
+      const userInput = username.toLowerCase().trim();
+      let actualAuthEmail = "";
+
+      // 1. LOOKUP: Check if the user exists in profiles by username
+      const { data: profileLookup, error: lookupError } = await supabase
+        .from('profiles')
+        .select('recovery_email, username')
+        .eq('username', userInput)
+        .maybeSingle();
+
+      if (profileLookup) {
+        // MATCH FOUND: Use recovery_email if it exists, else use .local
+        actualAuthEmail = profileLookup.recovery_email 
+          ? profileLookup.recovery_email 
+          : `${profileLookup.username}@kiosk.local`;
+      } else {
+        // NO PROFILE FOUND: Maybe they typed a full email or are a .local user?
+        // Fallback to your "secretEmail" logic from the web app
+        actualAuthEmail = userInput.includes("@") 
+          ? userInput 
+          : `${userInput}@kiosk.local`;
+      }
+
+      // 2. AUTHENTICATE: Sign in with the resolved email
       const { data: authData, error: authError } = await supabase.auth.signInWithPassword({
-        email: fullEmail,
+        email: actualAuthEmail,
         password: password,
       });
 
       if (authError) throw authError;
 
-      // 3. Fetch Profile Data (to get names for the Dashboard)
+      // 3. FETCH FULL PROFILE: Get all data for the Dashboard
       if (authData.user) {
         const { data: profile, error: profileError } = await supabase
           .from('profiles')
@@ -92,11 +112,16 @@
 
         if (profileError) throw profileError;
 
-        // 4. Success! Pass profile to the Dashboard
+        // 4. SUCCESS: Pass the profile to the main app state
         onLogin(profile); 
       }
     } catch (err: any) {
-      alert("Login Failed: " + err.message);
+      // User-friendly feedback for the touchscreen
+      let message = err.message;
+      if (err.message === "Invalid login credentials") {
+        message = "Access denied. Please check your Patient ID and Password.";
+      }
+      alert("Login Failed: " + message);
     } finally {
       isSubmitting = false;
     }
@@ -283,24 +308,32 @@
 
         <div class="flex justify-center mt-4 gap-4">
           <button 
-            type="button"
-            on:mousedown|preventDefault={() => handleKeyPress('.')} 
-            class="w-16 h-14 bg-white border border-blue-100 rounded-xl font-black text-blue-900 text-xl"
+            type="button" 
+            on:mousedown|preventDefault={() => handleKeyPress('@')} 
+            class="w-20 h-14 bg-blue-600 text-white rounded-xl font-black text-xl shadow-lg active:scale-95 transition-transform"
           >
+            @
+          </button>
+          <button 
+            type="button" 
+            on:mousedown|preventDefault={() => handleKeyPress('.')} 
+            class="w-20 h-14 bg-blue-100 text-blue-600 rounded-xl font-black text-2xl active:scale-95 transition-transform"
+           >
             .
           </button>
 
           <button 
-            type="button"
-            aria-label="Space"
+            type="button" 
+            aria-label="Spacebar" 
             on:mousedown|preventDefault={() => handleKeyPress(' ')} 
-            class="w-64 h-14 bg-white border border-blue-100 rounded-xl active:bg-blue-50"
-          ></button>
+            class="{focusedField === 'recoveryEmail' ? 'w-44' : 'w-64'} h-14 bg-white border border-blue-100 rounded-xl active:bg-blue-50 transition-all"
+          >
+          </button>
 
           <button 
-            type="button"
+            type="button" 
             on:click={() => focusedField = null} 
-            class="px-12 py-3 bg-blue-900/5 rounded-full text-[10px] font-black uppercase tracking-[0.4em] text-blue-400"
+            class="px-12 py-3 bg-blue-950 rounded-full text-[10px] font-black uppercase tracking-[0.4em] text-white shadow-md active:scale-95 transition-transform"
           >
             Done
           </button>

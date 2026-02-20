@@ -11,8 +11,9 @@
   let middleName = ""; // Added
   let lastName = "";
   let sex: 'Male' | 'Female' | 'Other' | '' = '';
-  let focusedField: 'first' | 'middle' | 'last' | null = null; // Updated
+  let focusedField: 'first' | 'middle' | 'last' | 'recoveryEmail' | null = null;
   let isSubmitting = false;
+  let recoveryEmail = "";
 
   // --- BIRTHDAY SCROLLER STATE ---
   const months = ["JAN", "FEB", "MAR", "APR", "MAY", "JUN", "JUL", "AUG", "SEP", "OCT", "NOV", "DEC"];
@@ -73,12 +74,14 @@
     if (focusedField === 'first') firstName += char;
     if (focusedField === 'middle') middleName += char; // Added
     if (focusedField === 'last') lastName += char;
+    if (focusedField === 'recoveryEmail') recoveryEmail += char; // Add this
   }
 
   function backspace() {
     if (focusedField === 'first') firstName = firstName.slice(0, -1);
     if (focusedField === 'middle') middleName = middleName.slice(0, -1); // Added
     if (focusedField === 'last') lastName = lastName.slice(0, -1);
+    if (focusedField === 'recoveryEmail') recoveryEmail = recoveryEmail.slice(0, -1);
   }
 
   function startFingerprintScan() {
@@ -97,23 +100,30 @@
 
   // --- UPDATED SUBMIT WITH MIDDLE NAME & .COM FIX ---
   async function handleSubmit() {
-    if (firstName && lastName && sex) {
+    // 1. REMOVED recoveryEmail from the required check to allow "No Email" users
+    if (firstName && lastName && sex) { 
       isSubmitting = true;
       
       const cleanFirst = firstName.toLowerCase().trim().replace(/\s+/g, '');
       const cleanLast = lastName.toLowerCase().trim().replace(/\s+/g, '');
       const generatedUsername = `${cleanFirst}.${cleanLast}`;
       
-      // Changed to .com to bypass strict local validation/rate limits
-      const generatedEmail = `${generatedUsername}@kiosk.local`; 
+      // 2. FALLBACK LOGIC: Use real email if provided, otherwise use kiosk.local
+      const hasRealEmail = recoveryEmail && recoveryEmail.trim().length > 0;
+      const authEmail = hasRealEmail ? recoveryEmail.trim() : `${generatedUsername}@kiosk.local`; 
+      
       const generatedPassword = `${generatedUsername}123`; 
 
       try {
+        // Create Auth account
         const { data: authData, error: authError } = await supabase.auth.signUp({
-          email: generatedEmail,
+          email: authEmail,
           password: generatedPassword,
           options: {
-            data: { display_name: firstName }
+            data: { 
+              display_name: firstName,
+              username: generatedUsername 
+            }
           }
         });
 
@@ -122,13 +132,15 @@
         const monthIdx = months.indexOf(selM) + 1;
         const dbDate = `${selY}-${monthIdx.toString().padStart(2, '0')}-${selD}`;
 
-       if (authData.user) {
+        if (authData.user) {
           const profilePayload = {
             id: authData.user.id,
             first_name: firstName,
             middle_name: middleName || null,
             last_name: lastName,
             username: generatedUsername,
+            // 3. Store the real email if they have it, or null/fake if they don't
+            recovery_email: hasRealEmail ? authEmail : null, 
             birthday: dbDate,
             sex: sex,
             created_at: new Date().toISOString()
@@ -140,7 +152,6 @@
 
           if (profileError) throw profileError;
 
-          // SUCCESS: Pass the payload to the parent!
           onCreated(profilePayload); 
         }
       } catch (err: any) {
@@ -149,7 +160,8 @@
         isSubmitting = false;
       }
     } else {
-      alert("Please fill in First Name, Last Name, and Gender");
+      // Updated alert to show Email is optional
+      alert("Please fill in First Name, Last Name, and Gender.");
     }
   }
 
@@ -332,6 +344,42 @@
         </div>
       </div>
 
+      <div class="w-full space-y-1">
+        <div class="flex justify-between items-center px-4">
+          <span class="text-[10px] font-black uppercase tracking-widest text-blue-400">
+            Recovery Email (Personal)
+          </span>
+          {#if !recoveryEmail}
+            <span class="text-[8px] font-black text-blue-300 bg-blue-50 px-2 py-0.5 rounded-full tracking-widest">OPTIONAL</span>
+          {/if}
+        </div>
+
+        <button
+          type="button"
+          on:click|stopPropagation={() => focusedField = 'recoveryEmail'}
+          class="w-full h-16 px-8 rounded-2xl bg-white border flex items-center text-lg font-bold transition-all {focusedField === 'recoveryEmail' ? 'border-blue-500 ring-4 ring-blue-500/10' : 'border-blue-100 shadow-sm'}"
+        >
+          <div class="flex items-center">
+            {#if focusedField === 'recoveryEmail'}
+              <span class="text-blue-950">{recoveryEmail}</span>
+              <div class="ml-0.5 w-0.5 h-6 bg-blue-500 animate-pulse"></div>
+            {:else}
+              <span class={recoveryEmail ? 'text-blue-950' : 'text-blue-900/20'}>
+                {recoveryEmail || 'example@email.com'}
+              </span>
+            {/if}
+          </div>
+        </button>
+
+        <p class="ml-4 text-[9px] font-bold uppercase tracking-tighter transition-colors {recoveryEmail ? 'text-blue-500' : 'text-red-400/60'}">
+          {#if recoveryEmail}
+            ✓ Link will be sent here if you forget your password
+          {:else}
+            ⚠ No email? Password reset will only be possible via Biometrics/Admin
+          {/if}
+        </p>
+      </div>
+
       <button
         type="button"
         on:click={handleSubmit}
@@ -428,8 +476,36 @@
           </div>
         {/each}
         <div class="flex justify-center mt-4 gap-4">
-          <button type="button" aria-label="Spacebar" on:mousedown|preventDefault={() => handleKeyPress(' ')} class="w-64 h-14 bg-white border border-blue-100 rounded-xl active:bg-blue-50"></button>
-          <button type="button" on:click={() => focusedField = null} class="px-12 py-3 bg-blue-900/5 rounded-full text-[10px] font-black uppercase tracking-[0.4em] text-blue-400">Done</button>
+          <button 
+            type="button" 
+            on:mousedown|preventDefault={() => handleKeyPress('@')} 
+            class="w-20 h-14 bg-blue-600 text-white rounded-xl font-black text-xl shadow-lg active:scale-95 transition-transform"
+          >
+            @
+          </button>
+          <button 
+            type="button" 
+            on:mousedown|preventDefault={() => handleKeyPress('.')} 
+            class="w-20 h-14 bg-blue-100 text-blue-600 rounded-xl font-black text-2xl active:scale-95 transition-transform"
+           >
+            .
+          </button>
+
+          <button 
+            type="button" 
+            aria-label="Spacebar" 
+            on:mousedown|preventDefault={() => handleKeyPress(' ')} 
+            class="{focusedField === 'recoveryEmail' ? 'w-44' : 'w-64'} h-14 bg-white border border-blue-100 rounded-xl active:bg-blue-50 transition-all"
+          >
+          </button>
+
+          <button 
+            type="button" 
+            on:click={() => focusedField = null} 
+            class="px-12 py-3 bg-blue-950 rounded-full text-[10px] font-black uppercase tracking-[0.4em] text-white shadow-md active:scale-95 transition-transform"
+          >
+            Done
+          </button>
         </div>
       </div>
     </div>

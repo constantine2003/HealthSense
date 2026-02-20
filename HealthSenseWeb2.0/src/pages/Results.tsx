@@ -1,46 +1,112 @@
-import React from "react";
+import React, { useState, useEffect } from "react";
 import { useNavigate } from "react-router-dom";
-import { FaArrowLeft, FaDownload, FaShareAlt, FaCalendarCheck, FaPrint } from "react-icons/fa";
+import { FaArrowLeft, FaDownload, FaCalendarCheck, FaPrint } from "react-icons/fa";
 import { FiActivity, FiThermometer, FiBarChart, FiHeart, FiInfo } from "react-icons/fi";
 import { MdHeight, MdMonitorWeight } from "react-icons/md";
+import { supabase } from "../supabaseClient";
 
 type StatusType = "success" | "warning" | "danger";
 
+interface HealthRecord {
+  date: string;
+  time: string;
+  oxygen: string;
+  temp: string;
+  height: string;
+  weight: string;
+  bmi: string;
+  bp: string;
+}
+
 const Result: React.FC = () => {
   const navigate = useNavigate();
-  
-  const latestRecord = {
-    date: "January 29, 2026",
-    time: "09:41 PM",
-    oxygen: "99",
-    temp: "37.0",
-    height: "1.70",
-    weight: "60",
-    bmi: "20.8",
-    bp: "120/80"
-  };
+  const [loading, setLoading] = useState(true);
+  const [latestRecord, setLatestRecord] = useState<HealthRecord | null>(null);
+
+  useEffect(() => {
+    const fetchLatestResult = async () => {
+      try {
+        setLoading(true);
+        const { data: { user } } = await supabase.auth.getUser();
+
+        if (!user) {
+          navigate("/");
+          return;
+        }
+
+        // Fetch only the single most recent record for this user
+        const { data, error } = await supabase
+          .from("health_checkups")
+          .select("spo2, temperature, height, weight, bmi, blood_pressure, created_at")
+          .eq("user_id", user.id)
+          .order("created_at", { ascending: false })
+          .limit(1)
+          .single();
+
+        if (error) throw error;
+
+        if (data) {
+          const timestamp = new Date(data.created_at);
+          setLatestRecord({
+            date: timestamp.toLocaleDateString('en-US', { month: 'long', day: 'numeric', year: 'numeric' }),
+            time: timestamp.toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' }),
+            oxygen: data.spo2?.toString() || "--",
+            temp: data.temperature?.toString() || "--",
+            height: data.height?.toString() || "--",
+            weight: data.weight?.toString() || "--",
+            bmi: data.bmi?.toString() || "--",
+            bp: data.blood_pressure || "--/--"
+          });
+        }
+      } catch (err) {
+        console.error("Error fetching latest result:", err);
+      } finally {
+        setLoading(false);
+      }
+    };
+
+    fetchLatestResult();
+  }, [navigate]);
+
+  if (loading) {
+    return (
+      <div className="min-h-screen flex items-center justify-center bg-[#eaf4ff]">
+        <div className="text-center">
+          <div className="w-16 h-16 border-4 border-[#139dc7] border-t-transparent rounded-full animate-spin mx-auto mb-4"></div>
+          <p className="text-[#139dc7] font-bold animate-pulse">Syncing Latest Vitals...</p>
+        </div>
+      </div>
+    );
+  }
+
+  if (!latestRecord) {
+    return (
+      <div className="min-h-screen flex items-center justify-center bg-[#eaf4ff]">
+        <div className="text-center p-10 bg-white/50 rounded-[40px] backdrop-blur-md border border-white">
+          <h2 className="text-2xl font-bold text-[#0a4d61] mb-4">No Records Found</h2>
+          <button onClick={() => navigate('/dashboard')} className="text-[#139dc7] font-bold flex items-center gap-2 mx-auto">
+            <FaArrowLeft /> Return to Dashboard
+          </button>
+        </div>
+      </div>
+    );
+  }
+
+  // Basic logic to determine if things are "Excellent"
+  const isHealthy = Number(latestRecord.oxygen) >= 95 && Number(latestRecord.bmi) < 25;
 
   return (
     <div className="min-h-screen bg-[linear-gradient(120deg,#eaf4ff_0%,#cbe5ff_40%,#b0d0ff_70%,#9fc5f8_100%)] font-['Lexend'] overflow-x-hidden">
       
-      {/* CLEAN HEADER - NAVIGATION ONLY */}
       <header className="w-full px-8 lg:px-16 py-6 flex justify-between items-center z-50 shrink-0">
-        {/* Back Button */}
         <button 
-            onClick={() => navigate('/dashboard')}
-            className="flex items-center gap-2 text-[#139dc7] font-bold hover:gap-4 transition-all active:scale-95"
+          onClick={() => navigate('/dashboard')}
+          className="flex items-center gap-2 text-[#139dc7] font-bold hover:gap-4 transition-all active:scale-95"
         >
-            <FaArrowLeft /> Back to Dashboard
+          <FaArrowLeft /> Back to Dashboard
         </button>
         
-        {/* PATIENT ID PILL - Replaces the Techy Status Indicator */}
-        <div className="flex items-center gap-3 px-4 py-2 bg-white/40 rounded-full border border-white/40 backdrop-blur-md shadow-sm transition-all hover:bg-white/60">       
-                <span className="text-[10px] font-bold text-[#139dc7] uppercase tracking-wider">
-                    Patient ID: <span className="opacity-60">HS-2026-88</span>
-                </span>
-        </div>
-
-        </header>
+      </header>
 
       <main className="max-w-5xl mx-auto px-6 pb-20">
         
@@ -53,36 +119,61 @@ const Result: React.FC = () => {
             <h1 className="text-4xl md:text-5xl font-black text-[#0a4d61]">{latestRecord.date}</h1>
             <p className="text-[#139dc7] font-medium mt-1">Recorded at {latestRecord.time} via HealthSense Kiosk</p>
           </div>
-          <div className="bg-green-500 text-white px-8 py-4 rounded-3xl font-bold text-center shadow-xl shadow-green-200">
+          <div className={`${isHealthy ? 'bg-green-500 shadow-green-200' : 'bg-orange-500 shadow-orange-200'} text-white px-8 py-4 rounded-3xl font-bold text-center shadow-xl transition-colors duration-500`}>
             <p className="text-[10px] uppercase opacity-80 mb-1">Overall Condition</p>
-            <p className="text-2xl">EXCELLENT</p>
+            <p className="text-2xl">{isHealthy ? "EXCELLENT" : "STABLE"}</p>
           </div>
         </div>
 
-        {/* NEW ACTION BAR - MOVED FROM HEADER */}
+        {/* ACTION BAR */}
         <div className="flex flex-wrap items-center justify-between gap-4 mb-8 px-4">
-            <h3 className="text-[#0a4d61] font-bold flex items-center gap-2 text-lg">
-                <FiInfo className="text-[#139dc7]" /> Report Summary
-            </h3>
-            <div className="flex items-center gap-3">
-                <button className="flex items-center gap-2 px-5 py-2.5 bg-white/60 hover:bg-white text-[#139dc7] rounded-full border border-white font-bold text-xs transition-all shadow-sm active:scale-90">
-                    <FaShareAlt size={12} /> Share Report
-                </button>
-                <button className="flex items-center gap-2 px-5 py-2.5 bg-white/60 hover:bg-white text-[#139dc7] rounded-full border border-white font-bold text-xs transition-all shadow-sm active:scale-90">
-                    <FaPrint size={12} /> Print
-                </button>
-                <button className="flex items-center gap-2 px-6 py-2.5 bg-[#139dc7] hover:bg-[#0a4d61] text-white rounded-full font-bold text-xs transition-all shadow-lg shadow-blue-900/10 active:scale-95">
-                    <FaDownload size={12} /> Export PDF
-                </button>
-            </div>
+          <h3 className="text-[#0a4d61] font-bold flex items-center gap-2 text-lg">
+            <FiInfo className="text-[#139dc7]" /> Report Summary
+          </h3>
+          <div className="flex items-center gap-3">
+            <button className="flex items-center gap-2 px-5 py-2.5 bg-white/60 hover:bg-white text-[#139dc7] rounded-full border border-white font-bold text-xs transition-all shadow-sm active:scale-90">
+              <FaPrint size={12} /> Print
+            </button>
+            <button className="flex items-center gap-2 px-6 py-2.5 bg-[#139dc7] hover:bg-[#0a4d61] text-white rounded-full font-bold text-xs transition-all shadow-lg shadow-blue-900/10 active:scale-95">
+              <FaDownload size={12} /> Export PDF
+            </button>
+          </div>
         </div>
 
         {/* RESULTS GRID */}
         <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-6">
-          <ResultCard icon={<FiActivity />} label="Blood Oxygen" value={latestRecord.oxygen} unit="%" status="Normal" type="success" />
-          <ResultCard icon={<FiHeart />} label="Blood Pressure" value={latestRecord.bp} unit="mmHg" status="Ideal" type="success" />
-          <ResultCard icon={<FiThermometer />} label="Body Temp" value={latestRecord.temp} unit="°C" status="Normal" type="success" />
-          <ResultCard icon={<FiBarChart />} label="Body Mass Index" value={latestRecord.bmi} unit="" status="Normal" type="success" />
+          <ResultCard 
+            icon={<FiActivity />} 
+            label="Blood Oxygen" 
+            value={latestRecord.oxygen} 
+            unit="%" 
+            status={Number(latestRecord.oxygen) >= 95 ? "Normal" : "Low"} 
+            type={Number(latestRecord.oxygen) >= 95 ? "success" : "danger"} 
+          />
+          <ResultCard 
+            icon={<FiHeart />} 
+            label="Blood Pressure" 
+            value={latestRecord.bp} 
+            unit="mmHg" 
+            status="Recorded" 
+            type="success" 
+          />
+          <ResultCard 
+            icon={<FiThermometer />} 
+            label="Body Temp" 
+            value={latestRecord.temp} 
+            unit="°C" 
+            status={Number(latestRecord.temp) <= 37.5 ? "Normal" : "Elevated"} 
+            type={Number(latestRecord.temp) <= 37.5 ? "success" : "warning"} 
+          />
+          <ResultCard 
+            icon={<FiBarChart />} 
+            label="Body Mass Index" 
+            value={latestRecord.bmi} 
+            unit="" 
+            status={Number(latestRecord.bmi) < 25 ? "Normal" : "Overweight"} 
+            type={Number(latestRecord.bmi) < 25 ? "success" : "warning"} 
+          />
           <ResultCard icon={<MdMonitorWeight />} label="Weight" value={latestRecord.weight} unit="kg" status="Stable" type="success" />
           <ResultCard icon={<MdHeight />} label="Height" value={latestRecord.height} unit="m" status="Recorded" type="success" />
         </div>
@@ -95,14 +186,16 @@ const Result: React.FC = () => {
             </h3>
             <div className="grid md:grid-cols-2 gap-8">
               <p className="text-blue-100/80 leading-relaxed text-lg">
-                Your SpO2 levels and Blood Pressure are within the optimal range. Your BMI of <span className="text-white font-bold">{latestRecord.bmi}</span> indicates a healthy weight for your height.
+                Your SpO2 levels of <span className="text-white font-bold">{latestRecord.oxygen}%</span> are within the optimal range. Your BMI of <span className="text-white font-bold">{latestRecord.bmi}</span> indicates a {Number(latestRecord.bmi) < 25 ? "healthy" : "monitored"} weight for your height.
               </p>
               <ul className="space-y-4">
                 <li className="flex items-center gap-3 text-sm font-medium">
-                  <div className="w-2.5 h-2.5 rounded-full bg-green-400 shadow-[0_0_10px_rgba(74,222,128,0.5)]" /> Keep maintaining your current hydration levels.
+                  <div className="w-2.5 h-2.5 rounded-full bg-green-400 shadow-[0_0_10px_rgba(74,222,128,0.5)]" /> 
+                  Maintain current hydration and activity levels.
                 </li>
                 <li className="flex items-center gap-3 text-sm font-medium">
-                  <div className="w-2.5 h-2.5 rounded-full bg-blue-300 shadow-[0_0_10px_rgba(147,197,253,0.5)]" /> Next suggested checkup: Feb 28, 2026.
+                  <div className="w-2.5 h-2.5 rounded-full bg-blue-300 shadow-[0_0_10px_rgba(147,197,253,0.5)]" /> 
+                  Data synced with HealthSense Cloud Infrastructure.
                 </li>
               </ul>
             </div>
@@ -114,7 +207,7 @@ const Result: React.FC = () => {
   );
 };
 
-// Reusable Card Component
+// Reusable Card Component (remains the same as your provided code)
 const ResultCard = ({ icon, label, value, unit, status, type }: { icon: any, label: string, value: string, unit: string, status: string, type: StatusType }) => {
   const typeColors = {
     success: "bg-green-500/10 text-green-600 border-green-200",

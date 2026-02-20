@@ -6,7 +6,7 @@ import { supabase } from "../supabaseClient";
 const Dashboard: React.FC = () => {
   const navigate = useNavigate();
 
-  // State for user data (using snake_case to match Supabase columns)
+  // State for user data
   const [userData, setUserData] = useState<{
     first_name: string;
     middle_name?: string;
@@ -24,11 +24,11 @@ const Dashboard: React.FC = () => {
 
         if (authError || !user) {
           console.error("No active session found");
-          navigate("/"); // Kick back to login if session is dead
+          navigate("/"); 
           return;
         }
 
-        // 2. Fetch from the 'profile' table
+        // 2. Fetch from the 'profiles' table
         const { data, error: profileError } = await supabase
           .from("profiles")
           .select("first_name, middle_name, last_name")
@@ -45,7 +45,8 @@ const Dashboard: React.FC = () => {
       } catch (error) {
         console.error("Unexpected error loading profile:", error);
       } finally {
-        setLoading(false);
+        // Slight delay for a smoother transition on the kiosk
+        setTimeout(() => setLoading(false), 800);
       }
     };
 
@@ -57,14 +58,14 @@ const Dashboard: React.FC = () => {
     try {
       const { error } = await supabase.auth.signOut();
       if (error) throw error;
-      navigate("/"); // Redirect to Login page
+      navigate("/"); 
     } catch (error: any) {
       console.error("Error logging out:", error.message);
-      navigate("/"); // Redirect anyway to be safe
+      navigate("/"); 
     }
   };
 
-  // Helper function to format the name: "Joy N. Arenas"
+  // Helper function to format the name
   const formatDisplayName = () => {
     if (!userData) return "Patient";
     const middleInitial = userData.middle_name 
@@ -73,14 +74,35 @@ const Dashboard: React.FC = () => {
     return `${userData.first_name}${middleInitial} ${userData.last_name}`;
   };
 
-  // Helper for the initials in the profile circle
+  // Helper for the initials
   const getInitials = () => {
     if (!userData) return "??";
     return `${userData.first_name.charAt(0)}${userData.last_name.charAt(0)}`;
   };
 
+  // FULL SCREEN LOADING STATE
+  if (loading) {
+    return (
+      <div className="min-h-screen flex items-center justify-center bg-[#eaf4ff] font-['Lexend']">
+        <div className="text-center">
+          {/* Main Spinner */}
+          <div className="relative w-24 h-24 mx-auto mb-8">
+            <div className="absolute inset-0 border-4 border-[#139dc7]/20 rounded-full"></div>
+            <div className="absolute inset-0 border-4 border-[#139dc7] border-t-transparent rounded-full animate-spin"></div>
+            
+          </div>
+          
+          <h2 className="text-2xl font-black text-[#139dc7] tracking-tight mb-2">Syncing Dashboard</h2>
+          <p className="text-[#139dc7]/60 font-bold uppercase tracking-widest text-[10px] animate-pulse">
+            Authenticating HealthSense Infrastructure...
+          </p>
+        </div>
+      </div>
+    );
+  }
+
   return (
-    <div className="min-h-screen w-full flex flex-col bg-[linear-gradient(120deg,#eaf4ff_0%,#cbe5ff_40%,#b0d0ff_70%,#9fc5f8_100%)] font-['Lexend'] overflow-x-hidden relative">
+    <div className="min-h-screen w-full flex flex-col bg-[linear-gradient(120deg,#eaf4ff_0%,#cbe5ff_40%,#b0d0ff_70%,#9fc5f8_100%)] font-['Lexend'] overflow-x-hidden relative animate-in fade-in duration-700">
       
       {/* HEADER */}
       <header className="w-full px-8 lg:px-16 py-6 flex justify-between items-center z-50">
@@ -90,12 +112,6 @@ const Dashboard: React.FC = () => {
         </div>
         
         <div className="flex items-center gap-3 sm:gap-6">
-          <div className="flex items-center gap-2 px-4 py-1.5 bg-white/40 rounded-full border border-white/40 backdrop-blur-md shadow-sm">            
-            <span className="text-[10px] font-bold text-[#139dc7] uppercase tracking-wider">
-              Patient ID: <span className="opacity-60">HS-2026-88</span>
-            </span>
-          </div>
-
           <div className="flex items-center gap-2 sm:gap-4">
             <button className="relative text-[#139dc7] hover:scale-110 transition-transform p-2">
               <FaBell size={22} />
@@ -108,9 +124,7 @@ const Dashboard: React.FC = () => {
               className="flex items-center gap-2 px-2 py-1 rounded-full hover:bg-white/30 transition-all border border-transparent hover:border-white/40"
             >
               <div className="w-10 h-10 rounded-full bg-[#139dc7] flex items-center justify-center text-white font-bold border-2 border-white shadow-sm shrink-0">
-                {loading ? (
-                   <div className="w-4 h-4 border-2 border-white/30 border-t-white rounded-full animate-spin" />
-                ) : getInitials()}
+                {getInitials()}
               </div>
               <span className="hidden lg:block text-sm font-bold text-[#139dc7]">Profile</span>
             </button>
@@ -134,7 +148,7 @@ const Dashboard: React.FC = () => {
           <h1 className="text-[clamp(32px,5vw,56px)] font-bold text-[#139dc7] m-0 leading-tight">
             Welcome,{" "}
             <span className="inline-block italic text-transparent bg-clip-text bg-gradient-to-r from-[#139dc7] to-[#34A0A4] pr-[0.3em] -mr-[0.3em]">
-              {loading ? "Syncing..." : formatDisplayName()}
+              {formatDisplayName()}
             </span>
           </h1>
           <p className="text-[#139dc7] opacity-70 text-lg">Your health data is synchronized and ready for review.</p>
