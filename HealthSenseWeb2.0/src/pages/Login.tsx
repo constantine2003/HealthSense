@@ -13,6 +13,11 @@ const Home: React.FC = () => {
   const [passwordInput, setPasswordInput] = useState<string>("");
   const [loginError, setLoginError] = useState<string>("");
   const [isLoading, setIsLoading] = useState(false);
+  // Modal States
+  const [showRecoverModal, setShowRecoverModal] = useState(false);
+  const [recoveryEmailInput, setRecoveryEmailInput] = useState("");
+  const [recoveryLoading, setRecoveryLoading] = useState(false);
+  const [recoveryMessage, setRecoveryMessage] = useState({ type: "", text: "" });
 
   const togglePasswordVisibility = () => setShowPassword(!showPassword);
 
@@ -50,6 +55,57 @@ const Home: React.FC = () => {
       setLoginError("Access denied. Please check your Patient ID and Password.");
     } finally {
       setIsLoading(false);
+    }
+  };
+
+  const handleRecoverAccount = async () => {
+    setRecoveryMessage({ type: "", text: "" });
+    const cleanEmail = recoveryEmailInput.trim();
+
+    try {
+      setRecoveryLoading(true);
+
+      // 1. Double check the profiles table (This uses the SQL Policy you just fixed!)
+      const { data: profile, error: fetchError } = await supabase
+        .from("profiles")
+        .select("username") 
+        .ilike("recovery_email", cleanEmail)
+        .maybeSingle();
+
+      if (fetchError) throw fetchError;
+
+      if (!profile) {
+        setRecoveryMessage({ 
+          type: "error", 
+          text: "No account is linked to this recovery email." 
+        });
+        return;
+      }
+
+      // 2. Trigger the reset to the REAL email address
+      // This will work ONLY if 'cleanEmail' is the email in the Supabase Auth list
+      const { error: resetError } = await supabase.auth.resetPasswordForEmail(cleanEmail, {
+        redirectTo: `${window.location.origin}/reset-password`,
+      });
+
+      if (resetError) {
+        // If this fails, it's usually because the Auth email is actually the @kiosk.local one
+        setRecoveryMessage({ 
+          type: "error", 
+          text: "System could not send to this address. Verify your account setup." 
+        });
+        return;
+      }
+
+      setRecoveryMessage({ 
+        type: "success", 
+        text: "Success! Reset link sent to your personal inbox." 
+      });
+
+    } catch (err: any) {
+      setRecoveryMessage({ type: "error", text: "An unexpected error occurred." });
+    } finally {
+      setRecoveryLoading(false);
     }
   };
 
@@ -163,7 +219,11 @@ const Home: React.FC = () => {
                 </button>
 
                 <div className="flex flex-col items-center gap-3">
-                  <button type="button" className="text-[11px] sm:text-sm font-bold text-[#139dc7]/60 hover:text-[#139dc7] transition-all">
+                  <button 
+                    type="button" 
+                    onClick={() => setShowRecoverModal(true)}
+                    className="text-[11px] sm:text-sm font-bold text-[#139dc7]/60 hover:text-[#139dc7] transition-all"
+                  >
                     Recover Account
                   </button>
                   <p className="text-[9px] text-gray-400 text-center leading-snug">
@@ -182,6 +242,75 @@ const Home: React.FC = () => {
           v2.0 // ArchiveStream Master
         </span>
       </footer>
+
+      {/* RECOVERY MODAL */}
+      {showRecoverModal && (
+        <div className="fixed inset-0 z-100 flex items-center justify-center p-6 bg-[#001b2e]/60 backdrop-blur-xl animate-in fade-in duration-300">
+          <div className="bg-white/95 w-full max-w-md rounded-[40px] shadow-2xl border border-white/50 p-10 relative animate-in zoom-in-95 duration-200">
+            <div className="text-center mb-8">
+              <h2 className="text-3xl font-black text-[#139dc7] mb-2 uppercase italic tracking-tighter">Recover Access</h2>
+              <p className="text-[#139dc7]/60 text-xs font-bold uppercase tracking-widest">Identify your account</p>
+            </div>
+
+            <div className="space-y-6">
+              <div className="space-y-2">
+                <label className="text-[10px] font-black uppercase text-[#139dc7]/40 ml-2 tracking-widest">
+                  Recovery Email Address
+                </label>
+                <div className="relative group">
+                  <input 
+                    type="email"
+                    placeholder="example@email.com"
+                    className="w-full h-14 bg-white border border-[#139dc7]/10 rounded-2xl px-5 pr-12 text-[#0a4d61] outline-none focus:border-[#139dc7] focus:ring-4 focus:ring-[#139dc7]/5 transition-all shadow-inner placeholder:text-[#139dc7]/20"
+                    /* FIXED NAMES BELOW */
+                    value={recoveryEmailInput}
+                    onChange={(e) => setRecoveryEmailInput(e.target.value)}
+                  />
+                  <div className="absolute right-5 top-1/2 -translate-y-1/2 text-[#139dc7]/20 group-focus-within:text-[#139dc7] transition-colors">
+                    {/* <FaLanguage size={18} />  */}
+                  </div>
+                </div>
+              </div>
+
+              {recoveryMessage.text && (
+                <div className={`text-[11px] font-bold p-4 rounded-2xl border animate-bounce-short ${
+                  recoveryMessage.type === "success" 
+                    ? "bg-green-50 text-green-600 border-green-100" 
+                    : "bg-red-50 text-red-500 border-red-100"
+                }`}>
+                  {recoveryMessage.type === "success" ? "✓ " : "⚠️ "} {recoveryMessage.text}
+                </div>
+              )}
+
+              <div className="flex flex-col gap-3">
+                <button 
+                  onClick={handleRecoverAccount}
+                  disabled={recoveryLoading}
+                  className="w-full h-14 rounded-2xl font-black bg-[#139dc7] text-white hover:bg-[#0a4d61] shadow-lg shadow-blue-200 transition-all flex items-center justify-center uppercase tracking-widest"
+                >
+                  {recoveryLoading ? (
+                    <div className="w-5 h-5 border-2 border-white/30 border-t-white rounded-full animate-spin" />
+                  ) : (
+                    "Send Reset Link"
+                  )}
+                </button>
+                
+                <button 
+                  type="button"
+                  onClick={() => { 
+                    setShowRecoverModal(false); 
+                    setRecoveryMessage({ type: "", text: "" }); 
+                    setRecoveryEmailInput(""); // Clear input on close
+                  }}
+                  className="w-full h-12 rounded-2xl font-bold text-[#139dc7]/40 hover:text-[#139dc7] transition-all text-xs uppercase"
+                >
+                  Back to Login
+                </button>
+              </div>
+            </div>
+          </div>
+        </div>
+      )}
     </div>
   );
 };

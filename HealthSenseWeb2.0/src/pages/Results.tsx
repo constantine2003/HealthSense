@@ -106,7 +106,6 @@ const Result: React.FC = () => {
           <FaArrowLeft /> Back to Dashboard
         </button>
         
-       
       </header>
 
       <main className="max-w-5xl mx-auto px-6 pb-20">
