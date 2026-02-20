@@ -74,7 +74,7 @@ const Home: React.FC = () => {
 
       {/* MAIN CONTENT */}
       <main className="flex-1 flex flex-col items-center justify-center w-full px-6 lg:px-12 mx-auto">
-        <div className="flex flex-col lg:flex-row items-center justify-center gap-10 lg:gap-32 w-full max-w-[1600px]">
+        <div className="flex flex-col lg:flex-row items-center justify-center gap-10 lg:gap-32 w-full max-w-400">
 
           {/* LEFT SECTION: BRANDING */}
           <div className="text-center lg:text-left flex flex-col items-center lg:items-start gap-1 sm:gap-4 shrink-0">
@@ -82,17 +82,17 @@ const Home: React.FC = () => {
               Welcome to
             </p>
             
-            <h1 className="text-[clamp(44px,11vw,120px)] font-black leading-[0.85] m-0 bg-gradient-to-r from-[#139dc7] to-[#34A0A4] bg-clip-text text-transparent select-none lg:whitespace-nowrap italic lg:not-italic pr-[0.1em]">
+            <h1 className="text-[clamp(44px,11vw,120px)] font-black leading-[0.85] m-0 bg-linear-to-r from-[#139dc7] to-[#34A0A4] bg-clip-text text-transparent select-none lg:whitespace-nowrap italic lg:not-italic pr-[0.1em]">
               HealthSense
             </h1>
             
-            <p className="text-[clamp(14px,2.2vw,20px)] font-light text-[#139dc7] leading-relaxed max-w-[340px] lg:max-w-[550px] opacity-70 mt-3 sm:mt-5">
+            <p className="text-[clamp(14px,2.2vw,20px)] font-light text-[#139dc7] leading-relaxed max-w-85 lg:max-w-137.5 opacity-70 mt-3 sm:mt-5">
               View your personal health checkup results securely, privately, and conveniently online today.
             </p>
           </div>
 
           {/* RIGHT SECTION: LOGIN CARD */}
-          <div className="w-full max-w-[420px] sm:max-w-[500px] shrink-0">
+          <div className="w-full max-w-105 sm:max-w-125 shrink-0">
             <div className="relative w-full bg-white/30 backdrop-blur-2xl rounded-[40px] border border-white/50 shadow-[0_30px_100px_rgba(20,60,120,0.1)] flex items-center justify-center p-7 sm:p-14 overflow-hidden">
               
               <div className="absolute -top-[10%] -right-[10%] w-50 h-50 bg-[#139dc7]/15 rounded-full blur-[80px]" />

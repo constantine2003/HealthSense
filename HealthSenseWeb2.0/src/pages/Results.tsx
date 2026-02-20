@@ -123,7 +123,7 @@ const ResultCard = ({ icon, label, value, unit, status, type }: { icon: any, lab
   };
 
   return (
-    <div className="bg-white/80 backdrop-blur-md border border-white p-7 rounded-[32px] shadow-lg group hover:bg-white transition-all hover:shadow-xl hover:-translate-y-1">
+    <div className="bg-white/80 backdrop-blur-md border border-white p-7 rounded-4xl shadow-lg group hover:bg-white transition-all hover:shadow-xl hover:-translate-y-1">
       <div className="flex justify-between items-start mb-6">
         <div className="w-14 h-14 bg-[#139dc7]/10 rounded-2xl flex items-center justify-center text-[#139dc7] text-3xl group-hover:bg-[#139dc7] group-hover:text-white transition-all duration-300">
           {icon}
