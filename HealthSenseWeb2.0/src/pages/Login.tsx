@@ -1,13 +1,15 @@
 import React, { useState } from "react";
 import { FaEye, FaEyeSlash } from "react-icons/fa";
 import { useNavigate } from "react-router-dom";
+// Import your existing client here
+import { supabase } from "../supabaseClient";
 
 const Home: React.FC = () => {
   const navigate = useNavigate();
 
   // Logic States
   const [showPassword, setShowPassword] = useState<boolean>(false);
-  const [emailInput, setEmailInput] = useState<string>("");
+  const [emailInput, setEmailInput] = useState<string>(""); 
   const [passwordInput, setPasswordInput] = useState<string>("");
   const [loginError, setLoginError] = useState<string>("");
   const [isLoading, setIsLoading] = useState(false);
@@ -15,28 +17,39 @@ const Home: React.FC = () => {
   const togglePasswordVisibility = () => setShowPassword(!showPassword);
 
   const handleLogin = async (e: React.FormEvent) => {
-    if (e) e.preventDefault(); 
+    if (e) e.preventDefault();
     setLoginError("");
-    
-    // 1. Validation check
+
     if (!emailInput || !passwordInput) {
-      setLoginError("Please enter both email and password.");
+      setLoginError("Please enter both credentials.");
       return;
     }
 
-    setIsLoading(true); 
+    setIsLoading(true);
 
     try {
-      // 2. Artificial delay for UX
-      await new Promise(resolve => setTimeout(resolve, 800));
-      
-      // 3. Navigation
-      console.log("Success! Navigating...");
+      // SECRETLY APPEND DOMAIN: "user.name" -> "user.name@kiosk.local"
+      // This allows you to use Supabase Auth without forcing users to type @...
+      const secretEmail = emailInput.includes("@") 
+        ? emailInput 
+        : `${emailInput}@kiosk.local`;
+
+      const { data, error } = await supabase.auth.signInWithPassword({
+        email: secretEmail,
+        password: passwordInput,
+      });
+
+      if (error) throw error;
+
+      console.log("Kiosk Login successful:", data.user?.email);
       navigate("/dashboard");
-      
+
     } catch (err: any) {
-      setLoginError("Invalid credentials.");
-      setIsLoading(false); 
+      console.error("Auth Error:", err.message);
+      // Friendly error for the kiosk
+      setLoginError("Access denied. Please check your Patient ID and Password.");
+    } finally {
+      setIsLoading(false);
     }
   };
 
@@ -49,7 +62,6 @@ const Home: React.FC = () => {
           <span className="text-xl sm:text-2xl font-black text-[#139dc7] tracking-tighter uppercase">HealthSense</span>
         </div>
         
-        {/* Patient ID Pill Style */}
         <div className="flex items-center gap-2 px-3 py-1.5 bg-white/40 rounded-full border border-white/40 backdrop-blur-md shadow-sm">
           <div className="w-5 h-5 bg-[#139dc7] rounded-full flex items-center justify-center text-[10px] text-white font-black shadow-inner">
             ?
@@ -74,16 +86,16 @@ const Home: React.FC = () => {
               HealthSense
             </h1>
             
-            <p className="text-[clamp(14px,2.2vw,20px)] font-light text-[#139dc7] leading-tight max-w-[340px] lg:max-w-[650px] opacity-70 mt-3 sm:mt-5">
+            <p className="text-[clamp(14px,2.2vw,20px)] font-light text-[#139dc7] leading-relaxed max-w-[340px] lg:max-w-[550px] opacity-70 mt-3 sm:mt-5">
               View your personal health checkup results securely, privately, and conveniently online today.
             </p>
           </div>
 
           {/* RIGHT SECTION: LOGIN CARD */}
-          <div className="w-full max-w-[420px] sm:max-w-125 shrink-0">
-            <div className="relative w-full bg-white/30 backdrop-blur-[40px] rounded-[40px] border border-white/50 shadow-[0_30px_100px_rgba(20,60,120,0.1)] flex items-center justify-center p-7 sm:p-14 overflow-hidden">
+          <div className="w-full max-w-[420px] sm:max-w-[500px] shrink-0">
+            <div className="relative w-full bg-white/30 backdrop-blur-2xl rounded-[40px] border border-white/50 shadow-[0_30px_100px_rgba(20,60,120,0.1)] flex items-center justify-center p-7 sm:p-14 overflow-hidden">
               
-              <div className="absolute -top-[10%] -right-[10%] w-50 h-[200px] bg-[#139dc7]/15 rounded-full blur-[80px]" />
+              <div className="absolute -top-[10%] -right-[10%] w-50 h-50 bg-[#139dc7]/15 rounded-full blur-[80px]" />
 
               <form className="w-full flex flex-col gap-4 sm:gap-7 z-10" onSubmit={handleLogin}>
                 
@@ -102,9 +114,9 @@ const Home: React.FC = () => {
                   </div>
                 )}
 
-                {/* Email Input - Fixed with value/onChange */}
+                {/* Email Input */}
                 <div className="space-y-1 sm:space-y-2">
-                  <label className="text-[10px] sm:text-xs font-black text-[#139dc7] ml-2 uppercase tracking-widest">Email Address</label>
+                  <label className="text-[10px] sm:text-xs font-black text-[#139dc7] ml-2 uppercase tracking-widest">Patient ID / Username</label>
                   <input 
                     type="text" 
                     placeholder="firstname.lastname"
@@ -114,7 +126,7 @@ const Home: React.FC = () => {
                   />
                 </div>
 
-                {/* Password Input - Fixed with value/onChange */}
+                {/* Password Input */}
                 <div className="space-y-1 sm:space-y-2">
                   <label className="text-[10px] sm:text-xs font-black text-[#139dc7] ml-2 uppercase tracking-widest">Password</label>
                   <div className="relative">
