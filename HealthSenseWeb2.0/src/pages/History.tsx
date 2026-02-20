@@ -109,16 +109,29 @@ const History: React.FC = () => {
     <div className="min-h-screen h-screen flex flex-col bg-[linear-gradient(120deg,#eaf4ff_0%,#cbe5ff_40%,#b0d0ff_70%,#9fc5f8_100%)] font-['Lexend'] overflow-hidden relative">
       
       {/* HEADER */}
-      <header className="w-full px-8 lg:px-16 py-6 flex justify-between items-center z-50 shrink-0">
-        <button onClick={() => navigate('/dashboard')} className="flex items-center gap-2 text-[#139dc7] font-bold hover:gap-4 transition-all">
-          <FaArrowLeft /> Back to Dashboard
+      <header className="w-full px-4 sm:px-8 lg:px-16 py-4 sm:py-6 flex flex-row justify-between items-center z-50 shrink-0 gap-2">
+        
+        {/* Back Button - Text hides on very small phones to save space */}
+        <button 
+          onClick={() => navigate('/dashboard')} 
+          className="flex items-center gap-2 text-[#139dc7] font-bold hover:gap-3 transition-all active:scale-95"
+        >
+          <FaArrowLeft className="text-lg" /> 
+          <span className="text-sm sm:text-base hidden xs:block">Back to Dashboard</span>
+          <span className="text-sm xs:hidden">Back</span>
         </button>
-        <div className="flex items-center gap-2 px-3 py-1 bg-white/40 rounded-full border border-white/40 backdrop-blur-md">
-          <div className={`w-1.5 h-1.5 rounded-full ${isOnline ? 'bg-green-500' : 'bg-red-500'}`} />
+        
+        {/* Status Indicator - Shrinks text and padding for mobile */}
+        <div className="flex items-center gap-2 px-4 py-1.5 bg-white/40 rounded-full border border-white/40 backdrop-blur-md shadow-sm">
+          <div className="w-5 h-5 bg-[#139dc7] rounded-full flex items-center justify-center text-[10px] text-white font-bold">
+            {/* First letter of user's name */}
+            J
+          </div>
           <span className="text-[10px] font-bold text-[#139dc7] uppercase tracking-wider">
-            {isOnline ? 'System Online' : 'System Offline'}
+            Patient ID: <span className="opacity-60">HS-2026-88</span>
           </span>
         </div>
+
       </header>
 
       <main className="flex-1 w-full max-w-[1400px] mx-auto px-6 lg:px-12 flex flex-col min-h-0">
@@ -135,38 +148,50 @@ const History: React.FC = () => {
         </section>
 
         {/* LIST AREA */}
-        <div className="flex-1 overflow-y-auto pr-2 pb-10 space-y-4">
+        <div className="flex-1 overflow-y-auto pr-2 pb-10 space-y-6">
           {historyData.map((record, index) => (
-            <div key={index} className="bg-white/20 backdrop-blur-md rounded-[24px] border border-white/30 p-6 shadow-lg transition-all hover:bg-white/30">
-              <div className="flex flex-col xl:flex-row items-center gap-6">
+            <div 
+              key={index} 
+              className="group relative bg-white/70 backdrop-blur-xl rounded-[32px] border border-white shadow-[0_8px_30px_rgb(0,0,0,0.04)] p-8 transition-all hover:shadow-[0_20px_40px_rgba(19,157,199,0.1)] hover:-translate-y-1"
+            >
+              <div className="flex flex-col xl:flex-row items-center gap-8">
                 
-                <div className="w-full xl:w-48 shrink-0 border-b xl:border-b-0 xl:border-r border-[#139dc7]/10 pb-4 xl:pb-0 xl:pr-6">
-                  <div className="flex items-center gap-2 text-[#139dc7] font-bold text-xl"><FaFileAlt /> {record.date}</div>
-                  <div className="text-xs text-[#139dc7]/50 font-bold uppercase tracking-tighter">{record.time}</div>
+                {/* DATE SECTION - High Contrast */}
+                <div className="w-full xl:w-52 shrink-0 border-b xl:border-b-0 xl:border-r border-[#139dc7]/20 pb-6 xl:pb-0 xl:pr-8">
+                  <div className="flex items-center gap-3 text-[#0a4d61] font-extrabold text-2xl">
+                    <div className="w-10 h-10 bg-[#139dc7]/10 rounded-xl flex items-center justify-center text-[#139dc7]">
+                        <FaFileAlt size={18} />
+                    </div>
+                    {record.date}
+                  </div>
+                  <div className="mt-2 text-[11px] text-[#139dc7] font-black uppercase tracking-[0.2em] opacity-60 ml-1">
+                    Checked at {record.time}
+                  </div>
                 </div>
 
-                {/* UPDATED GRID: PREVENTS OVERFLOW */}
-                <div className="flex-1 grid grid-cols-2 sm:grid-cols-3 md:grid-cols-6 gap-3 w-full">
+                {/* METRICS GRID - Solid Backgrounds for Legibility */}
+                <div className="flex-1 grid grid-cols-2 sm:grid-cols-3 md:grid-cols-6 gap-4 w-full">
                   {[
                     { label: "SpO2", val: record.oxygen + "%" },
                     { label: "Temp", val: record.temp + "°C" },
                     { label: "Height", val: record.height + "m" },
                     { label: "Weight", val: record.weight + "kg" },
                     { label: "BMI", val: record.bmi },
-                    { label: "BP", val: record.bp, long: true } // Identify long text
+                    { label: "BP", val: record.bp, long: true }
                   ].map((stat, i) => (
-                    <div key={i} className="bg-[#139dc7]/5 p-3 rounded-xl border border-white/20">
-                      <p className="text-[10px] font-black text-[#139dc7]/40 uppercase mb-1">{stat.label}</p>
-                      <p className={`font-bold text-[#139dc7] ${stat.long ? 'text-xs md:text-sm' : 'text-sm'}`}>
+                    <div key={i} className="bg-white/50 border border-white p-4 rounded-2xl shadow-sm group-hover:bg-white transition-colors">
+                      <p className="text-[10px] font-black text-[#139dc7] uppercase mb-2 tracking-tight opacity-50">{stat.label}</p>
+                      <p className={`font-bold text-[#0a4d61] ${stat.long ? 'text-sm md:text-base' : 'text-lg'} leading-none`}>
                         {stat.val}
                       </p>
                     </div>
                   ))}
                 </div>
 
+                {/* BUTTON - Solid Action */}
                 <button 
                   onClick={() => setSelectedRecord(record)}
-                  className="w-full xl:w-auto px-6 py-4 bg-[#139dc7] text-white rounded-2xl font-bold text-sm whitespace-nowrap hover:bg-[#34A0A4]"
+                  className="w-full xl:w-auto px-8 py-5 bg-[#139dc7] text-white rounded-2xl font-black text-sm uppercase tracking-widest shadow-lg shadow-[#139dc7]/30 hover:bg-[#0a4d61] hover:scale-105 transition-all shrink-0 active:scale-95"
                 >
                   View Details
                 </button>

@@ -1,20 +1,12 @@
-import React, { useState, useEffect } from "react";
+
 import { useNavigate } from "react-router-dom"; // 1. Add this import
 import { FaFileMedical, FaHistory, FaBell, FaUserCircle, FaCalendarCheck, FaChevronRight } from "react-icons/fa";
 
 const Dashboard: React.FC = () => {
-  const [isOnline, setIsOnline] = useState<boolean>(navigator.onLine);
+  
   const navigate = useNavigate(); // 2. Initialize the hook here
   // Connection Monitor (Same as Login for consistency)
-  useEffect(() => {
-    const updateStatus = () => setIsOnline(navigator.onLine);
-    window.addEventListener("online", updateStatus);
-    window.addEventListener("offline", updateStatus);
-    return () => {
-      window.removeEventListener("online", updateStatus);
-      window.removeEventListener("offline", updateStatus);
-    };
-  }, []);
+  
 
   return (
     <div className="min-h-screen w-full flex flex-col bg-[linear-gradient(120deg,#eaf4ff_0%,#cbe5ff_40%,#b0d0ff_70%,#9fc5f8_100%)] font-['Lexend'] overflow-x-hidden relative">
@@ -28,10 +20,9 @@ const Dashboard: React.FC = () => {
         
         <div className="flex items-center gap-3 sm:gap-6">
           {/* SYSTEM STATUS (Hidden on very small screens, but visible on your kiosk) */}
-          <div className="hidden md:flex items-center gap-2 px-3 py-1 bg-white/40 rounded-full border border-white/40 backdrop-blur-md shrink-0">
-            <div className={`w-1.5 h-1.5 rounded-full ${isOnline ? 'bg-green-500' : 'bg-red-500'}`} />
+          <div className="flex items-center gap-2 px-4 py-1.5 bg-white/40 rounded-full border border-white/40 backdrop-blur-md shadow-sm">            
             <span className="text-[10px] font-bold text-[#139dc7] uppercase tracking-wider">
-              {isOnline ? 'System Online' : 'System Offline'}
+              Patient ID: <span className="opacity-60">HS-2026-88</span>
             </span>
           </div>
 
@@ -65,13 +56,13 @@ const Dashboard: React.FC = () => {
       </header>
 
       {/* MAIN CONTENT */}
-      <main className="flex-1 w-full max-w-[1440px] mx-auto px-6 lg:px-16 py-8">
+      <main className="flex-1 w-full max-w-360 mx-auto px-6 lg:px-16 py-8">
         
         {/* WELCOME AREA */}
         <section className="mb-10 text-center lg:text-left">
           <h1 className="text-[clamp(32px,5vw,56px)] font-bold text-[#139dc7] m-0 leading-tight">
             Welcome,{" "}
-            <span className="inline-block italic text-transparent bg-clip-text bg-gradient-to-r from-[#139dc7] to-[#34A0A4] pr-[0.3em] -mr-[0.3em]">
+            <span className="inline-block italic text-transparent bg-clip-text bg-linear-to-r from-[#139dc7] to-[#34A0A4] pr-[0.3em] -mr-[0.3em]">
               Joy Arenas
             </span>
           </h1>
@@ -99,18 +90,32 @@ const Dashboard: React.FC = () => {
         <div className="grid grid-cols-1 lg:grid-cols-2 gap-8 mb-10">
           
           {/* VIEW LATEST */}
-          <button className="group relative bg-white/30 backdrop-blur-xl p-10 rounded-[40px] border border-white/50 shadow-2xl shadow-blue-900/10 transition-all hover:-translate-y-2 hover:bg-white/40 flex flex-col items-start text-left overflow-hidden min-h-[320px]">
-            <div className="absolute top-0 right-0 p-8 opacity-10 group-hover:scale-110 transition-transform">
-                <FaFileMedical size={120} className="text-[#139dc7]" />
-            </div>
-            <div className="w-16 h-16 bg-[#139dc7] rounded-2xl flex items-center justify-center text-white shadow-lg mb-8 group-hover:rotate-6 transition-transform">
-                <FaFileMedical size={32} />
-            </div>
-            <h2 className="text-4xl font-bold text-[#139dc7] mb-3">View Latest Results</h2>
-            <p className="text-[#139dc7]/70 text-lg max-w-[300px] leading-relaxed">Instantly access your most recent diagnostic and laboratory data.</p>
-            <div className="mt-auto flex items-center gap-2 font-bold text-[#139dc7] group-hover:gap-4 transition-all">
-                Access Now <FaChevronRight />
-            </div>
+          <button 
+            onClick={() => navigate('/results')} // [1] Added navigation link
+            className="group relative bg-white/70 backdrop-blur-xl p-10 rounded-[40px] border border-white shadow-[0_20px_50px_rgba(0,0,0,0.05)] transition-all hover:-translate-y-2 hover:bg-white/90 flex flex-col items-start text-left overflow-hidden min-h-[320px] active:scale-95"
+          >
+              {/* Large Background Icon */}
+              <div className="absolute top-0 right-0 p-8 opacity-5 group-hover:opacity-10 group-hover:scale-110 transition-all duration-500">
+                  <FaFileMedical size={120} className="text-[#139dc7]" />
+              </div>
+
+              {/* Primary Icon Box */}
+              <div className="w-16 h-16 bg-[#139dc7] rounded-2xl flex items-center justify-center text-white shadow-xl shadow-blue-200 mb-8 group-hover:rotate-6 transition-transform">
+                  <FaFileMedical size={32} />
+              </div>
+
+              {/* Content */}
+              <h2 className="text-4xl font-black text-[#0a4d61] mb-3 leading-tight">
+                  View Latest <br/> Results
+              </h2>
+              <p className="text-[#139dc7]/70 text-lg max-w-[300px] leading-relaxed font-medium">
+                  Instantly access your most recent diagnostic and laboratory data.
+              </p>
+
+              {/* Footer Link */}
+              <div className="mt-auto flex items-center gap-2 font-black text-[#139dc7] uppercase text-sm tracking-widest group-hover:gap-4 transition-all">
+                  Access Now <FaChevronRight />
+              </div>
           </button>
 
           <button 
