@@ -43,11 +43,11 @@ const Profile: React.FC = () => {
         </div>
       </header>
 
-      <main className="flex-1 w-full max-w-[900px] mx-auto px-6 lg:px-12 pb-12 flex flex-col justify-center">
+      <main className="flex-1 w-full max-w-225 mx-auto px-6 lg:px-12 pb-12 flex flex-col justify-center">
         
         {/* PROFILE HERO */}
         <section className="flex flex-col items-center lg:items-start mb-10 gap-4">
-           <div className="w-24 h-24 rounded-[32px] bg-[#139dc7] flex items-center justify-center text-white text-4xl font-bold shadow-2xl border-4 border-white">
+           <div className="w-24 h-24 rounded-4xl bg-[#139dc7] flex items-center justify-center text-white text-4xl font-bold shadow-2xl border-4 border-white">
               JA
            </div>
            <div className="text-center lg:text-left">
@@ -59,7 +59,7 @@ const Profile: React.FC = () => {
         <div className="grid grid-cols-1 gap-8">
           
           {/* PERSONAL INFORMATION (READ ONLY) */}
-          <section className="relative bg-white/20 backdrop-blur-[40px] rounded-[32px] border border-white/30 p-8 shadow-xl">
+          <section className="relative bg-white/20 backdrop-blur-2xl rounded-4xl border border-white/30 p-8 shadow-xl">
             <div className="flex items-center gap-3 mb-6 text-[#139dc7]">
                 <FaUserShield size={20} />
                 <h2 className="text-xl font-bold">Personal Information</h2>
@@ -84,7 +84,7 @@ const Profile: React.FC = () => {
           </section>
 
           {/* SECURITY & PREFERENCES (EDITABLE) */}
-          <section className="bg-white/20 backdrop-blur-[40px] rounded-[32px] border border-white/30 p-8 shadow-xl">
+          <section className="bg-white/20 backdrop-blur-2xl rounded-4xl border border-white/30 p-8 shadow-xl">
              <div className="flex items-center gap-3 mb-8 text-[#139dc7]">
                 <FaLanguage size={20} />
                 <h2 className="text-xl font-bold">Security & Preferences</h2>
@@ -132,10 +132,10 @@ const Profile: React.FC = () => {
           <button 
             onClick={handleSave}
             disabled={saveStatus}
-            className={`w-full h-16 rounded-[24px] font-bold text-xl shadow-2xl transition-all flex items-center justify-center gap-3 ${
+            className={`w-full h-16 rounded-3xl font-bold text-xl shadow-2xl transition-all flex items-center justify-center gap-3 ${
                 saveStatus 
                 ? "bg-green-500 text-white" 
-                : "bg-gradient-to-r from-[#139dc7] to-[#34A0A4] text-white hover:-translate-y-1 active:scale-95"
+                : "bg-linear-to-r from-[#139dc7] to-[#34A0A4] text-white hover:-translate-y-1 active:scale-95"
             }`}
           >
             {saveStatus ? <><FaCheckCircle /> Changes Saved</> : "Save Changes"}

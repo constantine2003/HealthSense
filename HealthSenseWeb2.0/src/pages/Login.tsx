@@ -1,170 +1,185 @@
-import React, { useState, useEffect } from "react";
+import React, { useState } from "react";
 import { FaEye, FaEyeSlash } from "react-icons/fa";
 import { useNavigate } from "react-router-dom";
+// Import your existing client here
+import { supabase } from "../supabaseClient";
 
 const Home: React.FC = () => {
   const navigate = useNavigate();
 
   // Logic States
   const [showPassword, setShowPassword] = useState<boolean>(false);
-  const [emailInput, setEmailInput] = useState<string>("");
+  const [emailInput, setEmailInput] = useState<string>(""); 
   const [passwordInput, setPasswordInput] = useState<string>("");
   const [loginError, setLoginError] = useState<string>("");
-  const [isOnline, setIsOnline] = useState<boolean>(navigator.onLine);
-
-  // Connection Monitor
-  useEffect(() => {
-    const updateStatus = () => setIsOnline(navigator.onLine);
-    window.addEventListener("online", updateStatus);
-    window.addEventListener("offline", updateStatus);
-    return () => {
-      window.removeEventListener("online", updateStatus);
-      window.removeEventListener("offline", updateStatus);
-    };
-  }, []);
+  const [isLoading, setIsLoading] = useState(false);
 
   const togglePasswordVisibility = () => setShowPassword(!showPassword);
 
   const handleLogin = async (e: React.FormEvent) => {
-    e.preventDefault();
+    if (e) e.preventDefault();
     setLoginError("");
-    
-    // Simple validation for demo
+
     if (!emailInput || !passwordInput) {
-      setLoginError("Please enter both email and password.");
+      setLoginError("Please enter both credentials.");
       return;
     }
 
+    setIsLoading(true);
+
     try {
-      // Logic for login goes here
-      console.log("Logging in with:", emailInput);
+      // SECRETLY APPEND DOMAIN: "user.name" -> "user.name@kiosk.local"
+      // This allows you to use Supabase Auth without forcing users to type @...
+      const secretEmail = emailInput.includes("@") 
+        ? emailInput 
+        : `${emailInput}@kiosk.local`;
+
+      const { data, error } = await supabase.auth.signInWithPassword({
+        email: secretEmail,
+        password: passwordInput,
+      });
+
+      if (error) throw error;
+
+      console.log("Kiosk Login successful:", data.user?.email);
       navigate("/dashboard");
+
     } catch (err: any) {
-      setLoginError("Invalid credentials. Please try again.");
+      console.error("Auth Error:", err.message);
+      // Friendly error for the kiosk
+      setLoginError("Access denied. Please check your Patient ID and Password.");
+    } finally {
+      setIsLoading(false);
     }
   };
 
   return (
     <div className="min-h-screen w-full flex flex-col bg-[linear-gradient(120deg,#eaf4ff_0%,#cbe5ff_40%,#b0d0ff_70%,#9fc5f8_100%)] font-['Lexend'] overflow-x-hidden relative">
       
-      {/* HEADER / NAV AREA */}
-      <header className="w-full px-8 lg:px-16 py-6 flex justify-between items-center z-50">
+      {/* HEADER */}
+      <header className="w-full px-8 lg:px-16 py-4 sm:py-6 flex justify-between items-center z-50 shrink-0">
         <div className="flex items-center gap-2">
-          <span className="text-2xl font-bold text-[#139dc7] tracking-tighter uppercase">HealthSense</span>
+          <span className="text-xl sm:text-2xl font-black text-[#139dc7] tracking-tighter uppercase">HealthSense</span>
         </div>
         
-        <div className="flex items-center gap-2 px-3 py-1 bg-white/40 rounded-full border border-white/40 backdrop-blur-md">
-          <div className={`w-1.5 h-1.5 rounded-full ${isOnline ? 'bg-green-500' : 'bg-red-500'}`} />
-          <span className="text-[10px] font-bold text-[#139dc7] uppercase tracking-wider">
-            {isOnline ? 'System Online' : 'System Offline'}
+        <div className="flex items-center gap-2 px-3 py-1.5 bg-white/40 rounded-full border border-white/40 backdrop-blur-md shadow-sm">
+          <div className="w-5 h-5 bg-[#139dc7] rounded-full flex items-center justify-center text-[10px] text-white font-black shadow-inner">
+            ?
+          </div>
+          <span className="text-[9px] sm:text-[10px] font-black text-[#139dc7] uppercase tracking-wider">
+            Portal Login <span className="opacity-40 ml-1">v2.0</span>
           </span>
         </div>
       </header>
 
       {/* MAIN CONTENT */}
-      <main className="flex-1 flex flex-col lg:flex-row items-center justify-center w-full px-6 lg:px-12 pb-12 mx-auto overflow-x-hidden">
-        
-        {/* INNER WRAPPER: This acts as the boundary. 
-          Increasing the gap to 24 (96px) ensures that even at 125% zoom, 
-          the text and the card don't feel like they are "touching."
-        */}
-        <div className="flex flex-col lg:flex-row items-center justify-center gap-10 lg:gap-24 w-full max-w-[1440px]">
+      <main className="flex-1 flex flex-col items-center justify-center w-full px-6 lg:px-12 mx-auto">
+        <div className="flex flex-col lg:flex-row items-center justify-center gap-10 lg:gap-32 w-full max-w-400">
 
           {/* LEFT SECTION: BRANDING */}
-          <div className="text-center lg:text-left flex flex-col items-center lg:items-start gap-3 shrink-0">
-            <p className="text-[clamp(18px,4vw,36px)] font-bold text-[#139dc7] m-0 leading-none">
+          <div className="text-center lg:text-left flex flex-col items-center lg:items-start gap-1 sm:gap-4 shrink-0">
+            <p className="text-[clamp(18px,3.5vw,32px)] font-bold text-[#139dc7] m-0 leading-none opacity-90">
               Welcome to
             </p>
             
-            {/* H1: Clamped to 115px. 
-              The pr/mr fix ensures the italic "e" isn't cut off by the background clip. 
-            */}
-            <h1 className="text-[clamp(42px,10vw,115px)] font-bold leading-tight m-0 bg-gradient-to-r from-[#139dc7] to-[#34A0A4] bg-clip-text text-transparent select-none lg:whitespace-nowrap italic lg:not-italic pr-[0.2em] -mr-[0.2em]">
+            <h1 className="text-[clamp(44px,11vw,120px)] font-black leading-[0.85] m-0 bg-linear-to-r from-[#139dc7] to-[#34A0A4] bg-clip-text text-transparent select-none lg:whitespace-nowrap italic lg:not-italic pr-[0.1em]">
               HealthSense
             </h1>
             
-            <p className="text-[clamp(14px,2.5vw,22px)] font-light text-[#139dc7] leading-tight w-full lg:max-w-[90%] opacity-80 mt-1">
-              View your health checkup results securely and conveniently online
+            <p className="text-[clamp(14px,2.2vw,20px)] font-light text-[#139dc7] leading-relaxed max-w-85 lg:max-w-137.5 opacity-70 mt-3 sm:mt-5">
+              View your personal health checkup results securely, privately, and conveniently online today.
             </p>
           </div>
 
           {/* RIGHT SECTION: LOGIN CARD */}
-          {/* Fixed width at 479px is safer for 125% zoom than 527px. 
-            shrink-0 prevents Flexbox from squishing the box when the screen gets tight.
-          */}
-          <div className="w-full max-w-[479px] shrink-0">
-            <div className="relative w-full min-h-[560px] bg-white/20 backdrop-blur-[40px] rounded-[32px] border border-white/30 shadow-[0_20px_50px_rgba(20,60,120,0.15),inset_0_1px_20px_rgba(255,255,255,0.3)] flex items-center justify-center p-8 sm:p-10 overflow-hidden">
+          <div className="w-full max-w-105 sm:max-w-125 shrink-0">
+            <div className="relative w-full bg-white/30 backdrop-blur-2xl rounded-[40px] border border-white/50 shadow-[0_30px_100px_rgba(20,60,120,0.1)] flex items-center justify-center p-7 sm:p-14 overflow-hidden">
               
-              {/* Inner Card Glow Effect */}
-              <div className="absolute -top-[20%] -right-[20%] w-[180px] h-[180px] sm:w-[220px] sm:h-[220px] bg-[#139dc7]/10 rounded-full blur-[70px] sm:blur-[90px]" />
+              <div className="absolute -top-[10%] -right-[10%] w-50 h-50 bg-[#139dc7]/15 rounded-full blur-[80px]" />
 
-              <form className="w-full max-w-[340px] flex flex-col gap-5 sm:gap-6 z-10" onSubmit={handleLogin}>
-                <div className="text-center space-y-2">
-                  <h2 className="text-4xl sm:text-5xl font-normal text-[#139dc7] tracking-tight m-0">Welcome</h2>
-                  <p className="text-xs sm:text-base font-medium text-[#139dc7]/70">Log in using your account to proceed</p>
+              <form className="w-full flex flex-col gap-4 sm:gap-7 z-10" onSubmit={handleLogin}>
+                
+                <div className="text-center space-y-1 sm:space-y-3">
+                  <h2 className="text-3xl sm:text-5xl font-normal text-[#139dc7] tracking-tight m-0 pb-1 sm:pb-3">
+                    Login
+                  </h2>
+                  <p className="text-[10px] sm:text-xs font-bold text-[#139dc7]/40 uppercase tracking-[0.3em]">
+                    Secure Access
+                  </p>
                 </div>
 
                 {loginError && (
-                  <div className="bg-red-500/10 border border-red-500/50 text-red-600 text-[10px] sm:text-sm py-2 px-3 rounded-lg text-center animate-bounce">
+                  <div className="bg-red-500/10 border border-red-500/20 text-red-600 text-[10px] sm:text-xs py-2 px-3 rounded-xl text-center font-bold">
                     {loginError}
                   </div>
                 )}
 
-                <div className="space-y-2">
-                  <label className="text-[11px] sm:text-sm font-semibold text-[#139dc7] ml-1">Email</label>
+                {/* Email Input */}
+                <div className="space-y-1 sm:space-y-2">
+                  <label className="text-[10px] sm:text-xs font-black text-[#139dc7] ml-2 uppercase tracking-widest">Patient ID / Username</label>
                   <input 
                     type="text" 
                     placeholder="firstname.lastname"
                     value={emailInput}
                     onChange={(e) => setEmailInput(e.target.value)}
-                    className="w-full h-12 sm:h-14 bg-transparent border-2 border-black rounded-xl px-5 text-[#222] placeholder:text-gray-500 focus:border-[#139dc7] outline-none transition-all text-sm sm:text-lg"
+                    className="w-full h-11 sm:h-16 bg-white/50 border border-white/80 rounded-2xl px-6 text-[#111] placeholder:text-gray-400 focus:bg-white focus:shadow-lg transition-all text-sm sm:text-lg outline-none"
                   />
                 </div>
 
-                <div className="space-y-2">
-                  <label className="text-[11px] sm:text-sm font-semibold text-[#139dc7] ml-1">Password</label>
+                {/* Password Input */}
+                <div className="space-y-1 sm:space-y-2">
+                  <label className="text-[10px] sm:text-xs font-black text-[#139dc7] ml-2 uppercase tracking-widest">Password</label>
                   <div className="relative">
                     <input 
                       type={showPassword ? "text" : "password"} 
-                      placeholder="Password"
+                      placeholder="••••••••"
                       value={passwordInput}
                       onChange={(e) => setPasswordInput(e.target.value)}
-                      className="w-full h-12 sm:h-14 bg-transparent border-2 border-black rounded-xl pl-5 pr-14 text-[#222] placeholder:text-gray-500 focus:border-[#139dc7] outline-none transition-all text-sm sm:text-lg"
+                      className="w-full h-11 sm:h-16 bg-white/50 border border-white/80 rounded-2xl pl-6 pr-14 text-[#111] placeholder:text-gray-400 focus:bg-white focus:shadow-lg transition-all text-sm sm:text-lg outline-none"
                     />
-                    <button 
-                      type="button"
-                      onClick={togglePasswordVisibility}
-                      className="absolute right-5 top-1/2 -translate-y-1/2 text-gray-600 hover:text-[#139dc7]"
-                    >
-                      {showPassword ? <FaEyeSlash size={20} /> : <FaEye size={20} />}
+                    <button type="button" onClick={togglePasswordVisibility} className="absolute right-5 top-1/2 -translate-y-1/2 text-gray-400 hover:text-[#139dc7]">
+                      {showPassword ? <FaEyeSlash size={18} /> : <FaEye size={18} />}
                     </button>
                   </div>
                 </div>
 
                 <button 
                   type="submit"
-                  className="w-full h-12 sm:h-14 bg-gradient-to-b from-[#B6CCFE] to-[#4cb5d4] rounded-xl text-black font-bold text-lg sm:text-xl shadow-lg hover:shadow-cyan-500/20 hover:-translate-y-1 active:scale-95 transition-all mt-2"
+                  disabled={isLoading}
+                  className={`w-full h-12 sm:h-16 rounded-[22px] text-white font-black text-base sm:text-xl shadow-2xl transition-all mt-4 sm:mt-6 uppercase tracking-widest flex items-center justify-center
+                    ${isLoading 
+                      ? "bg-[#0a4d61] cursor-not-allowed opacity-80" 
+                      : "bg-[#139dc7] shadow-blue-300/40 hover:bg-[#0a4d61] hover:-translate-y-1 active:scale-95"
+                    }`}
                 >
-                  Log in
+                  {isLoading ? (
+                    <div className="flex items-center gap-3">
+                      <div className="w-5 h-5 border-2 border-white/30 border-t-white rounded-full animate-spin" />
+                      <span>Processing...</span>
+                    </div>
+                  ) : (
+                    "Enter Portal"
+                  )}
                 </button>
 
-                <button type="button" className="text-sm sm:text-base font-medium text-gray-500 hover:text-[#139dc7] transition-colors">
-                  Forgot Password?
-                </button>
-
-                <p className="text-[10px] sm:text-xs text-gray-500 text-center leading-relaxed mt-4 sm:mt-6">
-                  By signing up, you agree to the <br/>
-                  <span className="text-[#139dc7] font-bold cursor-pointer">Terms of Service</span> and <span className="text-[#139dc7] font-bold cursor-pointer">Data Processing Agreement</span>
-                </p>
+                <div className="flex flex-col items-center gap-3">
+                  <button type="button" className="text-[11px] sm:text-sm font-bold text-[#139dc7]/60 hover:text-[#139dc7] transition-all">
+                    Recover Account
+                  </button>
+                  <p className="text-[9px] text-gray-400 text-center leading-snug">
+                    HealthSense Infrastructure v2.0
+                  </p>
+                </div>
               </form>
             </div>
           </div>
         </div>
       </main>
 
-      <footer className="w-full py-8 text-center">
-        <span className="text-[10px] font-black uppercase tracking-[0.5em] text-[#139dc7] opacity-40">
-          HealthSense Infrastructure v2.0
+      {/* FOOTER */}
+      <footer className="w-full py-6 text-center shrink-0">
+        <span className="text-[10px] font-black uppercase tracking-[0.4em] text-[#139dc7] opacity-40">
+          v2.0 // ArchiveStream Master
         </span>
       </footer>
     </div>
