@@ -1,6 +1,6 @@
 import React, { useState, useEffect } from "react";
 import { useNavigate } from "react-router-dom";
-import { FaArrowLeft, FaDownload, FaShareAlt, FaCalendarCheck, FaPrint } from "react-icons/fa";
+import { FaArrowLeft, FaDownload, FaCalendarCheck, FaPrint } from "react-icons/fa";
 import { FiActivity, FiThermometer, FiBarChart, FiHeart, FiInfo } from "react-icons/fi";
 import { MdHeight, MdMonitorWeight } from "react-icons/md";
 import { supabase } from "../supabaseClient";
