@@ -37,12 +37,14 @@ const Home: React.FC = () => {
       let loginEmail = "";
 
       // 1. LOOKUP: Check if the user exists in your profiles table
-      // This handles both the 'first.last' and 'first.last@gmail.com' scenarios
       const { data: profile, error: profileError } = await supabase
         .from('profiles')
         .select('recovery_email, username')
         .eq('username', userInput)
         .maybeSingle();
+
+      // Log the error for debugging, but don't stop the flow (allows fallback)
+      if (profileError) console.warn("Profile Lookup Error:", profileError.message);
 
       if (profile) {
         // IF profile exists: use recovery_email if they have one, 
@@ -51,8 +53,7 @@ const Home: React.FC = () => {
           ? profile.recovery_email 
           : `${profile.username}@kiosk.local`;
       } else {
-        // IF no profile found by username: maybe they typed their full email?
-        // We fall back to your original "secretEmail" logic just in case
+        // IF no profile found by username: maybe they typed their full email or are a .local user?
         loginEmail = userInput.includes("@") 
           ? userInput 
           : `${userInput}@kiosk.local`;
@@ -66,12 +67,13 @@ const Home: React.FC = () => {
 
       if (authError) throw authError;
 
-      console.log("Kiosk Login successful:", data.user?.email);
+      console.log("Web Portal Login successful:", data.user?.email);
       navigate("/dashboard");
 
     } catch (err: any) {
       console.error("Auth Error:", err.message);
-      setLoginError("Access denied. Please check your Patient ID and Password.");
+      // Friendly message for both Patients and Professionals
+      setLoginError("Access denied. Please check your credentials.");
     } finally {
       setIsLoading(false);
     }
