@@ -137,12 +137,7 @@ const History: React.FC = () => {
           <span className="text-sm xs:hidden">Back</span>
         </button>
         
-        <div className="flex items-center gap-2 px-4 py-1.5 bg-white/40 rounded-full border border-white/40 backdrop-blur-md shadow-sm">
-          <div className="w-5 h-5 bg-[#139dc7] rounded-full flex items-center justify-center text-[10px] text-white font-bold">J</div>
-          <span className="text-[10px] font-bold text-[#139dc7] uppercase tracking-wider">
-            Patient ID: <span className="opacity-60">HS-2026-88</span>
-          </span>
-        </div>
+        
       </header>
 
       <main className="flex-1 w-full max-w-[1440px] mx-auto px-6 lg:px-12 flex flex-col min-h-0">
