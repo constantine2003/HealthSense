@@ -30,6 +30,22 @@ This will open the web app in your default browser at `http://localhost:3000`.
 4. **Build for production** `npm run build`  
 The production-ready build will be created in the `/build` folder.
 
+ 
+---
+
+## 🟢 C. Web Dashboard 2.0 (React + TypesScript)
+
+1. **Navigate to the web project folder** `cd HealthSenseWeb2.0`
+
+2. **Install dependencies** `npm install`  
+*(or if using Yarn: `yarn install`)*
+
+3. **Start the development server** `npm run dev`  
+This will open the web app in your default browser at `http://localhost:3000`.
+
+4. **Build for production** `npm run build`  
+The production-ready build will be created in the `/build` folder.
+
 ---
 
 ## 📁 Project Structure
@@ -46,6 +62,11 @@ The production-ready build will be created in the `/build` folder.
 * `/services`   -> API & database services
 * `index.js`    -> Main entry point
 
+**HealthSenseWeb2.0** – React (TypeScript) web dashboard
+* `/components` -> UI components
+* `/pages`      -> App pages
+* `/services`   -> API & database services
+* `index.js`    -> Main entry point
 ---
 
 ## ⚙️ Dynamic Data Notes
