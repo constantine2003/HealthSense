@@ -113,10 +113,10 @@ const Dashboard: React.FC = () => {
         
         <div className="flex items-center gap-3 sm:gap-6">
           <div className="flex items-center gap-2 sm:gap-4">
-            <button className="relative text-[#139dc7] hover:scale-110 transition-transform p-2">
+            {/* <button className="relative text-[#139dc7] hover:scale-110 transition-transform p-2">
               <FaBell size={22} />
               <span className="absolute top-1.5 right-1.5 w-2 h-2 bg-red-500 rounded-full border-2 border-[#eaf4ff]"></span>
-            </button>
+            </button> */}
 
             {/* Profile Access */}
             <button 
@@ -151,11 +151,11 @@ const Dashboard: React.FC = () => {
               {formatDisplayName()}
             </span>
           </h1>
-          <p className="text-[#139dc7] opacity-70 text-lg">Your health data is synchronized and ready for review.</p>
+          <p className="text-[#139dc7] opacity-70 text-lg">Everything is saved. You can look at your results now.</p>
         </section>
 
         {/* QUICK STATS CARDS */}
-        <div className="grid grid-cols-1 sm:grid-cols-3 gap-6 mb-10">
+        {/* <div className="grid grid-cols-1 sm:grid-cols-3 gap-6 mb-10">
           {[
             { label: 'Next Appointment', val: 'Oct 24, 2026', icon: <FaCalendarCheck />, color: 'from-white/60 to-white/30' },
             { label: 'Archived Records', val: '12 Reports', icon: <FaFileMedical />, color: 'from-white/60 to-white/30' },
@@ -169,28 +169,28 @@ const Dashboard: React.FC = () => {
               </div>
             </div>
           ))}
-        </div>
+        </div> */}
 
         {/* PRIMARY ACTIONS */}
-        <div className="grid grid-cols-1 lg:grid-cols-2 gap-8 mb-10">
+        <div className="grid grid-cols-2 gap-4 sm:gap-8 mb-10">
           {/* VIEW LATEST */}
           <button 
             onClick={() => navigate('/results')} 
-            className="group relative bg-white/70 backdrop-blur-xl p-10 rounded-[40px] border border-white shadow-[0_20px_50px_rgba(0,0,0,0.05)] transition-all hover:-translate-y-2 hover:bg-white/90 flex flex-col items-start text-left overflow-hidden min-h-80 active:scale-95"
+            className="group relative bg-white/70 backdrop-blur-xl p-6 sm:p-10 rounded-[30px] sm:rounded-[40px] border border-white shadow-[0_20px_50px_rgba(0,0,0,0.05)] transition-all hover:-translate-y-2 hover:bg-white/90 flex flex-col items-start text-left overflow-hidden min-h-[250px] sm:min-h-80 active:scale-95"
           >
-              <div className="absolute top-0 right-0 p-8 opacity-5 group-hover:opacity-10 group-hover:scale-110 transition-all duration-500">
-                  <FaFileMedical size={120} className="text-[#139dc7]" />
+              <div className="absolute top-0 right-0 p-4 sm:p-8 opacity-5 group-hover:opacity-10 group-hover:scale-110 transition-all duration-500">
+                  <FaFileMedical className="text-[#139dc7] text-6xl sm:text-[120px]" />
               </div>
-              <div className="w-16 h-16 bg-[#139dc7] rounded-2xl flex items-center justify-center text-white shadow-xl shadow-blue-200 mb-8 group-hover:rotate-6 transition-transform">
-                  <FaFileMedical size={32} />
+              <div className="w-12 h-12 sm:w-16 sm:h-16 bg-[#139dc7] rounded-xl sm:rounded-2xl flex items-center justify-center text-white shadow-xl shadow-blue-200 mb-4 sm:mb-8 group-hover:rotate-6 transition-transform">
+                  <FaFileMedical className="text-xl sm:text-3xl" />
               </div>
-              <h2 className="text-4xl font-black text-[#0a4d61] mb-3 leading-tight">
+              <h2 className="text-xl sm:text-4xl font-black text-[#0a4d61] mb-2 sm:mb-3 leading-tight">
                   View Latest <br/> Results
               </h2>
-              <p className="text-[#139dc7]/70 text-lg max-w-[300px] leading-relaxed font-medium">
+              <p className="hidden md:block text-[#139dc7]/70 text-base lg:text-lg max-w-[300px] leading-relaxed font-medium">
                   Instantly access your most recent diagnostic and laboratory data.
               </p>
-              <div className="mt-auto flex items-center gap-2 font-black text-[#139dc7] uppercase text-sm tracking-widest group-hover:gap-4 transition-all">
+              <div className="mt-auto flex items-center gap-2 font-black text-[#139dc7] uppercase text-[10px] sm:text-sm tracking-widest group-hover:gap-4 transition-all">
                   Access Now <FaChevronRight />
               </div>
           </button>
@@ -198,19 +198,19 @@ const Dashboard: React.FC = () => {
           {/* CHECKUP HISTORY */}
           <button 
             onClick={() => navigate('/history')}
-            className="group relative bg-gradient-to-br from-[#139dc7] to-[#34A0A4] p-10 rounded-[40px] shadow-2xl shadow-[#139dc7]/30 transition-all hover:-translate-y-2 flex flex-col items-start text-left overflow-hidden min-h-80 w-full"
+            className="group relative bg-gradient-to-br from-[#139dc7] to-[#34A0A4] p-6 sm:p-10 rounded-[30px] sm:rounded-[40px] shadow-2xl shadow-[#139dc7]/30 transition-all hover:-translate-y-2 flex flex-col items-start text-left overflow-hidden min-h-[250px] sm:min-h-80 w-full active:scale-95"
           >
-            <div className="absolute top-0 right-0 p-8 opacity-20 group-hover:scale-110 transition-transform">
-                <FaHistory size={120} className="text-white" />
+            <div className="absolute top-0 right-0 p-4 sm:p-8 opacity-20 group-hover:scale-110 transition-transform">
+                <FaHistory className="text-white text-6xl sm:text-[120px]" />
             </div>
-            <div className="w-16 h-16 bg-white/20 backdrop-blur-md rounded-2xl flex items-center justify-center text-white shadow-lg mb-8 group-hover:-rotate-6 transition-transform border border-white/30">
-                <FaHistory size={32} />
+            <div className="w-12 h-12 sm:w-16 sm:h-16 bg-white/20 backdrop-blur-md rounded-xl sm:rounded-2xl flex items-center justify-center text-white shadow-lg mb-4 sm:mb-8 group-hover:-rotate-6 transition-transform border border-white/30">
+                <FaHistory className="text-xl sm:text-3xl" />
             </div>
-            <h2 className="text-4xl font-bold text-white mb-3">Checkup History</h2>
-            <p className="text-white/80 text-lg max-w-[300px] leading-relaxed">
-              Review previous consultations, medical trends, and archived files.
+            <h2 className="text-xl sm:text-4xl font-bold text-white mb-2 sm:mb-3 leading-tight">Checkup <br/> History</h2>
+            <p className="hidden md:block text-white/80 text-base lg:text-lg max-w-[300px] leading-relaxed">
+                Review previous consultations, medical trends, and archived files.
             </p>
-            <div className="mt-auto flex items-center gap-2 font-bold text-white group-hover:gap-4 transition-all">
+            <div className="mt-auto flex items-center gap-2 font-bold text-white text-[10px] sm:text-sm group-hover:gap-4 transition-all uppercase tracking-widest">
                 Browse Archive <FaChevronRight />
             </div>
           </button>
