@@ -33,7 +33,7 @@ The production-ready build will be created in the `/build` folder.
  
 ---
 
-## 🟢 C. Web Dashboard 2.0 (React + TypesScript)
+## 🟢 C. Web Dashboard 2.0 (React / TypeScript)
 
 1. **Navigate to the web project folder** `cd HealthSenseWeb2.0`
 
