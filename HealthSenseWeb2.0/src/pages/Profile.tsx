@@ -315,7 +315,7 @@ const Profile: React.FC = () => {
 
       {/* CHANGE PASSWORD MODAL */}
       {showPassModal && (
-        <div className="fixed inset-0 z-[100] flex items-center justify-center p-6 bg-[#001b2e]/40 backdrop-blur-xl transition-all">
+        <div className="fixed inset-0 z-100 flex items-center justify-center p-6 bg-[#001b2e]/40 backdrop-blur-xl transition-all">
           <div className="bg-white/95 w-full max-w-md rounded-[40px] shadow-2xl border border-white/50 p-10 relative animate-in zoom-in-95 duration-200">
             <h2 className="text-2xl font-black text-[#0a4d61] mb-2">Update Password</h2>
             <p className="text-[#139dc7]/60 text-sm mb-8 font-medium">Ensure your account stays secure.</p>

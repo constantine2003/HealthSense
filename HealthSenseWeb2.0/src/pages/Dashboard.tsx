@@ -141,13 +141,13 @@ const Dashboard: React.FC = () => {
       </header>
 
       {/* MAIN CONTENT */}
-      <main className="flex-1 w-full max-w-[1440px] mx-auto px-6 lg:px-16 py-8">
+      <main className="flex-1 w-full max-w-360 mx-auto px-6 lg:px-16 py-8">
         
         {/* WELCOME AREA */}
         <section className="mb-10 text-center lg:text-left">
           <h1 className="text-[clamp(32px,5vw,56px)] font-bold text-[#139dc7] m-0 leading-tight">
             Welcome,{" "}
-            <span className="inline-block italic text-transparent bg-clip-text bg-gradient-to-r from-[#139dc7] to-[#34A0A4] pr-[0.3em] -mr-[0.3em]">
+            <span className="inline-block italic text-transparent bg-clip-text bg-linear-to-r from-[#139dc7] to-[#34A0A4] pr-[0.3em] -mr-[0.3em]">
               {formatDisplayName()}
             </span>
           </h1>
@@ -176,7 +176,7 @@ const Dashboard: React.FC = () => {
           {/* VIEW LATEST */}
           <button 
             onClick={() => navigate('/results')} 
-            className="group relative bg-white/70 backdrop-blur-xl p-6 sm:p-10 rounded-[30px] sm:rounded-[40px] border border-white shadow-[0_20px_50px_rgba(0,0,0,0.05)] transition-all hover:-translate-y-2 hover:bg-white/90 flex flex-col items-start text-left overflow-hidden min-h-[250px] sm:min-h-80 active:scale-95"
+            className="group relative bg-white/70 backdrop-blur-xl p-6 sm:p-10 rounded-[30px] sm:rounded-[40px] border border-white shadow-[0_20px_50px_rgba(0,0,0,0.05)] transition-all hover:-translate-y-2 hover:bg-white/90 flex flex-col items-start text-left overflow-hidden min-h-62.5 sm:min-h-80 active:scale-95"
           >
               <div className="absolute top-0 right-0 p-4 sm:p-8 opacity-5 group-hover:opacity-10 group-hover:scale-110 transition-all duration-500">
                   <FaFileMedical className="text-[#139dc7] text-6xl sm:text-[120px]" />
@@ -187,7 +187,7 @@ const Dashboard: React.FC = () => {
               <h2 className="text-xl sm:text-4xl font-black text-[#0a4d61] mb-2 sm:mb-3 leading-tight">
                   View Latest <br/> Results
               </h2>
-              <p className="hidden md:block text-[#139dc7]/70 text-base lg:text-lg max-w-[300px] leading-relaxed font-medium">
+              <p className="hidden md:block text-[#139dc7]/70 text-base lg:text-lg max-w-75 leading-relaxed font-medium">
                   Instantly access your most recent diagnostic and laboratory data.
               </p>
               <div className="mt-auto flex items-center gap-2 font-black text-[#139dc7] uppercase text-[10px] sm:text-sm tracking-widest group-hover:gap-4 transition-all">
@@ -198,7 +198,7 @@ const Dashboard: React.FC = () => {
           {/* CHECKUP HISTORY */}
           <button 
             onClick={() => navigate('/history')}
-            className="group relative bg-gradient-to-br from-[#139dc7] to-[#34A0A4] p-6 sm:p-10 rounded-[30px] sm:rounded-[40px] shadow-2xl shadow-[#139dc7]/30 transition-all hover:-translate-y-2 flex flex-col items-start text-left overflow-hidden min-h-[250px] sm:min-h-80 w-full active:scale-95"
+            className="group relative bg-linear-to-br from-[#139dc7] to-[#34A0A4] p-6 sm:p-10 rounded-[30px] sm:rounded-[40px] shadow-2xl shadow-[#139dc7]/30 transition-all hover:-translate-y-2 flex flex-col items-start text-left overflow-hidden min-h-62.5 sm:min-h-80 w-full active:scale-95"
           >
             <div className="absolute top-0 right-0 p-4 sm:p-8 opacity-20 group-hover:scale-110 transition-transform">
                 <FaHistory className="text-white text-6xl sm:text-[120px]" />
@@ -207,7 +207,7 @@ const Dashboard: React.FC = () => {
                 <FaHistory className="text-xl sm:text-3xl" />
             </div>
             <h2 className="text-xl sm:text-4xl font-bold text-white mb-2 sm:mb-3 leading-tight">Checkup <br/> History</h2>
-            <p className="hidden md:block text-white/80 text-base lg:text-lg max-w-[300px] leading-relaxed">
+            <p className="hidden md:block text-white/80 text-base lg:text-lg max-w-75 leading-relaxed">
                 Review previous consultations, medical trends, and archived files.
             </p>
             <div className="mt-auto flex items-center gap-2 font-bold text-white text-[10px] sm:text-sm group-hover:gap-4 transition-all uppercase tracking-widest">
