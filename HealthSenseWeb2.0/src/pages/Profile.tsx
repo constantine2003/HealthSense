@@ -29,8 +29,10 @@ const Profile: React.FC = () => {
   // Editable States
   const [units, setUnits] = useState<'metric' | 'imperial'>('metric');
   const [largeText, setLargeText] = useState<boolean>(false);
-  const [recoveryEmail, setRecoveryEmail] = useState("");
+  // 'language' represents the official saved setting
   const [language, setLanguage] = useState<"English" | "Tagalog">("English");
+  // 'pendingLanguage' represents the choice the user just clicked
+  const [pendingLanguage, setPendingLanguage] = useState<"English" | "Tagalog">("English");
 
   // Modal States
   const [showPassModal, setShowPassModal] = useState(false);
@@ -58,8 +60,9 @@ const Profile: React.FC = () => {
 
         if (data) {
           setProfile(data);
-          setRecoveryEmail(data.recovery_email || "");
-          setLanguage(data.language || "English");
+          // setRecoveryEmail(data.recovery_email || "");
+          setLanguage(data.language || "English");        // The official one
+          setPendingLanguage(data.language || "English"); // The temporary one
         }
       } catch (err) {
         console.error("Error fetching profile:", err);
@@ -97,16 +100,18 @@ const Profile: React.FC = () => {
       const { data: { user } } = await supabase.auth.getUser();
       if (!user) return;
 
+      // Update using pendingLanguage since that's what the user selected in the UI
       const { error } = await supabase
         .from("profiles")
         .update({
-          recovery_email: recoveryEmail,
-          language: language
+          language: pendingLanguage 
         })
         .eq("id", user.id);
 
       if (error) throw error;
 
+      // Commit the change to the official app language state
+      setLanguage(pendingLanguage);
       setSaveStatus(true);
       setTimeout(() => setSaveStatus(false), 3000);
     } catch (err) {
@@ -190,14 +195,30 @@ const Profile: React.FC = () => {
       title: "Account Settings",
       desc: "Manage profile & viewing preferences",
       personal: "Personal Information",
-      sync: "Synchronize Profile"
+      sync: "Synchronize Profile",
+      // Modal Keys
+      passTitle: "Update Password",
+      passDesc: "Ensure your account stays secure.",
+      currPass: "Current Password",
+      newPass: "New Password",
+      confPass: "Confirm New Password",
+      cancel: "Cancel",
+      update: "Update"
     },
     Tagalog: {
       back: "Bumalik sa Dashboard",
       title: "Ayos ng Account",
       desc: "Pamahalaan ang profile at mga kagustuhan",
       personal: "Impormasyon ng Personal",
-      sync: "I-sync ang Profile"
+      sync: "I-sync ang Profile",
+      // Modal Keys
+      passTitle: "I-update ang Password",
+      passDesc: "Siguraduhing ligtas ang iyong account.",
+      currPass: "Kasalukuyang Password",
+      newPass: "Bagong Password",
+      confPass: "Kumpirmahin ang Bagong Password",
+      cancel: "Kanselahin",
+      update: "I-update"
     }
   };
 
@@ -205,51 +226,48 @@ const Profile: React.FC = () => {
     <div className="min-h-screen w-full flex flex-col bg-[linear-gradient(120deg,#eaf4ff_0%,#cbe5ff_40%,#b0d0ff_70%,#9fc5f8_100%)] font-['Lexend'] overflow-x-hidden relative">
       
       {/* HEADER */}
+      {/* HEADER */}
       <header className="w-full px-8 lg:px-16 py-6 flex justify-between items-center z-50">
         <button 
           onClick={() => navigate('/dashboard')}
           className="flex items-center gap-2 text-[#139dc7] font-black uppercase text-[10px] tracking-widest hover:gap-4 transition-all group"
         >
           <FaArrowLeft className="group-hover:-translate-x-1 transition-transform" /> 
-          {language === 'Tagalog' ? 'Bumalik sa Dashboard' : 'Back to Dashboard'}
+          {content[language].back}
         </button>
-        
-        {/* <div className="flex items-center gap-2 px-3 py-1 bg-white/40 rounded-full border border-white/40 backdrop-blur-md">
-          <div className={`w-1.5 h-1.5 rounded-full ${isOnline ? 'bg-green-500' : 'bg-red-500'}`} />
-          <span className="text-[10px] font-bold text-[#139dc7] uppercase tracking-wider">
-            {isOnline ? 'System Online' : 'System Offline'}
-          </span>
-        </div> */}
       </header>
 
       <main className="flex-1 w-full max-w-6xl mx-auto px-4 sm:px-6 lg:px-12 flex flex-col justify-center min-h-[calc(100vh-80px)] py-0">
-        {/* HEADER - Tighter for mobile */}
+        {/* HEADER */}
         <section className="flex flex-col items-center lg:items-start mb-4 lg:mb-4 gap-1">
           <div className="text-center lg:text-left">
-            <h1 className="text-3xl sm:text-5xl font-black text-[#139dc7] m-0 tracking-tight italic">Account Settings</h1>
-            <p className="text-[9px] sm:text-[11px] font-black text-[#139dc7]/40 uppercase tracking-[0.3em] mt-1">Manage profile & preferences</p>
+            <h1 className="text-3xl sm:text-5xl font-black text-[#139dc7] m-0 tracking-tight italic">
+              {content[language].title}
+            </h1>
+            <p className="text-[9px] sm:text-[11px] font-black text-[#139dc7]/40 uppercase tracking-[0.3em] mt-1">
+              {content[language].desc}
+            </p>
           </div>
         </section>
 
-        {/* RESPONSIVE GRID: 1 Column on Mobile, 2 Columns on Desktop */}
+        {/* RESPONSIVE GRID */}
         <div className="grid grid-cols-1 lg:grid-cols-12 gap-5 lg:gap-8 items-start">
           
-          {/* LEFT SIDE: PERSONAL INFORMATION (7/12 Width) */}
+          {/* LEFT SIDE: PERSONAL INFORMATION */}
           <section className="lg:col-span-7 relative bg-white/70 backdrop-blur-xl rounded-4xl lg:rounded-4xl border border-white shadow-sm p-6 lg:p-10 transition-all hover:shadow-md">
             <div className="flex items-center gap-4 mb-6 lg:mb-8 text-[#0a4d61]">
               <div className="w-10 h-10 lg:w-12 lg:h-12 bg-[#139dc7]/10 rounded-2xl flex items-center justify-center text-[#139dc7]">
                 <FaUserShield size={20} className="lg:text-[24px]" />
               </div>
-              <h2 className="text-xl lg:text-2xl font-extrabold">Personal Info</h2>
+              <h2 className="text-xl lg:text-2xl font-extrabold">{content[language].personal}</h2>
             </div>
             
-            {/* 2-column grid inside the card for mobile too */}
             <div className="grid grid-cols-2 gap-3 lg:gap-6">
               {[
-                { label: "Full Name", value: `${profile?.first_name} ${profile?.last_name}`, full: true },
-                { label: "Birthdate", value: profile?.birthday ? new Date(profile.birthday).toLocaleDateString('en-US', { month: 'short', day: 'numeric', year: 'numeric' }) : "N/A" },
-                { label: "Age", value: profile ? calculateAge(profile.birthday) : "--" },
-                { label: "Sex", value: profile?.sex || "N/A" },
+                { label: language === "English" ? "Full Name" : "Buong Pangalan", value: `${profile?.first_name} ${profile?.last_name}`, full: true },
+                { label: language === "English" ? "Birthdate" : "Kapanganakan", value: profile?.birthday ? new Date(profile.birthday).toLocaleDateString('en-US', { month: 'short', day: 'numeric', year: 'numeric' }) : "N/A" },
+                { label: language === "English" ? "Age" : "Edad", value: profile ? calculateAge(profile.birthday) : "--" },
+                { label: language === "English" ? "Sex" : "Kasarian", value: profile?.sex || "N/A" },
                 { label: "Patient ID", value: profile?.username || "...", full: true }
               ].map((item, i) => (
                 <div key={i} className={`bg-white/50 border border-white p-4 lg:p-5 rounded-2xl hover:bg-white transition-colors ${item.full ? 'col-span-2' : 'col-span-1'}`}>
@@ -261,11 +279,11 @@ const Profile: React.FC = () => {
             
             <div className="mt-6 flex items-center gap-3 text-[10px] font-bold italic text-[#139dc7]/60 bg-[#139dc7]/5 p-4 rounded-2xl border border-[#139dc7]/10">
               <span className="w-2 h-2 bg-[#139dc7] rounded-full animate-pulse" />
-              Identity data is locked for security.
+              {language === "English" ? "Identity data is locked for security." : "Naka-lock ang pagkakakilanlan para sa seguridad."}
             </div>
           </section>
 
-          {/* RIGHT SIDE: PREFERENCES & SAVE (5/12 Width) */}
+          {/* RIGHT SIDE: PREFERENCES & SAVE */}
           <div className="lg:col-span-5 flex flex-col gap-4 lg:gap-6">
             
             {/* PORTAL PREFERENCES */}
@@ -274,7 +292,9 @@ const Profile: React.FC = () => {
                 <div className="w-10 h-10 lg:w-11 lg:h-11 bg-[#139dc7]/10 rounded-2xl flex items-center justify-center text-[#139dc7]">
                   <FaShieldAlt size={20} />
                 </div>
-                <h2 className="text-xl lg:text-2xl font-extrabold tracking-tight">Preferences</h2>
+                <h2 className="text-xl lg:text-2xl font-extrabold tracking-tight">
+                  {language === "English" ? "Preferences" : "Kagustuhan"}
+                </h2>
               </div>
 
               <div className="space-y-5 lg:space-y-6">
@@ -282,7 +302,9 @@ const Profile: React.FC = () => {
                 <div className="flex items-center justify-between p-4 bg-white/40 rounded-2xl border border-white/50">
                   <div className="flex items-center gap-3">
                     <FaEye className="text-[#139dc7]" size={18} />
-                    <h3 className="text-xs lg:text-sm font-black text-[#0a4d61] uppercase">Large Text</h3>
+                    <h3 className="text-xs lg:text-sm font-black text-[#0a4d61] uppercase">
+                       {language === "English" ? "Large Text" : "Malaking Teksto"}
+                    </h3>
                   </div>
                   <button 
                     onClick={() => setLargeText(!largeText)}
@@ -294,7 +316,9 @@ const Profile: React.FC = () => {
 
                 {/* MEASUREMENT UNITS */}
                 <div className="space-y-2">
-                  <label className="text-[9px] font-black text-[#139dc7] uppercase ml-2 tracking-widest opacity-70">Measurement Units</label>
+                  <label className="text-[9px] font-black text-[#139dc7] uppercase ml-2 tracking-widest opacity-70">
+                    {language === "English" ? "Measurement Units" : "Yunit ng Sukat"}
+                  </label>
                   <div className="flex gap-2">
                     {["Metric", "Imperial"].map((unitChoice) => (
                       <button
@@ -312,23 +336,25 @@ const Profile: React.FC = () => {
                   </div>
                 </div>
 
-                {/* LANGUAGE CHOICE - Now identical CSS to Measurement Units */}
+                {/* LANGUAGE CHOICE */}
                 <div className="space-y-2">
-                  <label className="text-[9px] font-black text-[#139dc7] uppercase ml-2 tracking-widest opacity-70">Language</label>
+                  <label className="text-[9px] font-black text-[#139dc7] uppercase ml-2 tracking-widest opacity-70">
+                    {language === "English" ? "Language" : "Wika"}
+                  </label>
                   <div className="flex gap-2">
                     {["English", "Tagalog"].map((lang) => (
-                      <button
-                        key={lang}
-                        onClick={() => setLanguage(lang as any)}
-                        className={`flex-1 h-10 lg:h-11 rounded-xl font-black uppercase text-[10px] border-2 transition-all ${
-                          language === lang 
-                          ? "bg-[#139dc7] border-[#139dc7] text-white shadow-md" 
-                          : "bg-white/50 border-white text-[#139dc7] hover:bg-white"
-                        }`}
-                      >
-                        {lang}
-                      </button>
-                    ))}
+                    <button
+                      key={lang}
+                      onClick={() => setPendingLanguage(lang as any)}
+                      className={`flex-1 h-10 lg:h-11 rounded-xl font-black uppercase text-[10px] border-2 transition-all ${
+                        pendingLanguage === lang 
+                        ? "bg-[#139dc7] border-[#139dc7] text-white shadow-md" 
+                        : "bg-white/50 border-white text-[#139dc7] hover:bg-white"
+                      }`}
+                    >
+                      {lang}
+                    </button>
+                  ))}
                   </div>
                 </div>
 
@@ -341,7 +367,7 @@ const Profile: React.FC = () => {
                       <FaLock size={10} />
                     </div>
                     <span className="border-b border-transparent group-hover:border-[#139dc7] transition-all">
-                      Update Security Password
+                      {language === "English" ? "Update Security Password" : "I-update ang Password"}
                     </span>
                   </button>
                 </div>
@@ -361,9 +387,9 @@ const Profile: React.FC = () => {
               {saving ? (
                 <FaSpinner className="animate-spin" size={18} />
               ) : saveStatus ? (
-                <><FaCheckCircle size={18} /> Changes Applied</>
+                <><FaCheckCircle size={18} /> {language === "English" ? "Changes Applied" : "Nailapat na"}</>
               ) : (
-                "Synchronize Profile"
+                content[language].sync
               )}
             </button>
           </div>
@@ -374,13 +400,19 @@ const Profile: React.FC = () => {
       {showPassModal && (
         <div className="fixed inset-0 z-100 flex items-center justify-center p-6 bg-[#001b2e]/40 backdrop-blur-xl transition-all">
           <div className="bg-white/95 w-full max-w-md rounded-[40px] shadow-2xl border border-white/50 p-10 relative animate-in zoom-in-95 duration-200">
-            <h2 className="text-2xl font-black text-[#0a4d61] mb-2">Update Password</h2>
-            <p className="text-[#139dc7]/60 text-sm mb-8 font-medium">Ensure your account stays secure.</p>
+            <h2 className="text-2xl font-black text-[#0a4d61] mb-2">
+              {content[language].passTitle}
+            </h2>
+            <p className="text-[#139dc7]/60 text-sm mb-8 font-medium">
+              {content[language].passDesc}
+            </p>
 
             <div className="space-y-4">
               {/* Current Password */}
               <div className="space-y-1">
-                <label className="text-[10px] font-black uppercase text-[#139dc7]/40 ml-2">Current Password</label>
+                <label className="text-[10px] font-black uppercase text-[#139dc7]/40 ml-2">
+                  {content[language].currPass}
+                </label>
                 <div className="relative">
                   <input 
                     type={showOldPass ? "text" : "password"}
@@ -400,7 +432,9 @@ const Profile: React.FC = () => {
 
               {/* New Password */}
               <div className="space-y-1">
-                <label className="text-[10px] font-black uppercase text-[#139dc7]/40 ml-2">New Password</label>
+                <label className="text-[10px] font-black uppercase text-[#139dc7]/40 ml-2">
+                  {content[language].newPass}
+                </label>
                 <div className="relative">
                   <input 
                     type={showNewPass ? "text" : "password"}
@@ -420,7 +454,9 @@ const Profile: React.FC = () => {
 
               {/* Confirm New Password */}
               <div className="space-y-1">
-                <label className="text-[10px] font-black uppercase text-[#139dc7]/40 ml-2">Confirm New Password</label>
+                <label className="text-[10px] font-black uppercase text-[#139dc7]/40 ml-2">
+                  {content[language].confPass}
+                </label>
                 <div className="relative">
                   <input 
                     type={showConfirmPass ? "text" : "password"}
@@ -449,21 +485,20 @@ const Profile: React.FC = () => {
                   onClick={() => { 
                     setShowPassModal(false); 
                     setPassError("");
-                    // Reset eye toggles when closing
                     setShowOldPass(false);
                     setShowNewPass(false);
                     setShowConfirmPass(false);
                   }}
                   className="flex-1 h-14 rounded-2xl font-bold text-[#139dc7] border border-[#139dc7]/20 hover:bg-slate-50 transition-all"
                 >
-                  Cancel
+                  {content[language].cancel}
                 </button>
                 <button 
                   onClick={handleChangePassword}
                   disabled={passLoading}
                   className="flex-1 h-14 rounded-2xl font-bold bg-[#139dc7] text-white hover:bg-[#0a4d61] shadow-lg shadow-blue-200 transition-all flex items-center justify-center"
                 >
-                  {passLoading ? <FaSpinner className="animate-spin" /> : "Update"}
+                  {passLoading ? <FaSpinner className="animate-spin" /> : content[language].update}
                 </button>
               </div>
             </div>
