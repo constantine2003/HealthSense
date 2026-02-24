@@ -9,7 +9,7 @@ import { supabase } from "../supabaseClient";
 
 const Profile: React.FC = () => {
   const navigate = useNavigate();
-  const [isOnline, setIsOnline] = useState<boolean>(navigator.onLine);
+  // const [isOnline, setIsOnline] = useState<boolean>(navigator.onLine);
   const [loading, setLoading] = useState(true);
   const [saving, setSaving] = useState(false);
   const [saveStatus, setSaveStatus] = useState<boolean>(false);
@@ -67,13 +67,13 @@ const Profile: React.FC = () => {
 
     fetchProfileData();
 
-    const updateStatus = () => setIsOnline(navigator.onLine);
-    window.addEventListener("online", updateStatus);
-    window.addEventListener("offline", updateStatus);
-    return () => {
-      window.removeEventListener("online", updateStatus);
-      window.removeEventListener("offline", updateStatus);
-    };
+    // const updateStatus = () => setIsOnline(navigator.onLine);
+    // window.addEventListener("online", updateStatus);
+    // window.addEventListener("offline", updateStatus);
+    // return () => {
+    //   window.removeEventListener("online", updateStatus);
+    //   window.removeEventListener("offline", updateStatus);
+    // };
   }, [navigate]);
 
   const calculateAge = (birthday: string) => {
@@ -193,209 +193,226 @@ const Profile: React.FC = () => {
           <FaArrowLeft /> Back to Dashboard
         </button>
         
-        <div className="flex items-center gap-2 px-3 py-1 bg-white/40 rounded-full border border-white/40 backdrop-blur-md">
+        {/* <div className="flex items-center gap-2 px-3 py-1 bg-white/40 rounded-full border border-white/40 backdrop-blur-md">
           <div className={`w-1.5 h-1.5 rounded-full ${isOnline ? 'bg-green-500' : 'bg-red-500'}`} />
           <span className="text-[10px] font-bold text-[#139dc7] uppercase tracking-wider">
             {isOnline ? 'System Online' : 'System Offline'}
           </span>
-        </div>
+        </div> */}
       </header>
 
       <main className="flex-1 w-full max-w-225 mx-auto px-6 lg:px-12 pb-12 flex flex-col justify-center">
         <section className="flex flex-col items-center lg:items-start mb-10 gap-4">
-           <div className="text-center lg:text-left">
-              <h1 className="text-4xl font-bold text-[#139dc7] m-0">Account Settings</h1>
-              <p className="text-[#139dc7]/60">Manage your profile details and preferences</p>
-           </div>
+          <div className="text-center lg:text-left">
+            <h1 className="text-5xl font-black text-[#139dc7] m-0 tracking-tight italic">Account Settings</h1>
+            <p className="text-[11px] font-black text-[#139dc7]/40 uppercase tracking-[0.3em] mt-2">Manage your profile details and preferences</p>
+          </div>
         </section>
 
         <div className="grid grid-cols-1 gap-8">
           
-          {/* PERSONAL INFORMATION */}
-          <section className="relative bg-white/20 backdrop-blur-2xl rounded-4xl border border-white/30 p-8 shadow-xl">
-            <div className="flex items-center gap-3 mb-6 text-[#139dc7]">
-                <FaUserShield size={20} />
-                <h2 className="text-xl font-bold">Personal Information</h2>
+          {/* PERSONAL INFORMATION - Using the high-contrast White/70 card style */}
+          <section className="relative bg-white/70 backdrop-blur-xl rounded-4xl border border-white shadow-[0_8px_30px_rgb(0,0,0,0.04)] p-10 transition-all hover:shadow-[0_20px_40px_rgba(19,157,199,0.1)]">
+            <div className="flex items-center gap-4 mb-8 text-[#0a4d61]">
+              <div className="w-12 h-12 bg-[#139dc7]/10 rounded-2xl flex items-center justify-center text-[#139dc7]">
+                <FaUserShield size={24} />
+              </div>
+              <h2 className="text-2xl font-extrabold">Personal Information</h2>
             </div>
             
-            <div className="grid grid-cols-1 sm:grid-cols-2 gap-6">
-                {[
-                    { label: "Full Name", value: `${profile?.first_name} ${profile?.middle_name ? profile.middle_name + ' ' : ''}${profile?.last_name}` },
-                    { label: "Birthdate", value: profile?.birthday ? new Date(profile.birthday).toLocaleDateString('en-US', { month: 'long', day: 'numeric', year: 'numeric' }) : "N/A" },
-                    { label: "Age", value: profile ? calculateAge(profile.birthday) : "--" },
-                    { label: "Sex", value: profile?.sex || "N/A" }
-                ].map((item, i) => (
-                    <div key={i} className="space-y-1">
-                        <label className="text-[11px] font-bold text-[#139dc7]/50 uppercase tracking-widest">{item.label}</label>
-                        <p className="text-lg font-semibold text-[#139dc7] bg-white/10 p-3 rounded-xl border border-white/10 uppercase">{item.value}</p>
-                    </div>
-                ))}
+            <div className="grid grid-cols-1 sm:grid-cols-2 gap-8">
+              {[
+                { label: "Full Name", value: `${profile?.first_name} ${profile?.middle_name ? profile.middle_name + ' ' : ''}${profile?.last_name}` },
+                { label: "Birthdate", value: profile?.birthday ? new Date(profile.birthday).toLocaleDateString('en-US', { month: 'long', day: 'numeric', year: 'numeric' }) : "N/A" },
+                { label: "Age", value: profile ? calculateAge(profile.birthday) : "--" },
+                { label: "Sex", value: profile?.sex || "N/A" }
+              ].map((item, i) => (
+                <div key={i} className="bg-white/50 border border-white p-5 rounded-2xl shadow-sm hover:bg-white transition-colors group">
+                  <label className="text-[10px] font-black text-[#139dc7] uppercase mb-2 tracking-tight opacity-50 block">{item.label}</label>
+                  <p className="text-lg font-bold text-[#0a4d61] leading-none uppercase">{item.value}</p>
+                </div>
+              ))}
             </div>
-            <p className="mt-6 text-xs italic text-[#139dc7]/60 bg-blue-500/5 p-3 rounded-lg border border-blue-500/10">
-                Personal information cannot be changed. Contact support to update.
-            </p>
+            
+            <div className="mt-8 flex items-center gap-3 text-[11px] font-bold italic text-[#139dc7]/60 bg-[#139dc7]/5 p-4 rounded-2xl border border-[#139dc7]/10">
+              <span className="w-2 h-2 bg-[#139dc7] rounded-full animate-pulse" />
+              Personal information is locked for security. Contact medical support to update records.
+            </div>
           </section>
 
           {/* SECURITY & PREFERENCES */}
-          <section className="bg-white/20 backdrop-blur-2xl rounded-4xl border border-white/30 p-8 shadow-xl">
-             <div className="flex items-center gap-3 mb-8 text-[#139dc7]">
-                <FaLanguage size={20} />
-                <h2 className="text-xl font-bold">Security & Preferences</h2>
+          <section className="bg-white/70 backdrop-blur-xl rounded-4xl border border-white shadow-[0_8px_30px_rgb(0,0,0,0.04)] p-10 transition-all hover:shadow-[0_20px_40px_rgba(19,157,199,0.1)]">
+            <div className="flex items-center gap-4 mb-10 text-[#0a4d61]">
+              <div className="w-12 h-12 bg-[#139dc7]/10 rounded-2xl flex items-center justify-center text-[#139dc7]">
+                <FaLanguage size={24} />
+              </div>
+              <h2 className="text-2xl font-extrabold">Security & Preferences</h2>
             </div>
 
-            <div className="space-y-8">
-                <div className="space-y-2">
-                    <label className="text-sm font-bold text-[#139dc7]">Recovery Email</label>
-                    <input 
-                        type="email" 
-                        value={recoveryEmail}
-                        onChange={(e) => setRecoveryEmail(e.target.value)}
-                        placeholder="yourname@email.com"
-                        className="w-full h-14 bg-white/10 border-2 border-[#139dc7]/20 rounded-2xl px-5 text-[#139dc7] outline-none focus:border-[#139dc7] transition-all"
-                    />
-                </div>
+            <div className="space-y-10">
+              <div className="space-y-3">
+                <label className="text-[11px] font-black text-[#139dc7] uppercase ml-2 tracking-widest">Recovery Email</label>
+                <input 
+                  type="email" 
+                  value={recoveryEmail}
+                  onChange={(e) => setRecoveryEmail(e.target.value)}
+                  placeholder="yourname@email.com"
+                  className="w-full h-16 bg-white/50 border border-white rounded-3xl px-8 text-[#0a4d61] font-bold text-lg outline-none focus:bg-white focus:shadow-xl focus:border-[#139dc7]/30 transition-all placeholder:text-gray-300"
+                />
+              </div>
 
-                <div className="space-y-3">
-                    <label className="text-sm font-bold text-[#139dc7]">Language Preference</label>
-                    <div className="flex gap-4">
-                        {["English", "Tagalog"].map((lang) => (
-                            <button
-                                key={lang}
-                                onClick={() => setLanguage(lang as any)}
-                                className={`flex-1 py-3 rounded-2xl font-bold transition-all border-2 ${
-                                    language === lang 
-                                    ? "bg-[#139dc7] border-[#139dc7] text-white shadow-lg" 
-                                    : "bg-white/10 border-[#139dc7]/20 text-[#139dc7] hover:bg-white/20"
-                                }`}
-                            >
-                                {lang}
-                            </button>
-                        ))}
-                    </div>
+              <div className="space-y-4">
+                <label className="text-[11px] font-black text-[#139dc7] uppercase ml-2 tracking-widest">Language Preference</label>
+                <div className="flex gap-4">
+                  {["English", "Tagalog"].map((lang) => (
+                    <button
+                      key={lang}
+                      onClick={() => setLanguage(lang as any)}
+                      className={`flex-1 h-14 rounded-2xl font-black uppercase tracking-widest transition-all text-xs border-2 ${
+                        language === lang 
+                        ? "bg-[#139dc7] border-[#139dc7] text-white shadow-lg shadow-[#139dc7]/30" 
+                        : "bg-white/50 border-white text-[#139dc7] hover:bg-white shadow-sm"
+                      }`}
+                    >
+                      {lang}
+                    </button>
+                  ))}
                 </div>
+              </div>
 
-                <button 
-                  onClick={() => setShowPassModal(true)}
-                  className="flex items-center gap-2 text-[#139dc7] font-black uppercase text-xs tracking-widest hover:underline pt-2"
-                >
-                    <FaLock /> Change Password
-                </button>
+              <button 
+                onClick={() => setShowPassModal(true)}
+                className="group flex items-center gap-3 text-[#139dc7] font-black uppercase text-[10px] tracking-[0.2em] hover:text-[#0a4d61] transition-all pt-2"
+              >
+                <div className="w-8 h-8 rounded-full bg-[#139dc7]/10 flex items-center justify-center group-hover:scale-110 transition-transform">
+                  <FaLock size={12} />
+                </div>
+                Change Access Password
+              </button>
             </div>
           </section>
 
+          {/* SAVE BUTTON */}
           <button 
             onClick={handleSave}
             disabled={saveStatus || saving}
-            className={`w-full h-16 rounded-3xl font-bold text-xl shadow-2xl transition-all flex items-center justify-center gap-3 ${
-                saveStatus ? "bg-green-500 text-white" : "bg-linear-to-r from-[#139dc7] to-[#34A0A4] text-white hover:-translate-y-1 active:scale-95 disabled:opacity-50"
+            className={`w-full h-18 rounded-[28px] font-black text-sm uppercase tracking-[0.3em] shadow-2xl transition-all flex items-center justify-center gap-4 ${
+              saveStatus 
+              ? "bg-green-500 text-white" 
+              : "bg-[#139dc7] text-white hover:bg-[#0a4d61] hover:-translate-y-1 active:scale-95 shadow-[#139dc7]/30 disabled:opacity-50"
             }`}
           >
-            {saving ? <FaSpinner className="animate-spin" /> : saveStatus ? <><FaCheckCircle /> Changes Saved</> : "Save Changes"}
+            {saving ? (
+              <FaSpinner className="animate-spin" size={20} />
+            ) : saveStatus ? (
+              <><FaCheckCircle size={20} /> Changes Saved</>
+            ) : (
+              "Synchronize Profile"
+            )}
           </button>
         </div>
       </main>
 
       {/* CHANGE PASSWORD MODAL */}
-      {/* CHANGE PASSWORD MODAL */}
-{showPassModal && (
-  <div className="fixed inset-0 z-[100] flex items-center justify-center p-6 bg-[#001b2e]/40 backdrop-blur-xl transition-all">
-    <div className="bg-white/95 w-full max-w-md rounded-[40px] shadow-2xl border border-white/50 p-10 relative animate-in zoom-in-95 duration-200">
-      <h2 className="text-2xl font-black text-[#0a4d61] mb-2">Update Password</h2>
-      <p className="text-[#139dc7]/60 text-sm mb-8 font-medium">Ensure your account stays secure.</p>
+      {showPassModal && (
+        <div className="fixed inset-0 z-[100] flex items-center justify-center p-6 bg-[#001b2e]/40 backdrop-blur-xl transition-all">
+          <div className="bg-white/95 w-full max-w-md rounded-[40px] shadow-2xl border border-white/50 p-10 relative animate-in zoom-in-95 duration-200">
+            <h2 className="text-2xl font-black text-[#0a4d61] mb-2">Update Password</h2>
+            <p className="text-[#139dc7]/60 text-sm mb-8 font-medium">Ensure your account stays secure.</p>
 
-      <div className="space-y-4">
-        {/* Current Password */}
-        <div className="space-y-1">
-          <label className="text-[10px] font-black uppercase text-[#139dc7]/40 ml-2">Current Password</label>
-          <div className="relative">
-            <input 
-              type={showOldPass ? "text" : "password"}
-              className="w-full h-12 bg-white border border-[#139dc7]/10 rounded-2xl px-5 pr-12 text-[#0a4d61] outline-none focus:border-[#139dc7] transition-all"
-              value={passData.old}
-              onChange={(e) => setPassData({...passData, old: e.target.value})}
-            />
-            <button 
-              type="button"
-              onClick={() => setShowOldPass(!showOldPass)}
-              className="absolute right-4 top-1/2 -translate-y-1/2 text-[#139dc7]/40 hover:text-[#139dc7] transition-colors"
-            >
-              {showOldPass ? <FaEyeSlash size={18} /> : <FaEye size={18} />}
-            </button>
+            <div className="space-y-4">
+              {/* Current Password */}
+              <div className="space-y-1">
+                <label className="text-[10px] font-black uppercase text-[#139dc7]/40 ml-2">Current Password</label>
+                <div className="relative">
+                  <input 
+                    type={showOldPass ? "text" : "password"}
+                    className="w-full h-12 bg-white border border-[#139dc7]/10 rounded-2xl px-5 pr-12 text-[#0a4d61] outline-none focus:border-[#139dc7] transition-all"
+                    value={passData.old}
+                    onChange={(e) => setPassData({...passData, old: e.target.value})}
+                  />
+                  <button 
+                    type="button"
+                    onClick={() => setShowOldPass(!showOldPass)}
+                    className="absolute right-4 top-1/2 -translate-y-1/2 text-[#139dc7]/40 hover:text-[#139dc7] transition-colors"
+                  >
+                    {showOldPass ? <FaEyeSlash size={18} /> : <FaEye size={18} />}
+                  </button>
+                </div>
+              </div>
+
+              {/* New Password */}
+              <div className="space-y-1">
+                <label className="text-[10px] font-black uppercase text-[#139dc7]/40 ml-2">New Password</label>
+                <div className="relative">
+                  <input 
+                    type={showNewPass ? "text" : "password"}
+                    className="w-full h-12 bg-white border border-[#139dc7]/10 rounded-2xl px-5 pr-12 text-[#0a4d61] outline-none focus:border-[#139dc7] transition-all"
+                    value={passData.new}
+                    onChange={(e) => setPassData({...passData, new: e.target.value})}
+                  />
+                  <button 
+                    type="button"
+                    onClick={() => setShowNewPass(!showNewPass)}
+                    className="absolute right-4 top-1/2 -translate-y-1/2 text-[#139dc7]/40 hover:text-[#139dc7] transition-colors"
+                  >
+                    {showNewPass ? <FaEyeSlash size={18} /> : <FaEye size={18} />}
+                  </button>
+                </div>
+              </div>
+
+              {/* Confirm New Password */}
+              <div className="space-y-1">
+                <label className="text-[10px] font-black uppercase text-[#139dc7]/40 ml-2">Confirm New Password</label>
+                <div className="relative">
+                  <input 
+                    type={showConfirmPass ? "text" : "password"}
+                    className="w-full h-12 bg-white border border-[#139dc7]/10 rounded-2xl px-5 pr-12 text-[#0a4d61] outline-none focus:border-[#139dc7] transition-all"
+                    value={passData.confirm}
+                    onChange={(e) => setPassData({...passData, confirm: e.target.value})}
+                  />
+                  <button 
+                    type="button"
+                    onClick={() => setShowConfirmPass(!showConfirmPass)}
+                    className="absolute right-4 top-1/2 -translate-y-1/2 text-[#139dc7]/40 hover:text-[#139dc7] transition-colors"
+                  >
+                    {showConfirmPass ? <FaEyeSlash size={18} /> : <FaEye size={18} />}
+                  </button>
+                </div>
+              </div>
+
+              {passError && (
+                <div className="bg-red-50 text-red-500 text-[11px] font-bold p-3 rounded-xl border border-red-100 flex items-center gap-2 animate-pulse">
+                  <FaExclamationTriangle /> {passError}
+                </div>
+              )}
+
+              <div className="flex gap-3 pt-4">
+                <button 
+                  onClick={() => { 
+                    setShowPassModal(false); 
+                    setPassError("");
+                    // Reset eye toggles when closing
+                    setShowOldPass(false);
+                    setShowNewPass(false);
+                    setShowConfirmPass(false);
+                  }}
+                  className="flex-1 h-14 rounded-2xl font-bold text-[#139dc7] border border-[#139dc7]/20 hover:bg-slate-50 transition-all"
+                >
+                  Cancel
+                </button>
+                <button 
+                  onClick={handleChangePassword}
+                  disabled={passLoading}
+                  className="flex-1 h-14 rounded-2xl font-bold bg-[#139dc7] text-white hover:bg-[#0a4d61] shadow-lg shadow-blue-200 transition-all flex items-center justify-center"
+                >
+                  {passLoading ? <FaSpinner className="animate-spin" /> : "Update"}
+                </button>
+              </div>
+            </div>
           </div>
         </div>
-
-        {/* New Password */}
-        <div className="space-y-1">
-          <label className="text-[10px] font-black uppercase text-[#139dc7]/40 ml-2">New Password</label>
-          <div className="relative">
-            <input 
-              type={showNewPass ? "text" : "password"}
-              className="w-full h-12 bg-white border border-[#139dc7]/10 rounded-2xl px-5 pr-12 text-[#0a4d61] outline-none focus:border-[#139dc7] transition-all"
-              value={passData.new}
-              onChange={(e) => setPassData({...passData, new: e.target.value})}
-            />
-            <button 
-              type="button"
-              onClick={() => setShowNewPass(!showNewPass)}
-              className="absolute right-4 top-1/2 -translate-y-1/2 text-[#139dc7]/40 hover:text-[#139dc7] transition-colors"
-            >
-              {showNewPass ? <FaEyeSlash size={18} /> : <FaEye size={18} />}
-            </button>
-          </div>
-        </div>
-
-        {/* Confirm New Password */}
-        <div className="space-y-1">
-          <label className="text-[10px] font-black uppercase text-[#139dc7]/40 ml-2">Confirm New Password</label>
-          <div className="relative">
-            <input 
-              type={showConfirmPass ? "text" : "password"}
-              className="w-full h-12 bg-white border border-[#139dc7]/10 rounded-2xl px-5 pr-12 text-[#0a4d61] outline-none focus:border-[#139dc7] transition-all"
-              value={passData.confirm}
-              onChange={(e) => setPassData({...passData, confirm: e.target.value})}
-            />
-            <button 
-              type="button"
-              onClick={() => setShowConfirmPass(!showConfirmPass)}
-              className="absolute right-4 top-1/2 -translate-y-1/2 text-[#139dc7]/40 hover:text-[#139dc7] transition-colors"
-            >
-              {showConfirmPass ? <FaEyeSlash size={18} /> : <FaEye size={18} />}
-            </button>
-          </div>
-        </div>
-
-        {passError && (
-          <div className="bg-red-50 text-red-500 text-[11px] font-bold p-3 rounded-xl border border-red-100 flex items-center gap-2 animate-pulse">
-            <FaExclamationTriangle /> {passError}
-          </div>
-        )}
-
-        <div className="flex gap-3 pt-4">
-          <button 
-            onClick={() => { 
-              setShowPassModal(false); 
-              setPassError("");
-              // Reset eye toggles when closing
-              setShowOldPass(false);
-              setShowNewPass(false);
-              setShowConfirmPass(false);
-            }}
-            className="flex-1 h-14 rounded-2xl font-bold text-[#139dc7] border border-[#139dc7]/20 hover:bg-slate-50 transition-all"
-          >
-            Cancel
-          </button>
-          <button 
-            onClick={handleChangePassword}
-            disabled={passLoading}
-            className="flex-1 h-14 rounded-2xl font-bold bg-[#139dc7] text-white hover:bg-[#0a4d61] shadow-lg shadow-blue-200 transition-all flex items-center justify-center"
-          >
-            {passLoading ? <FaSpinner className="animate-spin" /> : "Update"}
-          </button>
-        </div>
-      </div>
-    </div>
-  </div>
-)}
+      )}
 
       <footer className="w-full py-8 text-center mt-auto">
         <span className="text-[10px] font-black uppercase tracking-[0.5em] text-[#139dc7] opacity-40">
