@@ -15,7 +15,7 @@ const Dashboard: React.FC = () => {
   } | null>(null);
   const [loading, setLoading] = useState(true);
   const [language, setLanguage] = useState<"English" | "Tagalog">("English");
-  const [hasFetched, setHasFetched] = useState(false); // Add this
+  // const [hasFetched, setHasFetched] = useState(false); // Add this
   // Translation Object
   const content = {
     English: {
@@ -25,10 +25,12 @@ const Dashboard: React.FC = () => {
       logout: "Logout",
       welcome: "Welcome,",
       subWelcome: "Everything is saved. You can look at your results now.",
-      viewLatest: "View Latest Results",
+      viewLatestTop: "View Latest",
+      viewLatestBottom: "Results",
       viewLatestDesc: "Instantly access your most recent diagnostic and laboratory data.",
       accessNow: "Access Now",
-      history: "Checkup History",
+      historyTop: "Checkup",
+      historyBottom: "History",
       historyDesc: "Review previous consultations, medical trends, and archived files.",
       browse: "Browse Archive",
       footer: "HealthSense Infrastructure v2.0"
@@ -40,10 +42,12 @@ const Dashboard: React.FC = () => {
       logout: "Mag-logout",
       welcome: "Maligayang pagdating,",
       subWelcome: "Naka-save ang lahat. Maaari mo nang tingnan ang iyong mga resulta.",
-      viewLatest: "Tingnan ang Pinakabagong Resulta",
+      viewLatestTop: "Pinakabagong",
+      viewLatestBottom: "na Resulta",
       viewLatestDesc: "Agad na i-access ang iyong pinakabagong diagnostic at laboratory data.",
       accessNow: "I-access Ngayon",
-      history: "Kasaysayan ng Checkup",
+      historyTop: "Kasaysayan",
+      historyBottom: "ng Checkup",
       historyDesc: "Suriin ang mga nakaraang konsultasyon at mga naka-archive na file.",
       browse: "I-browse ang Archive",
       footer: "HealthSense Infrastructure v2.0"
@@ -53,28 +57,34 @@ const Dashboard: React.FC = () => {
   useEffect(() => {
     const fetchProfile = async () => {
       try {
-        setLoading(true);
-        const { data: { user } } = await supabase.auth.getUser();
+        // getSession is much faster for a kiosk—it checks local storage first
+        const { data: { session } } = await supabase.auth.getSession();
 
-        if (user) {
-          const { data } = await supabase
-            .from("profiles")
-            .select("first_name, middle_name, last_name, language")
-            .eq("id", user.id)
-            .single();
-
-          if (data) {
-            setUserData(data);
-            if (data.language) setLanguage(data.language);
-          }
+        if (!session?.user) {
+          navigate("/");
+          return;
         }
-      } catch (error) {
-        console.error(error);
+
+        const { data, error: profileError } = await supabase
+          .from("profiles")
+          .select("first_name, middle_name, last_name, language")
+          .eq("id", session.user.id)
+          .single();
+
+        if (profileError) console.error("Profile Error:", profileError.message);
+
+        if (data) {
+          setUserData(data);
+          if (data.language) setLanguage(data.language as "English" | "Tagalog");
+        }
+      } catch (err) {
+        console.error("System Error:", err);
       } finally {
-        setHasFetched(true); // Data is now in, we know the language
-        setTimeout(() => setLoading(false), 800);
+        // We set loading to false immediately after the data arrives
+        setLoading(false);
       }
     };
+
     fetchProfile();
   }, [navigate]);
 
@@ -109,21 +119,20 @@ const Dashboard: React.FC = () => {
   if (loading) {
     return (
       <div className="min-h-screen flex items-center justify-center bg-[#eaf4ff] font-['Lexend']">
-        <div className="text-center">
+        <div className="text-center animate-in fade-in duration-500">
+          {/* Spinner Group - Always visible immediately */}
           <div className="relative w-24 h-24 mx-auto mb-8">
             <div className="absolute inset-0 border-4 border-[#139dc7]/20 rounded-full"></div>
             <div className="absolute inset-0 border-4 border-[#139dc7] border-t-transparent rounded-full animate-spin"></div>
           </div>
           
-          {/* Only show text once hasFetched is true to prevent the language 'flip' */}
-          <div className={`transition-opacity duration-300 ${hasFetched ? 'opacity-100' : 'opacity-0'}`}>
-            <h2 className="text-2xl font-black text-[#139dc7] tracking-tight mb-2">
-              {content[language].sync}
-            </h2>
-            <p className="text-[#139dc7]/60 font-bold uppercase tracking-widest text-[10px] animate-pulse">
-              {content[language].auth}
-            </p>
-          </div>
+          {/* Static Neutral Text - No more language flipping */}
+          <h2 className="text-2xl font-black text-[#139dc7] tracking-tight mb-2">
+            Loading Dashboard
+          </h2>
+          <p className="text-[#139dc7]/60 font-bold uppercase tracking-widest text-[10px] animate-pulse">
+            Authenticating HealthSense Infrastructure...
+          </p>
         </div>
       </div>
     );
@@ -195,13 +204,15 @@ const Dashboard: React.FC = () => {
                   <FaFileMedical className="text-xl sm:text-3xl" />
               </div>
               <h2 className="text-xl sm:text-4xl font-black text-[#0a4d61] mb-2 sm:mb-3 leading-tight">
-                  {content[language].viewLatest.split(' Results')[0]} <br/>
+                {content[language].viewLatestTop} 
+                <br/> 
+                {content[language].viewLatestBottom}
               </h2>
               <p className="hidden md:block text-[#139dc7]/70 text-base lg:text-lg max-w-75 leading-relaxed font-medium">
-                  {content[language].viewLatestDesc}
+                {content[language].viewLatestDesc}
               </p>
               <div className="mt-auto flex items-center gap-2 font-black text-[#139dc7] uppercase text-[10px] sm:text-sm tracking-widest group-hover:gap-4 transition-all">
-                  {content[language].accessNow} <FaChevronRight />
+                {content[language].accessNow} <FaChevronRight />
               </div>
           </button>
 
@@ -217,13 +228,15 @@ const Dashboard: React.FC = () => {
                 <FaHistory className="text-xl sm:text-3xl" />
             </div>
             <h2 className="text-xl sm:text-4xl font-bold text-white mb-2 sm:mb-3 leading-tight">
-              {content[language].history.split(' History')[0]} <br/>
+              {content[language].historyTop} 
+              <br/> 
+              {content[language].historyBottom}
             </h2>
             <p className="hidden md:block text-white/80 text-base lg:text-lg max-w-75 leading-relaxed">
-                {content[language].historyDesc}
+              {content[language].historyDesc}
             </p>
             <div className="mt-auto flex items-center gap-2 font-bold text-white text-[10px] sm:text-sm group-hover:gap-4 transition-all uppercase tracking-widest">
-                {content[language].browse} <FaChevronRight />
+              {content[language].browse} <FaChevronRight />
             </div>
           </button>
         </div>
