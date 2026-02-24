@@ -56,8 +56,11 @@ const Dashboard: React.FC = () => {
 
   useEffect(() => {
     const fetchProfile = async () => {
+      // 1. Start a timer immediately
+      const timer = new Promise((resolve) => setTimeout(resolve, 800));
+
       try {
-        // getSession is much faster for a kiosk—it checks local storage first
+        // 2. Start the Supabase fetch
         const { data: { session } } = await supabase.auth.getSession();
 
         if (!session?.user) {
@@ -80,7 +83,9 @@ const Dashboard: React.FC = () => {
       } catch (err) {
         console.error("System Error:", err);
       } finally {
-        // We set loading to false immediately after the data arrives
+        // 3. WAIT for the 1.5s timer to finish before hiding the loading screen
+        // This ensures the eye-friendly delay happens even if the data is instant
+        await timer;
         setLoading(false);
       }
     };
@@ -130,9 +135,9 @@ const Dashboard: React.FC = () => {
           <h2 className="text-2xl font-black text-[#139dc7] tracking-tight mb-2">
             Loading Dashboard
           </h2>
-          <p className="text-[#139dc7]/60 font-bold uppercase tracking-widest text-[10px] animate-pulse">
+          {/* <p className="text-[#139dc7]/60 font-bold uppercase tracking-widest text-[10px] animate-pulse">
             Authenticating HealthSense Infrastructure...
-          </p>
+          </p> */}
         </div>
       </div>
     );
