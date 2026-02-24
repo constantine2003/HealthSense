@@ -1,6 +1,6 @@
 import React, { useState, useEffect } from "react";
 import { useNavigate } from "react-router-dom";
-import { FaFileMedical, FaHistory, FaBell, FaCalendarCheck, FaChevronRight } from "react-icons/fa";
+import { FaFileMedical, FaHistory, FaChevronRight } from "react-icons/fa";
 import { supabase } from "../supabaseClient"; 
 
 const Dashboard: React.FC = () => {
