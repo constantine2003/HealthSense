@@ -11,45 +11,70 @@ const Dashboard: React.FC = () => {
     first_name: string;
     middle_name?: string;
     last_name: string;
+    language?: "English" | "Tagalog";
   } | null>(null);
   const [loading, setLoading] = useState(true);
+  const [language, setLanguage] = useState<"English" | "Tagalog">("English");
+  const [hasFetched, setHasFetched] = useState(false); // Add this
+  // Translation Object
+  const content = {
+    English: {
+      sync: "Syncing Dashboard",
+      auth: "Authenticating HealthSense Infrastructure...",
+      profile: "Profile",
+      logout: "Logout",
+      welcome: "Welcome,",
+      subWelcome: "Everything is saved. You can look at your results now.",
+      viewLatest: "View Latest Results",
+      viewLatestDesc: "Instantly access your most recent diagnostic and laboratory data.",
+      accessNow: "Access Now",
+      history: "Checkup History",
+      historyDesc: "Review previous consultations, medical trends, and archived files.",
+      browse: "Browse Archive",
+      footer: "HealthSense Infrastructure v2.0"
+    },
+    Tagalog: {
+      sync: "Sini-sync ang Dashboard",
+      auth: "Sinisigurado ang Infrastructure ng HealthSense...",
+      profile: "Profile",
+      logout: "Mag-logout",
+      welcome: "Maligayang pagdating,",
+      subWelcome: "Naka-save ang lahat. Maaari mo nang tingnan ang iyong mga resulta.",
+      viewLatest: "Tingnan ang Pinakabagong Resulta",
+      viewLatestDesc: "Agad na i-access ang iyong pinakabagong diagnostic at laboratory data.",
+      accessNow: "I-access Ngayon",
+      history: "Kasaysayan ng Checkup",
+      historyDesc: "Suriin ang mga nakaraang konsultasyon at mga naka-archive na file.",
+      browse: "I-browse ang Archive",
+      footer: "HealthSense Infrastructure v2.0"
+    }
+  };
 
   useEffect(() => {
     const fetchProfile = async () => {
       try {
         setLoading(true);
-        
-        // 1. Get the current logged-in user's Auth Data
-        const { data: { user }, error: authError } = await supabase.auth.getUser();
+        const { data: { user } } = await supabase.auth.getUser();
 
-        if (authError || !user) {
-          console.error("No active session found");
-          navigate("/"); 
-          return;
-        }
+        if (user) {
+          const { data } = await supabase
+            .from("profiles")
+            .select("first_name, middle_name, last_name, language")
+            .eq("id", user.id)
+            .single();
 
-        // 2. Fetch from the 'profiles' table
-        const { data, error: profileError } = await supabase
-          .from("profiles")
-          .select("first_name, middle_name, last_name")
-          .eq("id", user.id) 
-          .single();
-
-        if (profileError) {
-          console.error("Supabase Profile Error:", profileError.message);
-        }
-
-        if (data) {
-          setUserData(data);
+          if (data) {
+            setUserData(data);
+            if (data.language) setLanguage(data.language);
+          }
         }
       } catch (error) {
-        console.error("Unexpected error loading profile:", error);
+        console.error(error);
       } finally {
-        // Slight delay for a smoother transition on the kiosk
+        setHasFetched(true); // Data is now in, we know the language
         setTimeout(() => setLoading(false), 800);
       }
     };
-
     fetchProfile();
   }, [navigate]);
 
@@ -85,17 +110,20 @@ const Dashboard: React.FC = () => {
     return (
       <div className="min-h-screen flex items-center justify-center bg-[#eaf4ff] font-['Lexend']">
         <div className="text-center">
-          {/* Main Spinner */}
           <div className="relative w-24 h-24 mx-auto mb-8">
             <div className="absolute inset-0 border-4 border-[#139dc7]/20 rounded-full"></div>
             <div className="absolute inset-0 border-4 border-[#139dc7] border-t-transparent rounded-full animate-spin"></div>
-            
           </div>
           
-          <h2 className="text-2xl font-black text-[#139dc7] tracking-tight mb-2">Syncing Dashboard</h2>
-          <p className="text-[#139dc7]/60 font-bold uppercase tracking-widest text-[10px] animate-pulse">
-            Authenticating HealthSense Infrastructure...
-          </p>
+          {/* Only show text once hasFetched is true to prevent the language 'flip' */}
+          <div className={`transition-opacity duration-300 ${hasFetched ? 'opacity-100' : 'opacity-0'}`}>
+            <h2 className="text-2xl font-black text-[#139dc7] tracking-tight mb-2">
+              {content[language].sync}
+            </h2>
+            <p className="text-[#139dc7]/60 font-bold uppercase tracking-widest text-[10px] animate-pulse">
+              {content[language].auth}
+            </p>
+          </div>
         </div>
       </div>
     );
@@ -113,11 +141,6 @@ const Dashboard: React.FC = () => {
         
         <div className="flex items-center gap-3 sm:gap-6">
           <div className="flex items-center gap-2 sm:gap-4">
-            {/* <button className="relative text-[#139dc7] hover:scale-110 transition-transform p-2">
-              <FaBell size={22} />
-              <span className="absolute top-1.5 right-1.5 w-2 h-2 bg-red-500 rounded-full border-2 border-[#eaf4ff]"></span>
-            </button> */}
-
             {/* Profile Access */}
             <button 
               onClick={() => navigate('/profile')} 
@@ -126,7 +149,9 @@ const Dashboard: React.FC = () => {
               <div className="w-10 h-10 rounded-full bg-[#139dc7] flex items-center justify-center text-white font-bold border-2 border-white shadow-sm shrink-0">
                 {getInitials()}
               </div>
-              <span className="hidden lg:block text-sm font-bold text-[#139dc7]">Profile</span>
+              <span className="hidden lg:block text-sm font-bold text-[#139dc7]">
+                {content[language].profile}
+              </span>
             </button>
 
             {/* Logout Button */}
@@ -134,7 +159,7 @@ const Dashboard: React.FC = () => {
               onClick={handleLogout} 
               className="ml-2 px-4 py-2 bg-white/20 backdrop-blur-md border border-[#139dc7]/30 rounded-xl text-[#139dc7] text-xs font-black uppercase tracking-widest hover:bg-[#139dc7] hover:text-white transition-all active:scale-95"
             >
-              Logout
+              {content[language].logout}
             </button>
           </div>
         </div>
@@ -146,37 +171,22 @@ const Dashboard: React.FC = () => {
         {/* WELCOME AREA */}
         <section className="mb-10 text-center lg:text-left">
           <h1 className="text-[clamp(32px,5vw,56px)] font-bold text-[#139dc7] m-0 leading-tight">
-            Welcome,{" "}
+            {content[language].welcome}{" "}
             <span className="inline-block italic text-transparent bg-clip-text bg-linear-to-r from-[#139dc7] to-[#34A0A4] pr-[0.3em] -mr-[0.3em]">
               {formatDisplayName()}
             </span>
           </h1>
-          <p className="text-[#139dc7] opacity-70 text-lg">Everything is saved. You can look at your results now.</p>
+          <p className="text-[#139dc7] opacity-70 text-lg">
+            {content[language].subWelcome}
+          </p>
         </section>
-
-        {/* QUICK STATS CARDS */}
-        {/* <div className="grid grid-cols-1 sm:grid-cols-3 gap-6 mb-10">
-          {[
-            { label: 'Next Appointment', val: 'Oct 24, 2026', icon: <FaCalendarCheck />, color: 'from-white/60 to-white/30' },
-            { label: 'Archived Records', val: '12 Reports', icon: <FaFileMedical />, color: 'from-white/60 to-white/30' },
-            { label: 'Platform Status', val: 'V2.0 Active', icon: <FaHistory />, color: 'from-white/60 to-white/30' },
-          ].map((stat, i) => (
-            <div key={i} className={`bg-gradient-to-br ${stat.color} backdrop-blur-md p-6 rounded-3xl border border-white/40 shadow-xl shadow-[#139dc7]/5 flex items-center gap-5 transition-transform hover:scale-[1.02]`}>
-              <div className="text-[#139dc7] text-3xl opacity-80">{stat.icon}</div>
-              <div>
-                <p className="text-[10px] font-black text-[#139dc7]/50 uppercase tracking-widest m-0">{stat.label}</p>
-                <p className="text-xl font-bold text-[#139dc7] m-0">{stat.val}</p>
-              </div>
-            </div>
-          ))}
-        </div> */}
 
         {/* PRIMARY ACTIONS */}
         <div className="grid grid-cols-2 gap-4 sm:gap-8 mb-10">
           {/* VIEW LATEST */}
           <button 
             onClick={() => navigate('/results')} 
-            className="group relative bg-white/70 backdrop-blur-xl p-6 sm:p-10 rounded-[30px] sm:rounded-[40px] border border-white shadow-[0_20px_50px_rgba(0,0,0,0.05)] transition-all hover:-translate-y-2 hover:bg-white/90 flex flex-col items-start text-left overflow-hidden min-h-62.5 sm:min-h-80 active:scale-95"
+            className="group relative bg-white/70 backdrop-blur-xl p-6 sm:p-10 rounded-[30px] sm:rounded-[40px] border border-white shadow-[0_20px_50_rgba(0,0,0,0.05)] transition-all hover:-translate-y-2 hover:bg-white/90 flex flex-col items-start text-left overflow-hidden min-h-62.5 sm:min-h-80 active:scale-95"
           >
               <div className="absolute top-0 right-0 p-4 sm:p-8 opacity-5 group-hover:opacity-10 group-hover:scale-110 transition-all duration-500">
                   <FaFileMedical className="text-[#139dc7] text-6xl sm:text-[120px]" />
@@ -185,13 +195,13 @@ const Dashboard: React.FC = () => {
                   <FaFileMedical className="text-xl sm:text-3xl" />
               </div>
               <h2 className="text-xl sm:text-4xl font-black text-[#0a4d61] mb-2 sm:mb-3 leading-tight">
-                  View Latest <br/> Results
+                  {content[language].viewLatest.split(' Results')[0]} <br/>
               </h2>
               <p className="hidden md:block text-[#139dc7]/70 text-base lg:text-lg max-w-75 leading-relaxed font-medium">
-                  Instantly access your most recent diagnostic and laboratory data.
+                  {content[language].viewLatestDesc}
               </p>
               <div className="mt-auto flex items-center gap-2 font-black text-[#139dc7] uppercase text-[10px] sm:text-sm tracking-widest group-hover:gap-4 transition-all">
-                  Access Now <FaChevronRight />
+                  {content[language].accessNow} <FaChevronRight />
               </div>
           </button>
 
@@ -206,12 +216,14 @@ const Dashboard: React.FC = () => {
             <div className="w-12 h-12 sm:w-16 sm:h-16 bg-white/20 backdrop-blur-md rounded-xl sm:rounded-2xl flex items-center justify-center text-white shadow-lg mb-4 sm:mb-8 group-hover:-rotate-6 transition-transform border border-white/30">
                 <FaHistory className="text-xl sm:text-3xl" />
             </div>
-            <h2 className="text-xl sm:text-4xl font-bold text-white mb-2 sm:mb-3 leading-tight">Checkup <br/> History</h2>
+            <h2 className="text-xl sm:text-4xl font-bold text-white mb-2 sm:mb-3 leading-tight">
+              {content[language].history.split(' History')[0]} <br/>
+            </h2>
             <p className="hidden md:block text-white/80 text-base lg:text-lg max-w-75 leading-relaxed">
-                Review previous consultations, medical trends, and archived files.
+                {content[language].historyDesc}
             </p>
             <div className="mt-auto flex items-center gap-2 font-bold text-white text-[10px] sm:text-sm group-hover:gap-4 transition-all uppercase tracking-widest">
-                Browse Archive <FaChevronRight />
+                {content[language].browse} <FaChevronRight />
             </div>
           </button>
         </div>
@@ -221,7 +233,7 @@ const Dashboard: React.FC = () => {
       {/* FOOTER */}
       <footer className="w-full py-8 text-center mt-auto">
         <span className="text-[10px] font-black uppercase tracking-[0.5em] text-[#139dc7] opacity-40">
-          HealthSense Infrastructure v2.0
+          {content[language].footer}
         </span>
       </footer>
     </div>
