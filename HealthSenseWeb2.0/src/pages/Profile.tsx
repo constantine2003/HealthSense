@@ -9,7 +9,7 @@ import { supabase } from "../supabaseClient";
 
 const Profile: React.FC = () => {
   const navigate = useNavigate();
-  const [isOnline, setIsOnline] = useState<boolean>(navigator.onLine);
+  // const [isOnline, setIsOnline] = useState<boolean>(navigator.onLine);
   const [loading, setLoading] = useState(true);
   const [saving, setSaving] = useState(false);
   const [saveStatus, setSaveStatus] = useState<boolean>(false);
@@ -67,13 +67,13 @@ const Profile: React.FC = () => {
 
     fetchProfileData();
 
-    const updateStatus = () => setIsOnline(navigator.onLine);
-    window.addEventListener("online", updateStatus);
-    window.addEventListener("offline", updateStatus);
-    return () => {
-      window.removeEventListener("online", updateStatus);
-      window.removeEventListener("offline", updateStatus);
-    };
+    // const updateStatus = () => setIsOnline(navigator.onLine);
+    // window.addEventListener("online", updateStatus);
+    // window.addEventListener("offline", updateStatus);
+    // return () => {
+    //   window.removeEventListener("online", updateStatus);
+    //   window.removeEventListener("offline", updateStatus);
+    // };
   }, [navigate]);
 
   const calculateAge = (birthday: string) => {
