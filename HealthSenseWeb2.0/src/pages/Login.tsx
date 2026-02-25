@@ -47,19 +47,19 @@ const Home: React.FC = () => {
       if (profileError) console.warn("Profile Lookup Error:", profileError.message);
 
       if (profile) {
-        // IF profile exists: use recovery_email if they have one, 
-        // otherwise use the kiosk.local fallback
         loginEmail = profile.recovery_email 
           ? profile.recovery_email 
           : `${profile.username}@kiosk.local`;
+        console.log("Found Profile! Using Email:", loginEmail); // DEBUG
       } else {
-        // IF no profile found by username: maybe they typed their full email or are a .local user?
         loginEmail = userInput.includes("@") 
           ? userInput 
           : `${userInput}@kiosk.local`;
+        console.log("No Profile Found. Falling back to:", loginEmail); // DEBUG
       }
 
-      // 2. AUTHENTICATE: Use the resolved email to sign in
+      console.log("Final attempt with Password:", passwordInput); // DEBUG
+
       const { data, error: authError } = await supabase.auth.signInWithPassword({
         email: loginEmail,
         password: passwordInput,
@@ -258,9 +258,9 @@ const Home: React.FC = () => {
       </main>
 
       {/* FOOTER */}
-      <footer className="w-full py-6 text-center shrink-0">
-        <span className="text-[10px] font-black uppercase tracking-[0.4em] text-[#139dc7] opacity-40">
-          v2.0 // ArchiveStream Master
+      <footer className="w-full py-8 text-center mt-auto">
+        <span className="text-[10px] font-black uppercase tracking-[0.5em] text-[#139dc7] opacity-40">
+          HealthSense Operations v2.0
         </span>
       </footer>
 

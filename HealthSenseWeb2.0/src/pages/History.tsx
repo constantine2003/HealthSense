@@ -1,9 +1,9 @@
 import React, { useState, useEffect } from "react";
 import { useNavigate } from "react-router-dom";
-import { FaArrowLeft, FaSearch, FaFilter, FaFileAlt, FaTimes } from "react-icons/fa";
+import { FaArrowLeft, FaSearch, FaFilter, FaTimes, FaCalendarAlt } from "react-icons/fa";
 import { FiActivity, FiThermometer, FiBarChart, FiHeart } from "react-icons/fi";
 import { MdHeight, MdMonitorWeight } from "react-icons/md";
-import { supabase } from "../supabaseClient"; // Ensure path is correct
+import { supabase } from "../supabaseClient";
 
 // TYPES FOR HEALTH LOGIC
 type StatusType = "success" | "warning" | "danger" | "Unknown";
@@ -25,103 +25,213 @@ const History: React.FC = () => {
   const [selectedRecord, setSelectedRecord] = useState<Record | null>(null);
   const [historyData, setHistoryData] = useState<Record[]>([]);
   const [loading, setLoading] = useState(true);
+  const [language, setLanguage] = useState<"English" | "Tagalog">("English");
+
+  // Translation Object
+  const content = {
+    English: {
+      back: "Back to Dashboard",
+      title: "Checkup History",
+      subtitle: "Review your past health checkups below.",
+      searchPlaceholder: "Search by date...",
+      filter: "Filter",
+      retrieving: "Retrieving records...",
+      noRecords: "No health records found.",
+      checkedAt: "Checked at",
+      viewDetails: "View Details",
+      diagnosticSummary: "Diagnostic Summary",
+      reportTitle: "Checkup Report",
+      verified: "Verified by HealthSense AI",
+      download: "Download PDF",
+      vitals: {
+        spo2: "SpO2",
+        temp: "Temperature",
+        height: "Height",
+        weight: "Weight",
+        bmi: "BMI",
+        bp: "Blood Pressure"
+      },
+      status: {
+        normal: "Normal",
+        low: "Low",
+        high: "High",
+        fever: "Fever",
+        highFever: "High Fever",
+        hypo: "Hypothermia",
+        ideal: "Ideal",
+        elevated: "Elevated",
+        average: "Average",
+        belowAverage: "Below Average",
+        under: "Underweight",
+        over: "Overweight",
+        obese: "Obese"
+      }
+    },
+    Tagalog: {
+      back: "Bumalik sa Dashboard",
+      title: "Kasaysayan ng Checkup",
+      subtitle: "Suriin ang iyong mga nakaraang checkup sa ibaba.",
+      searchPlaceholder: "Maghanap gamit ang petsa...",
+      filter: "I-filter",
+      retrieving: "Kinukuha ang mga record...",
+      noRecords: "Walang nahanap na record.",
+      checkedAt: "Siniyasat noong",
+      viewDetails: "Tingnan ang Detalye",
+      diagnosticSummary: "Buod ng Pagsusuri",
+      reportTitle: "Ulat ng Checkup",
+      verified: "Siniyasat ng HealthSense AI",
+      download: "I-download ang PDF",
+      vitals: {
+        spo2: "Oksiheno",
+        temp: "Temperatura",
+        height: "Tangkad",
+        weight: "Timbang",
+        bmi: "BMI",
+        bp: "Presyon ng Dugo"
+      },
+      status: {
+        normal: "Karaniwan",
+        low: "Mababa",
+        high: "Mataas",
+        fever: "May Lagnat",
+        highFever: "Mataas na Lagnat",
+        hypo: "Hypothermia",
+        ideal: "Tamang Presyon",
+        elevated: "Tumataas",
+        average: "Average",
+        belowAverage: "Mababa sa Average",
+        under: "Payat",
+        over: "Mabigat",
+        obese: "Obese"
+      }
+    }
+  };
 
   useEffect(() => {
-    const fetchHistory = async () => {
-  try {
-    setLoading(true);
-    
-    // 1. Get current logged-in user
-    const { data: { user } } = await supabase.auth.getUser();
-    if (!user) {
-      navigate("/");
-      return;
-    }
+    const fetchData = async () => {
+      try {
+        setLoading(true);
+        
+        const { data: { user } } = await supabase.auth.getUser();
+        if (!user) {
+          navigate("/");
+          return;
+        }
 
-    // 2. Fetch records where user_id matches the logged-in user
-    const { data, error } = await supabase
-      .from("health_checkups")
-      .select("spo2, temperature, height, weight, bmi, blood_pressure, created_at")
-      .eq("user_id", user.id) // <--- CHANGED FROM "id" TO "user_id"
-      .order("created_at", { ascending: false });
+        // 1. Fetch Profile Language
+        const { data: profile } = await supabase
+          .from("profiles")
+          .select("language")
+          .eq("id", user.id)
+          .single();
+        
+        if (profile?.language) setLanguage(profile.language as "English" | "Tagalog");
 
-    if (error) throw error;
+        // 2. Fetch History Records
+        const { data, error } = await supabase
+          .from("health_checkups")
+          .select("spo2, temperature, height, weight, bmi, blood_pressure, created_at")
+          .eq("user_id", user.id)
+          .order("created_at", { ascending: false });
 
-    if (data) {
-      const formattedData: Record[] = data.map((item) => {
-        const timestamp = new Date(item.created_at);
-        return {
-          date: timestamp.toLocaleDateString(),
-          time: timestamp.toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' }),
-          oxygen: item.spo2?.toString() || "0",
-          temp: item.temperature?.toString() || "0",
-          height: item.height?.toString() || "0",
-          weight: item.weight?.toString() || "0",
-          bmi: item.bmi?.toString() || "0",
-          bp: item.blood_pressure || "0/0"
-        };
-      });
-      setHistoryData(formattedData);
-    }
-  } catch (err) {
-    console.error("Error fetching health history:", err);
-  } finally {
-    setLoading(false);
-  }
-};
+        if (error) throw error;
 
-    fetchHistory();
+        if (data) {
+          const formattedData: Record[] = data.map((item) => {
+            const timestamp = new Date(item.created_at);
+            const locale = profile?.language === "Tagalog" ? 'tl-PH' : 'en-US';
+            return {
+              date: timestamp.toLocaleDateString(locale, { month: 'long', day: 'numeric', year: 'numeric' }),
+              time: timestamp.toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' }),
+              oxygen: item.spo2?.toString() || "0",
+              temp: item.temperature?.toString() || "0",
+              height: item.height?.toString() || "0",
+              weight: item.weight?.toString() || "0",
+              bmi: item.bmi?.toString() || "0",
+              bp: item.blood_pressure || "0/0"
+            };
+          });
+          setHistoryData(formattedData);
+        }
+      } catch (err) {
+        console.error("Error fetching health history:", err);
+      } finally {
+        // Aesthetic delay for the kiosk loader
+        setTimeout(() => setLoading(false), 800);
+      }
+    };
+
+    fetchData();
   }, [navigate]);
 
-  // HEALTH LOGIC PROCESSOR (Same as your provided logic)
+  // FULL SCREEN LOADING STATE (Language Neutral)
+  if (loading) {
+    return (
+      <div className="min-h-screen flex items-center justify-center bg-[#eaf4ff] font-['Lexend']">
+        <div className="text-center animate-in fade-in duration-500">
+          {/* Spinner Group */}
+          <div className="relative w-24 h-24 mx-auto mb-8">
+            <div className="absolute inset-0 border-4 border-[#139dc7]/20 rounded-full"></div>
+            <div className="absolute inset-0 border-4 border-[#139dc7] border-t-transparent rounded-full animate-spin"></div>
+          </div>
+          
+          <h2 className="text-2xl font-black text-[#139dc7] tracking-tight mb-2">
+            Loading History
+          </h2>
+        </div>
+      </div>
+    );
+  }
+
+  // HEALTH LOGIC PROCESSOR WITH TRANSLATION
   const getHealthData = (record: Record) => {
+    const lang = content[language];
     const { oxygen: spo2, temp, height, weight, bmi: bmiVal, bp } = record;
     const healthData = [];
 
     // SpO2
-    let spo2Status = "Normal", spo2Type: StatusType = "success";
+    let spo2Status = lang.status.normal, spo2Type: StatusType = "success";
     const s = Number(spo2);
-    if (s < 95) { spo2Status = "Low"; spo2Type = "danger"; }
-    else if (s <= 98) { spo2Status = "Normal"; spo2Type = "warning"; }
-    healthData.push({ title: "SpO2", value: spo2, unit: "%", status: spo2Status, type: spo2Type, icon: <FiActivity /> });
+    if (s < 95) { spo2Status = lang.status.low; spo2Type = "danger"; }
+    else if (s <= 98) { spo2Status = lang.status.normal; spo2Type = "warning"; }
+    healthData.push({ title: lang.vitals.spo2, value: spo2, unit: "%", status: spo2Status, type: spo2Type, icon: <FiActivity /> });
 
     // Temperature
-    let tempStatus = "Normal", tempType: StatusType = "success";
+    let tempStatus = lang.status.normal, tempType: StatusType = "success";
     const t = Number(temp);
-    if (t < 35) { tempStatus = "Hypothermia"; tempType = "danger"; }
-    else if (t <= 37.5) { tempStatus = "Normal"; tempType = "success"; }
-    else if (t <= 39) { tempStatus = "Fever"; tempType = "warning"; }
-    else { tempStatus = "High Fever"; tempType = "danger"; }
-    healthData.push({ title: "Temperature", value: temp, unit: "°C", status: tempStatus, type: tempType, icon: <FiThermometer /> });
+    if (t < 30) { tempStatus = lang.status.hypo; tempType = "danger"; }
+    else if (t <= 37.5) { tempStatus = lang.status.normal; tempType = "success"; }
+    else if (t <= 39) { tempStatus = lang.status.fever; tempType = "warning"; }
+    else { tempStatus = lang.status.highFever; tempType = "danger"; }
+    healthData.push({ title: lang.vitals.temp, value: temp, unit: "°C", status: tempStatus, type: tempType, icon: <FiThermometer /> });
 
     // Height
-    let heightStatus = "Average", heightType: StatusType = "success";
+    let heightStatus = lang.status.average, heightType: StatusType = "success";
     const h = Number(height);
-    if (h < 1.5) { heightStatus = "Below Average"; heightType = "danger"; }
-    healthData.push({ title: "Height", value: height, unit: "m", status: heightStatus, type: heightType, icon: <MdHeight /> });
+    if (h < 1.5) { heightStatus = lang.status.belowAverage; heightType = "danger"; }
+    healthData.push({ title: lang.vitals.height, value: height, unit: "m", status: heightStatus, type: heightType, icon: <MdHeight /> });
 
     // Weight & BMI
-    let weightStatus = "Normal", weightType: StatusType = "success";
-    let bmiStatus = "Normal", bmiType: StatusType = "success";
+    let bmiStatus = lang.status.normal, bmiType: StatusType = "success";
     const b = Number(bmiVal);
-    if (b < 18.5) { bmiStatus = "Underweight"; bmiType = "warning"; weightStatus = "Underweight"; weightType = "warning"; }
-    else if (b < 25) { bmiStatus = "Normal"; bmiType = "success"; weightStatus = "Normal"; weightType = "success"; }
-    else if (b < 30) { bmiStatus = "Overweight"; bmiType = "warning"; weightStatus = "Overweight"; weightType = "warning"; }
-    else { bmiStatus = "Obese"; bmiType = "danger"; weightStatus = "Obese"; weightType = "danger"; }
+    if (b < 18.5) { bmiStatus = lang.status.under; bmiType = "warning"; }
+    else if (b < 25) { bmiStatus = lang.status.normal; bmiType = "success"; }
+    else if (b < 30) { bmiStatus = lang.status.over; bmiType = "warning"; }
+    else { bmiStatus = lang.status.obese; bmiType = "danger"; }
 
-    healthData.push({ title: "Weight", value: weight, unit: "kg", status: weightStatus, type: weightType, icon: <MdMonitorWeight /> });
-    healthData.push({ title: "BMI", value: bmiVal, unit: "", status: bmiStatus, type: bmiType, icon: <FiBarChart /> });
+    healthData.push({ title: lang.vitals.weight, value: weight, unit: "kg", status: bmiStatus, type: bmiType, icon: <MdMonitorWeight /> });
+    healthData.push({ title: lang.vitals.bmi, value: bmiVal, unit: "", status: bmiStatus, type: bmiType, icon: <FiBarChart /> });
 
     // Blood Pressure
-    let bpStatus = "Ideal", bpType: StatusType = "success";
+    let bpStatus = lang.status.ideal, bpType: StatusType = "success";
     if (bp.includes("/")) {
       const [systolic, diastolic] = bp.split("/").map(Number);
-      if (systolic < 90 || diastolic < 60) { bpStatus = "Low"; bpType = "warning"; }
-      else if (systolic <= 120 && diastolic <= 80) { bpStatus = "Ideal"; bpType = "success"; }
-      else if (systolic <= 139 || diastolic <= 89) { bpStatus = "Elevated"; bpType = "warning"; }
-      else { bpStatus = "High"; bpType = "danger"; }
+      if (systolic < 90 || diastolic < 60) { bpStatus = lang.status.low; bpType = "warning"; }
+      else if (systolic <= 120 && diastolic <= 80) { bpStatus = lang.status.ideal; bpType = "success"; }
+      else if (systolic <= 139 || diastolic <= 89) { bpStatus = lang.status.elevated; bpType = "warning"; }
+      else { bpStatus = lang.status.high; bpType = "danger"; }
     }
-    healthData.push({ title: "Blood Pressure", value: bp, unit: "mmHg", status: bpStatus, type: bpType, icon: <FiHeart /> });
+    healthData.push({ title: lang.vitals.bp, value: bp, unit: "mmHg", status: bpStatus, type: bpType, icon: <FiHeart /> });
 
     return healthData;
   };
@@ -133,36 +243,28 @@ const History: React.FC = () => {
       <header className="w-full px-4 sm:px-8 lg:px-16 py-4 sm:py-6 flex flex-row justify-between items-center z-50 shrink-0 gap-2">
         <button onClick={() => navigate('/dashboard')} className="flex items-center gap-2 text-[#139dc7] font-bold hover:gap-3 transition-all active:scale-95">
           <FaArrowLeft className="text-lg" /> 
-          <span className="text-sm sm:text-base hidden xs:block">Back to Dashboard</span>
-          <span className="text-sm xs:hidden">Back</span>
+          <span className="text-sm sm:text-base">{content[language].back}</span>
         </button>
-        
-        
       </header>
 
-      <main className="flex-1 w-full max-w-[1440px] mx-auto px-6 lg:px-12 flex flex-col min-h-0">
+      <main className="flex-1 w-full max-w-360 mx-auto px-6 lg:px-12 flex flex-col min-h-0">
         <section className="mb-8 shrink-0 text-center lg:text-left">
-          <h1 className="text-4xl font-bold text-[#139dc7] m-0">Checkup History</h1>
-          <p className="text-[#139dc7]/60 mb-6">Review your past health checkups below.</p>
+          <h1 className="text-4xl font-bold text-[#139dc7] m-0">{content[language].title}</h1>
+          <p className="text-[#139dc7]/60 mb-6">{content[language].subtitle}</p>
           <div className="flex gap-4">
             <div className="flex-1 relative">
                 <FaSearch className="absolute left-5 top-1/2 -translate-y-1/2 text-[#139dc7]/40" />
-                <input type="text" placeholder="Search by date..." className="w-full h-14 bg-white/20 border border-white/40 rounded-2xl pl-12 pr-5 outline-none focus:border-[#139dc7] text-[#139dc7]" />
+                <input type="text" placeholder={content[language].searchPlaceholder} className="w-full h-14 bg-white/20 border border-white/40 rounded-2xl pl-12 pr-5 outline-none focus:border-[#139dc7] text-[#139dc7]" />
             </div>
-            <button className="h-14 px-6 bg-white/20 border border-white/40 rounded-2xl text-[#139dc7] flex items-center gap-2 font-bold"><FaFilter /> Filter</button>
+            <button className="h-14 px-6 bg-white/20 border border-white/40 rounded-2xl text-[#139dc7] flex items-center gap-2 font-bold"><FaFilter /> {content[language].filter}</button>
           </div>
         </section>
 
         {/* LIST AREA */}
         <div className="flex-1 overflow-y-auto pr-2 pb-10 space-y-6">
-          {loading ? (
-            <div className="w-full py-20 flex flex-col items-center justify-center gap-4 text-[#139dc7]">
-               <div className="w-10 h-10 border-4 border-[#139dc7]/20 border-t-[#139dc7] rounded-full animate-spin" />
-               <p className="font-bold animate-pulse">Retrieving records...</p>
-            </div>
-          ) : historyData.length === 0 ? (
+          {historyData.length === 0 ? (
             <div className="bg-white/30 rounded-3xl p-20 text-center border border-white/40">
-              <p className="text-[#139dc7] font-bold">No health records found.</p>
+              <p className="text-[#139dc7] font-bold">{content[language].noRecords}</p>
             </div>
           ) : (
             historyData.map((record, index) => (
@@ -171,23 +273,23 @@ const History: React.FC = () => {
                   <div className="w-full xl:w-52 shrink-0 border-b xl:border-b-0 xl:border-r border-[#139dc7]/20 pb-6 xl:pb-0 xl:pr-8">
                     <div className="flex items-center gap-3 text-[#0a4d61] font-extrabold text-2xl">
                       <div className="w-10 h-10 bg-[#139dc7]/10 rounded-xl flex items-center justify-center text-[#139dc7]">
-                          <FaFileAlt size={18} />
+                          <FaCalendarAlt size={18} />
                       </div>
                       {record.date}
                     </div>
                     <div className="mt-2 text-[11px] text-[#139dc7] font-black uppercase tracking-[0.2em] opacity-60 ml-1">
-                      Checked at {record.time}
+                      {content[language].checkedAt} {record.time}
                     </div>
                   </div>
 
                   <div className="flex-1 grid grid-cols-2 sm:grid-cols-3 md:grid-cols-6 gap-4 w-full">
                     {[
-                      { label: "SpO2", val: record.oxygen + "%" },
-                      { label: "Temp", val: record.temp + "°C" },
-                      { label: "Height", val: record.height + "m" },
-                      { label: "Weight", val: record.weight + "kg" },
-                      { label: "BMI", val: record.bmi },
-                      { label: "BP", val: record.bp, long: true }
+                      { label: content[language].vitals.spo2, val: record.oxygen + "%" },
+                      { label: content[language].vitals.temp, val: record.temp + "°C" },
+                      { label: content[language].vitals.height, val: record.height + "m" },
+                      { label: content[language].vitals.weight, val: record.weight + "kg" },
+                      { label: content[language].vitals.bmi, val: record.bmi },
+                      { label: content[language].vitals.bp, val: record.bp, long: true }
                     ].map((stat, i) => (
                       <div key={i} className="bg-white/50 border border-white p-4 rounded-2xl shadow-sm group-hover:bg-white transition-colors">
                         <p className="text-[10px] font-black text-[#139dc7] uppercase mb-2 tracking-tight opacity-50">{stat.label}</p>
@@ -202,7 +304,7 @@ const History: React.FC = () => {
                     onClick={() => setSelectedRecord(record)}
                     className="w-full xl:w-auto px-8 py-5 bg-[#139dc7] text-white rounded-2xl font-black text-sm uppercase tracking-widest shadow-lg shadow-[#139dc7]/30 hover:bg-[#0a4d61] hover:scale-105 transition-all shrink-0 active:scale-95"
                   >
-                    View Details
+                    {content[language].viewDetails}
                   </button>
                 </div>
               </div>
@@ -213,17 +315,10 @@ const History: React.FC = () => {
 
       {/* VIEW DETAILS MODAL */}
       {selectedRecord && (
-        <div className="fixed inset-0 z-[100] flex items-center justify-center p-4 sm:p-8 bg-[#001b2e]/60 backdrop-blur-xl animate-in fade-in duration-300">
-          
-          {/* Background Overlay Click to Close */}
+        <div className="fixed inset-0 z-100 flex items-center justify-center p-4 sm:p-8 bg-[#001b2e]/60 backdrop-blur-xl animate-in fade-in duration-300">
           <div className="absolute inset-0" onClick={() => setSelectedRecord(null)} />
-
           <div className="bg-white/95 w-full max-w-2xl rounded-[50px] shadow-[0_32px_64px_rgba(0,0,0,0.2)] overflow-hidden relative border border-white/50 animate-in zoom-in-95 slide-in-from-bottom-10 duration-500">
-            
-            {/* Top Accent Bar */}
             <div className="h-3 w-full bg-linear-to-r from-[#139dc7] to-[#34A0A4]" />
-
-            {/* Close Button */}
             <button 
               onClick={() => setSelectedRecord(null)}
               className="absolute top-8 right-8 w-14 h-14 rounded-2xl bg-slate-100 text-slate-500 flex items-center justify-center hover:bg-red-500 hover:text-white transition-all active:scale-90 shadow-sm z-10"
@@ -232,14 +327,13 @@ const History: React.FC = () => {
             </button>
 
             <div className="p-8 sm:p-12">
-              {/* Header Section */}
               <div className="mb-10">
                 <div className="flex items-center gap-3 mb-2">
                   <div className="px-3 py-1 bg-[#139dc7]/10 rounded-lg text-[#139dc7] text-[10px] font-black uppercase tracking-tighter">
-                    Diagnostic Summary
+                    {content[language].diagnosticSummary}
                   </div>
                 </div>
-                <h2 className="text-4xl font-black text-[#0a4d61] tracking-tight">Checkup Report</h2>
+                <h2 className="text-4xl font-black text-[#0a4d61] tracking-tight">{content[language].reportTitle}</h2>
                 <div className="flex items-center gap-2 mt-2">
                   <span className="text-[#139dc7] font-bold">{selectedRecord.date}</span>
                   <span className="w-1.5 h-1.5 rounded-full bg-[#139dc7]/30" />
@@ -247,14 +341,9 @@ const History: React.FC = () => {
                 </div>
               </div>
 
-              {/* Health Metrics Grid */}
               <div className="grid grid-cols-1 sm:grid-cols-2 gap-5">
                 {getHealthData(selectedRecord).map((data, i) => (
-                  <div 
-                    key={i} 
-                    className="group flex items-center gap-5 p-6 bg-white rounded-[32px] border border-[#139dc7]/5 shadow-[0_4px_20px_rgba(0,0,0,0.03)] hover:border-[#139dc7]/20 transition-all"
-                  >
-                    {/* Icon Container */}
+                  <div key={i} className="group flex items-center gap-5 p-6 bg-white rounded-4xl border border-[#139dc7]/5 shadow-[0_4px_20px_rgba(0,0,0,0.03)] hover:border-[#139dc7]/20 transition-all">
                     <div className={`w-16 h-16 rounded-2xl flex items-center justify-center text-3xl shrink-0 transition-transform group-hover:scale-110 ${
                       data.type === 'success' ? 'bg-green-100 text-green-600' : 
                       data.type === 'warning' ? 'bg-orange-100 text-orange-600' : 'bg-red-100 text-red-600'
@@ -265,13 +354,10 @@ const History: React.FC = () => {
                     <div className="flex-1">
                       <p className="text-[10px] font-black uppercase text-[#139dc7]/40 leading-none mb-1.5 tracking-widest">{data.title}</p>
                       <div className="flex items-baseline gap-1">
-                        <p className="text-2xl font-black text-[#0a4d61] leading-none">
-                          {data.value}
-                        </p>
+                        <p className="text-2xl font-black text-[#0a4d61] leading-none">{data.value}</p>
                         <span className="text-sm font-bold text-[#0a4d61]/40 uppercase">{data.unit}</span>
                       </div>
                       
-                      {/* Status Badge */}
                       <div className={`mt-2 inline-flex items-center gap-1.5 px-3 py-1 rounded-full text-[10px] font-black uppercase tracking-tighter ${
                         data.type === 'success' ? 'bg-green-500/10 text-green-600' : 
                         data.type === 'warning' ? 'bg-orange-500/10 text-orange-600' : 'bg-red-500/10 text-red-600'
@@ -287,16 +373,12 @@ const History: React.FC = () => {
                 ))}
               </div>
 
-              {/* Footer Info */}
               <div className="mt-10 pt-8 border-t border-[#139dc7]/10 flex justify-between items-center">
                 <p className="text-[10px] font-bold text-[#139dc7]/30 uppercase tracking-[0.2em]">
-                  Verified by HealthSense AI
+                  {content[language].verified}
                 </p>
-                <button 
-                  onClick={() => window.print()}
-                  className="text-[#139dc7] text-xs font-black uppercase hover:underline"
-                >
-                  Download PDF
+                <button onClick={() => window.print()} className="text-[#139dc7] text-xs font-black uppercase hover:underline">
+                  {content[language].download}
                 </button>
               </div>
             </div>
@@ -304,6 +386,7 @@ const History: React.FC = () => {
         </div>
       )}
     </div>
+    
   );
 };
 
