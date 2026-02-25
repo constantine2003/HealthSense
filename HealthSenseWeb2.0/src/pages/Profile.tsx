@@ -226,14 +226,10 @@ const Profile: React.FC = () => {
     <div className="min-h-screen w-full flex flex-col bg-[linear-gradient(120deg,#eaf4ff_0%,#cbe5ff_40%,#b0d0ff_70%,#9fc5f8_100%)] font-['Lexend'] overflow-x-hidden relative">
       
       {/* HEADER */}
-      {/* HEADER */}
       <header className="w-full px-8 lg:px-16 py-6 flex justify-between items-center z-50">
-        <button 
-          onClick={() => navigate('/dashboard')}
-          className="flex items-center gap-2 text-[#139dc7] font-black uppercase text-[10px] tracking-widest hover:gap-4 transition-all group"
-        >
-          <FaArrowLeft className="group-hover:-translate-x-1 transition-transform" /> 
-          {content[language].back}
+        <button onClick={() => navigate('/dashboard')} className="flex items-center gap-2 text-[#139dc7] font-bold hover:gap-3 transition-all active:scale-95">
+          <FaArrowLeft className="text-lg" /> 
+          <span className="text-sm sm:text-base">{content[language].back}</span>
         </button>
       </header>
 
@@ -330,7 +326,7 @@ const Profile: React.FC = () => {
                           : "bg-white/50 border-white text-[#139dc7] hover:bg-white"
                         }`}
                       >
-                        {unitChoice === "Metric" ? "kg/cm" : "lb/in"}
+                        {unitChoice === "Metric" ? "kg, cm, °C" : "lb, in, °F"}
                       </button>
                     ))}
                   </div>
