@@ -258,9 +258,9 @@ const Home: React.FC = () => {
       </main>
 
       {/* FOOTER */}
-      <footer className="w-full py-6 text-center shrink-0">
-        <span className="text-[10px] font-black uppercase tracking-[0.4em] text-[#139dc7] opacity-40">
-          v2.0 // ArchiveStream Master
+      <footer className="w-full py-8 text-center mt-auto">
+        <span className="text-[10px] font-black uppercase tracking-[0.5em] text-[#139dc7] opacity-40">
+          HealthSense Operations v2.0
         </span>
       </footer>
 

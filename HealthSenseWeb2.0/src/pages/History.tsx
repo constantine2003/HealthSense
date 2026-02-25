@@ -386,6 +386,7 @@ const History: React.FC = () => {
         </div>
       )}
     </div>
+    
   );
 };
 

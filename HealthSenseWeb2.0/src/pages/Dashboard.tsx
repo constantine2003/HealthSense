@@ -33,7 +33,7 @@ const Dashboard: React.FC = () => {
       historyBottom: "History",
       historyDesc: "Review previous consultations, medical trends, and archived files.",
       browse: "Browse Archive",
-      footer: "HealthSense Infrastructure v2.0"
+      footer: "HealthSense Operations v2.0"
     },
     Tagalog: {
       sync: "Sini-sync ang Dashboard",
@@ -50,7 +50,7 @@ const Dashboard: React.FC = () => {
       historyBottom: "ng Checkup",
       historyDesc: "Suriin ang mga nakaraang konsultasyon at mga naka-archive na file.",
       browse: "I-browse ang Archive",
-      footer: "HealthSense Infrastructure v2.0"
+      footer: "HealthSense Operations v2.0"
     }
   };
 
