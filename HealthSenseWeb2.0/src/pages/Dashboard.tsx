@@ -147,35 +147,38 @@ const Dashboard: React.FC = () => {
     <div className="min-h-screen w-full flex flex-col bg-[linear-gradient(120deg,#eaf4ff_0%,#cbe5ff_40%,#b0d0ff_70%,#9fc5f8_100%)] font-['Lexend'] overflow-x-hidden relative animate-in fade-in duration-700">
       
       {/* HEADER */}
-      <header className="w-full px-8 lg:px-16 py-6 flex justify-between items-center z-50">
+      <header className="w-full px-6 lg:px-16 py-6 flex justify-between items-center z-50 shrink-0">
+        {/* LOGO SECTION - Now scales down on smaller screens */}
         <div className="flex flex-col shrink-0">
-          <span className="text-2xl font-bold text-[#139dc7] tracking-tighter uppercase">HealthSense</span>
-          <span className="text-[10px] font-bold text-[#34A0A4] uppercase tracking-[0.2em] -mt-1">Patient Portal</span>
+          <span className="text-lg sm:text-2xl font-black text-[#139dc7] tracking-tighter uppercase transition-all">
+            HealthSense
+          </span>
+          <span className="text-[8px] sm:text-[10px] font-bold text-[#34A0A4] uppercase tracking-[0.2em] -mt-1 transition-all">
+            Patient Portal
+          </span>
         </div>
         
-        <div className="flex items-center gap-3 sm:gap-6">
-          <div className="flex items-center gap-2 sm:gap-4">
-            {/* Profile Access */}
-            <button 
-              onClick={() => navigate('/profile')} 
-              className="flex items-center gap-2 px-2 py-1 rounded-full hover:bg-white/30 transition-all border border-transparent hover:border-white/40"
-            >
-              <div className="w-10 h-10 rounded-full bg-[#139dc7] flex items-center justify-center text-white font-bold border-2 border-white shadow-sm shrink-0">
-                {getInitials()}
-              </div>
-              <span className="hidden lg:block text-sm font-bold text-[#139dc7]">
-                {content[language].profile}
-              </span>
-            </button>
+        <div className="flex items-center gap-1.5 sm:gap-3">
+          {/* Profile Button - Responsive padding and font */}
+          <button 
+            onClick={() => navigate('/profile')} 
+            className="flex items-center gap-1.5 sm:gap-2 px-2.5 py-1.5 sm:px-4 sm:py-2 bg-white/20 backdrop-blur-md border border-[#139dc7]/30 rounded-lg sm:rounded-xl text-[#139dc7] hover:bg-[#139dc7] hover:text-white transition-all active:scale-95 group"
+          >
+            <div className="w-4 h-4 sm:w-5 sm:h-5 rounded-full bg-[#139dc7] group-hover:bg-white flex items-center justify-center text-[8px] sm:text-[10px] text-white group-hover:text-[#139dc7] font-bold border border-white/50 transition-colors shrink-0">
+              {getInitials()}
+            </div>
+            <span className="text-[10px] sm:text-xs font-black uppercase tracking-tight sm:tracking-widest">
+              {content[language].profile}
+            </span>
+          </button>
 
-            {/* Logout Button */}
-            <button 
-              onClick={handleLogout} 
-              className="ml-2 px-4 py-2 bg-white/20 backdrop-blur-md border border-[#139dc7]/30 rounded-xl text-[#139dc7] text-xs font-black uppercase tracking-widest hover:bg-[#139dc7] hover:text-white transition-all active:scale-95"
-            >
-              {content[language].logout}
-            </button>
-          </div>
+          {/* Logout Button - Responsive padding and font */}
+          <button 
+            onClick={handleLogout} 
+            className="px-2.5 py-1.5 sm:px-4 sm:py-2 bg-white/20 backdrop-blur-md border border-[#139dc7]/30 rounded-lg sm:rounded-xl text-[#139dc7] text-[10px] sm:text-xs font-black uppercase tracking-tight sm:tracking-widest hover:bg-[#139dc7] hover:text-white transition-all active:scale-95"
+          >
+            {content[language].logout}
+          </button>
         </div>
       </header>
 

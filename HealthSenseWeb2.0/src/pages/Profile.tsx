@@ -50,9 +50,10 @@ const Profile: React.FC = () => {
           return;
         }
 
+        // 1. Added 'units' to the select query
         const { data, error } = await supabase
           .from("profiles")
-          .select("first_name, middle_name, last_name, birthday, sex, recovery_email, language, username")
+          .select("first_name, middle_name, last_name, birthday, sex, recovery_email, language, username, units")
           .eq("id", user.id)
           .single();
 
@@ -60,9 +61,16 @@ const Profile: React.FC = () => {
 
         if (data) {
           setProfile(data);
-          // setRecoveryEmail(data.recovery_email || "");
-          setLanguage(data.language || "English");        // The official one
-          setPendingLanguage(data.language || "English"); // The temporary one
+          setLanguage(data.language || "English");
+          setPendingLanguage(data.language || "English");
+          
+          // 2. Set the unit state (defaulting to 'metric' if null)
+          // This ensures the correct button (Metric or Imperial) lights up
+          if (data.units) {
+            setUnits(data.units.toLowerCase() as 'metric' | 'imperial');
+          } else {
+            setUnits('metric'); 
+          }
         }
       } catch (err) {
         console.error("Error fetching profile:", err);
@@ -72,14 +80,6 @@ const Profile: React.FC = () => {
     };
 
     fetchProfileData();
-
-    // const updateStatus = () => setIsOnline(navigator.onLine);
-    // window.addEventListener("online", updateStatus);
-    // window.addEventListener("offline", updateStatus);
-    // return () => {
-    //   window.removeEventListener("online", updateStatus);
-    //   window.removeEventListener("offline", updateStatus);
-    // };
   }, [navigate]);
 
   const calculateAge = (birthday: string) => {
@@ -100,18 +100,21 @@ const Profile: React.FC = () => {
       const { data: { user } } = await supabase.auth.getUser();
       if (!user) return;
 
-      // Update using pendingLanguage since that's what the user selected in the UI
+      // Update both language and units in the Supabase "profiles" table
       const { error } = await supabase
         .from("profiles")
         .update({
-          language: pendingLanguage 
+          language: pendingLanguage,
+          units: units // This saves 'metric' or 'imperial' to your units column
         })
         .eq("id", user.id);
 
       if (error) throw error;
 
-      // Commit the change to the official app language state
+      // Commit the changes to the app state
       setLanguage(pendingLanguage);
+      // setUnits(units); // Ensure your local state is synced
+
       setSaveStatus(true);
       setTimeout(() => setSaveStatus(false), 3000);
     } catch (err) {

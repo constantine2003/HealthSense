@@ -134,17 +134,24 @@ const Home: React.FC = () => {
     <div className="min-h-screen w-full flex flex-col bg-[linear-gradient(120deg,#eaf4ff_0%,#cbe5ff_40%,#b0d0ff_70%,#9fc5f8_100%)] font-['Lexend'] overflow-x-hidden relative">
       
       {/* HEADER */}
-      <header className="w-full px-8 lg:px-16 py-4 sm:py-6 flex justify-between items-center z-50 shrink-0">
-        <div className="flex items-center gap-2">
-          <span className="text-xl sm:text-2xl font-black text-[#139dc7] tracking-tighter uppercase">HealthSense</span>
+      <header className="w-full px-4 sm:px-8 lg:px-16 py-4 sm:py-6 flex justify-between items-center z-50 shrink-0 gap-2">
+        {/* LOGO SECTION - Scaled to match other pages */}
+        <div className="flex flex-col shrink-0">
+          <span className="text-lg sm:text-2xl font-black text-[#139dc7] tracking-tighter uppercase transition-all leading-none">
+            HealthSense
+          </span>
+          <span className="text-[8px] sm:text-[10px] font-bold text-[#34A0A4] uppercase tracking-[0.2em] mt-0.5 transition-all">
+            Patient Portal
+          </span>
         </div>
         
-        <div className="flex items-center gap-2 px-3 py-1.5 bg-white/40 rounded-full border border-white/40 backdrop-blur-md shadow-sm">
-          <div className="w-5 h-5 bg-[#139dc7] rounded-full flex items-center justify-center text-[10px] text-white font-black shadow-inner">
-            ?
+        {/* STATUS BADGE - Responsive padding and gaps */}
+        <div className="flex items-center gap-1.5 sm:gap-2 px-2.5 py-1 sm:px-3 sm:py-1.5 bg-white/40 rounded-full border border-white/40 backdrop-blur-md shadow-sm">
+          <div className="w-4 h-4 sm:w-5 sm:h-5 bg-[#139dc7] rounded-full flex items-center justify-center text-[8px] sm:text-[10px] text-white font-black shadow-inner shrink-0">
+            ✓
           </div>
-          <span className="text-[9px] sm:text-[10px] font-black text-[#139dc7] uppercase tracking-wider">
-            Portal Login <span className="opacity-40 ml-1">v2.0</span>
+          <span className="text-[8px] sm:text-[10px] font-black text-[#139dc7] uppercase tracking-tight sm:tracking-wider whitespace-nowrap">
+            Portal Login <span className="opacity-40 ml-0.5">v2.0</span>
           </span>
         </div>
       </header>

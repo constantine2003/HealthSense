@@ -23,6 +23,7 @@ const Result: React.FC = () => {
   const [loading, setLoading] = useState(true);
   const [latestRecord, setLatestRecord] = useState<HealthRecord | null>(null);
   const [language, setLanguage] = useState<"English" | "Tagalog">("English");
+  const [units, setUnits] = useState<"metric" | "imperial">("metric");
 
   // Translation Object
   const content = {
@@ -111,14 +112,16 @@ const Result: React.FC = () => {
           return;
         }
 
-        // 1. Fetch Profile for Language preference
+        // 1. Fetch Profile for Language AND Unit preference
         const { data: profile } = await supabase
           .from("profiles")
-          .select("language")
+          .select("language, units")
           .eq("id", user.id)
           .single();
         
         if (profile?.language) setLanguage(profile.language as "English" | "Tagalog");
+        // Set units from DB (fallback to metric)
+        if (profile?.units) setUnits(profile.units.toLowerCase() as "metric" | "imperial");
 
         // 2. Fetch Latest Health Record
         const { data, error } = await supabase
@@ -147,7 +150,7 @@ const Result: React.FC = () => {
       } catch (err) {
         console.error("Error fetching data:", err);
       } finally {
-        setTimeout(() => setLoading(false), 800); // Eye-friendly delay similar to dashboard
+        setTimeout(() => setLoading(false), 800);
       }
     };
 
@@ -156,25 +159,36 @@ const Result: React.FC = () => {
 
   const getHealthData = (record: HealthRecord) => {
     const lang = content[language];
+    const isMetric = units === "metric";
     const { oxygen: spo2, temp, height, weight, bmi: bmiVal, bp } = record;
     const healthData = [];
 
-    // SpO2 logic
+    // SpO2 logic (Remains % for both)
     let spo2Status = lang.status.normal, spo2Type: StatusType = "success";
     const s = Number(spo2);
     if (isNaN(s)) { spo2Status = lang.status.noData; spo2Type = "warning"; }
     else if (s < 95) { spo2Status = lang.status.low; spo2Type = "danger"; }
     healthData.push({ title: lang.vitals.spo2, value: spo2, unit: "%", status: spo2Status, type: spo2Type, icon: <FiActivity /> });
 
-    // Temp logic
+    // Temp logic (Metric: °C | Imperial: °F)
     let tempStatus = lang.status.normal, tempType: StatusType = "success";
-    const t = Number(temp);
+    const t = Number(temp); // Raw Celsius from DB
+    const displayTemp = isMetric ? t : (t * 9/5) + 32;
+    
     if (isNaN(t)) { tempStatus = lang.status.noData; tempType = "warning"; }
     else if (t > 37.5 && t <= 39) { tempStatus = lang.status.fever; tempType = "warning"; }
     else if (t > 39) { tempStatus = lang.status.highFever; tempType = "danger"; }
-    healthData.push({ title: lang.vitals.temp, value: temp, unit: "°C", status: tempStatus, type: tempType, icon: <FiThermometer /> });
+    
+    healthData.push({ 
+        title: lang.vitals.temp, 
+        value: displayTemp.toFixed(1), 
+        unit: isMetric ? "°C" : "°F", 
+        status: tempStatus, 
+        type: tempType, 
+        icon: <FiThermometer /> 
+    });
 
-    // BMI & Weight
+    // BMI logic (BMI is a universal ratio, calculation remains the same)
     let bmiStatus = lang.status.normal, bmiType: StatusType = "success";
     const b = Number(bmiVal);
     if (isNaN(b)) { bmiStatus = lang.status.noData; bmiType = "warning"; }
@@ -182,13 +196,35 @@ const Result: React.FC = () => {
     else if (b >= 25 && b < 30) { bmiStatus = lang.status.over; bmiType = "warning"; }
     else if (b >= 30) { bmiStatus = lang.status.obese; bmiType = "danger"; }
     
-    healthData.push({ title: lang.vitals.weight, value: weight, unit: "kg", status: bmiStatus, type: bmiType, icon: <MdMonitorWeight /> });
+    // Weight logic (Metric: kg | Imperial: lb)
+    const w = Number(weight);
+    const displayWeight = isMetric ? w : (w * 2.20462);
+    healthData.push({ 
+        title: lang.vitals.weight, 
+        value: displayWeight.toFixed(1), 
+        unit: isMetric ? "kg" : "lb", 
+        status: bmiStatus, 
+        type: bmiType, 
+        icon: <MdMonitorWeight /> 
+    });
+
     healthData.push({ title: lang.vitals.bmi, value: bmiVal, unit: "", status: bmiStatus, type: bmiType, icon: <FiBarChart /> });
 
-    // Height
-    healthData.push({ title: lang.vitals.height, value: height, unit: "m", status: lang.status.normal, type: "success" as StatusType, icon: <MdHeight /> });
+    // Height logic (DB stores cm, display m or in)
+    const rawHeight = Number(height); // e.g., 180
+    const heightInMeters = rawHeight / 100; // converts 180 to 1.80
+    const displayHeight = isMetric ? heightInMeters : (heightInMeters * 39.3701);
 
-    // Blood Pressure
+    healthData.push({ 
+        title: lang.vitals.height, 
+        value: isMetric ? heightInMeters.toFixed(2) : displayHeight.toFixed(1), 
+        unit: isMetric ? "m" : "in", 
+        status: lang.status.normal, 
+        type: "success" as StatusType, 
+        icon: <MdHeight /> 
+    });
+
+    // Blood Pressure (mmHg is universal)
     let bpStatus = lang.status.ideal, bpType: StatusType = "success";
     if (bp && bp.includes("/") && !bp.includes("--")) {
       const [sys, dia] = bp.split("/").map(Number);
@@ -205,7 +241,7 @@ const Result: React.FC = () => {
       <div className="min-h-screen flex items-center justify-center bg-[#eaf4ff]">
         <div className="text-center">
           <div className="w-16 h-16 border-4 border-[#139dc7] border-t-transparent rounded-full animate-spin mx-auto mb-4"></div>
-          <p className="text-[#139dc7] font-bold animate-pulse">{content[language].sync}</p>
+          <p className="text-[#139dc7] font-bold animate-pulse">Loading Results</p>
         </div>
       </div>
     );
