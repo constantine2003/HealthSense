@@ -47,19 +47,19 @@ const Home: React.FC = () => {
       if (profileError) console.warn("Profile Lookup Error:", profileError.message);
 
       if (profile) {
-        // IF profile exists: use recovery_email if they have one, 
-        // otherwise use the kiosk.local fallback
         loginEmail = profile.recovery_email 
           ? profile.recovery_email 
           : `${profile.username}@kiosk.local`;
+        console.log("Found Profile! Using Email:", loginEmail); // DEBUG
       } else {
-        // IF no profile found by username: maybe they typed their full email or are a .local user?
         loginEmail = userInput.includes("@") 
           ? userInput 
           : `${userInput}@kiosk.local`;
+        console.log("No Profile Found. Falling back to:", loginEmail); // DEBUG
       }
 
-      // 2. AUTHENTICATE: Use the resolved email to sign in
+      console.log("Final attempt with Password:", passwordInput); // DEBUG
+
       const { data, error: authError } = await supabase.auth.signInWithPassword({
         email: loginEmail,
         password: passwordInput,

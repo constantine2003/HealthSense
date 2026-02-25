@@ -22,9 +22,86 @@ const Result: React.FC = () => {
   const navigate = useNavigate();
   const [loading, setLoading] = useState(true);
   const [latestRecord, setLatestRecord] = useState<HealthRecord | null>(null);
+  const [language, setLanguage] = useState<"English" | "Tagalog">("English");
+
+  // Translation Object
+  const content = {
+    English: {
+      back: "Back to Dashboard",
+      header: "Latest Checkup Result",
+      subHeader: "via HealthSense Kiosk",
+      condition: "Overall Condition",
+      excellent: "EXCELLENT",
+      stable: "STABLE",
+      summary: "Report Summary",
+      print: "Print",
+      export: "Export PDF",
+      insights: "Health Insights",
+      sync: "Syncing Latest Vitals...",
+      noRecord: "No Records Found",
+      returnBtn: "Return to Dashboard",
+      vitals: {
+        spo2: "SpO2",
+        temp: "Temperature",
+        height: "Height",
+        weight: "Weight",
+        bmi: "BMI",
+        bp: "Blood Pressure"
+      },
+      status: {
+        normal: "Normal",
+        low: "Low",
+        high: "High",
+        fever: "Fever",
+        highFever: "High Fever",
+        ideal: "Ideal",
+        elevated: "Elevated",
+        under: "Underweight",
+        over: "Overweight",
+        obese: "Obese",
+        noData: "No Data"
+      }
+    },
+    Tagalog: {
+      back: "Bumalik sa Dashboard",
+      header: "Pinakabagong Resulta",
+      subHeader: "gamit ang HealthSense Kiosk",
+      condition: "Pangkalahatang Kalagayan",
+      excellent: "NAPAKAHUSAY",
+      stable: "MAAYOS",
+      summary: "Buod ng Report",
+      print: "I-print",
+      export: "I-download",
+      insights: "Kaalaman sa Kalusugan",
+      sync: "Sini-sync ang mga Resulta...",
+      noRecord: "Walang Nahanap na Record",
+      returnBtn: "Bumalik sa Dashboard",
+      vitals: {
+        spo2: "Oksiheno",
+        temp: "Temperatura",
+        height: "Tangkad",
+        weight: "Timbang",
+        bmi: "BMI",
+        bp: "Presyon ng Dugo"
+      },
+      status: {
+        normal: "Normal",
+        low: "Mababa",
+        high: "Mataas",
+        fever: "May Lagnat",
+        highFever: "Mataas na Lagnat",
+        ideal: "Tamang Presyon",
+        elevated: "Tumataas",
+        under: "Payat",
+        over: "Mabigat",
+        obese: "Obese",
+        noData: "Walang Data"
+      }
+    }
+  };
 
   useEffect(() => {
-    const fetchLatestResult = async () => {
+    const fetchData = async () => {
       try {
         setLoading(true);
         const { data: { user } } = await supabase.auth.getUser();
@@ -34,7 +111,16 @@ const Result: React.FC = () => {
           return;
         }
 
-        // Fetch only the single most recent record for this user
+        // 1. Fetch Profile for Language preference
+        const { data: profile } = await supabase
+          .from("profiles")
+          .select("language")
+          .eq("id", user.id)
+          .single();
+        
+        if (profile?.language) setLanguage(profile.language as "English" | "Tagalog");
+
+        // 2. Fetch Latest Health Record
         const { data, error } = await supabase
           .from("health_checkups")
           .select("spo2, temperature, height, weight, bmi, blood_pressure, created_at")
@@ -48,7 +134,7 @@ const Result: React.FC = () => {
         if (data) {
           const timestamp = new Date(data.created_at);
           setLatestRecord({
-            date: timestamp.toLocaleDateString('en-US', { month: 'long', day: 'numeric', year: 'numeric' }),
+            date: timestamp.toLocaleDateString(profile?.language === "Tagalog" ? 'tl-PH' : 'en-US', { month: 'long', day: 'numeric', year: 'numeric' }),
             time: timestamp.toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' }),
             oxygen: data.spo2?.toString() || "--",
             temp: data.temperature?.toString() || "--",
@@ -59,21 +145,67 @@ const Result: React.FC = () => {
           });
         }
       } catch (err) {
-        console.error("Error fetching latest result:", err);
+        console.error("Error fetching data:", err);
       } finally {
-        setLoading(false);
+        setTimeout(() => setLoading(false), 800); // Eye-friendly delay similar to dashboard
       }
     };
 
-    fetchLatestResult();
+    fetchData();
   }, [navigate]);
+
+  const getHealthData = (record: HealthRecord) => {
+    const lang = content[language];
+    const { oxygen: spo2, temp, height, weight, bmi: bmiVal, bp } = record;
+    const healthData = [];
+
+    // SpO2 logic
+    let spo2Status = lang.status.normal, spo2Type: StatusType = "success";
+    const s = Number(spo2);
+    if (isNaN(s)) { spo2Status = lang.status.noData; spo2Type = "warning"; }
+    else if (s < 95) { spo2Status = lang.status.low; spo2Type = "danger"; }
+    healthData.push({ title: lang.vitals.spo2, value: spo2, unit: "%", status: spo2Status, type: spo2Type, icon: <FiActivity /> });
+
+    // Temp logic
+    let tempStatus = lang.status.normal, tempType: StatusType = "success";
+    const t = Number(temp);
+    if (isNaN(t)) { tempStatus = lang.status.noData; tempType = "warning"; }
+    else if (t > 37.5 && t <= 39) { tempStatus = lang.status.fever; tempType = "warning"; }
+    else if (t > 39) { tempStatus = lang.status.highFever; tempType = "danger"; }
+    healthData.push({ title: lang.vitals.temp, value: temp, unit: "°C", status: tempStatus, type: tempType, icon: <FiThermometer /> });
+
+    // BMI & Weight
+    let bmiStatus = lang.status.normal, bmiType: StatusType = "success";
+    const b = Number(bmiVal);
+    if (isNaN(b)) { bmiStatus = lang.status.noData; bmiType = "warning"; }
+    else if (b < 18.5) { bmiStatus = lang.status.under; bmiType = "warning"; }
+    else if (b >= 25 && b < 30) { bmiStatus = lang.status.over; bmiType = "warning"; }
+    else if (b >= 30) { bmiStatus = lang.status.obese; bmiType = "danger"; }
+    
+    healthData.push({ title: lang.vitals.weight, value: weight, unit: "kg", status: bmiStatus, type: bmiType, icon: <MdMonitorWeight /> });
+    healthData.push({ title: lang.vitals.bmi, value: bmiVal, unit: "", status: bmiStatus, type: bmiType, icon: <FiBarChart /> });
+
+    // Height
+    healthData.push({ title: lang.vitals.height, value: height, unit: "m", status: lang.status.normal, type: "success" as StatusType, icon: <MdHeight /> });
+
+    // Blood Pressure
+    let bpStatus = lang.status.ideal, bpType: StatusType = "success";
+    if (bp && bp.includes("/") && !bp.includes("--")) {
+      const [sys, dia] = bp.split("/").map(Number);
+      if (sys > 140 || dia > 90) { bpStatus = lang.status.high; bpType = "danger"; }
+      else if (sys > 120 || dia > 80) { bpStatus = lang.status.elevated; bpType = "warning"; }
+    } else { bpStatus = lang.status.noData; bpType = "warning"; }
+    healthData.push({ title: lang.vitals.bp, value: bp, unit: "mmHg", status: bpStatus, type: bpType, icon: <FiHeart /> });
+
+    return healthData;
+  };
 
   if (loading) {
     return (
       <div className="min-h-screen flex items-center justify-center bg-[#eaf4ff]">
         <div className="text-center">
           <div className="w-16 h-16 border-4 border-[#139dc7] border-t-transparent rounded-full animate-spin mx-auto mb-4"></div>
-          <p className="text-[#139dc7] font-bold animate-pulse">Syncing Latest Vitals...</p>
+          <p className="text-[#139dc7] font-bold animate-pulse">{content[language].sync}</p>
         </div>
       </div>
     );
@@ -83,29 +215,27 @@ const Result: React.FC = () => {
     return (
       <div className="min-h-screen flex items-center justify-center bg-[#eaf4ff]">
         <div className="text-center p-10 bg-white/50 rounded-[40px] backdrop-blur-md border border-white">
-          <h2 className="text-2xl font-bold text-[#0a4d61] mb-4">No Records Found</h2>
+          <h2 className="text-2xl font-bold text-[#0a4d61] mb-4">{content[language].noRecord}</h2>
           <button onClick={() => navigate('/dashboard')} className="text-[#139dc7] font-bold flex items-center gap-2 mx-auto">
-            <FaArrowLeft /> Return to Dashboard
+            <FaArrowLeft /> {content[language].returnBtn}
           </button>
         </div>
       </div>
     );
   }
 
-  // Basic logic to determine if things are "Excellent"
   const isHealthy = Number(latestRecord.oxygen) >= 95 && Number(latestRecord.bmi) < 25;
 
   return (
     <div className="min-h-screen bg-[linear-gradient(120deg,#eaf4ff_0%,#cbe5ff_40%,#b0d0ff_70%,#9fc5f8_100%)] font-['Lexend'] overflow-x-hidden">
       
-      <header className="w-full px-8 lg:px-16 py-6 flex justify-between items-center z-50 shrink-0">
+      <header className="w-full px-8 lg:px-16 py-6 flex justify-between items-center z-50">
         <button 
           onClick={() => navigate('/dashboard')}
           className="flex items-center gap-2 text-[#139dc7] font-bold hover:gap-4 transition-all active:scale-95"
         >
-          <FaArrowLeft /> Back to Dashboard
+          <FaArrowLeft /> {content[language].back}
         </button>
-        
       </header>
 
       <main className="max-w-5xl mx-auto px-6 pb-20">
@@ -114,88 +244,67 @@ const Result: React.FC = () => {
         <div className="bg-white/70 backdrop-blur-xl rounded-[40px] p-8 md:p-12 border border-white shadow-2xl mb-6 flex flex-col md:flex-row justify-between items-center gap-6">
           <div className="text-center md:text-left">
             <div className="flex items-center justify-center md:justify-start gap-3 text-[#139dc7] font-bold uppercase tracking-widest text-sm mb-2">
-              <FaCalendarCheck /> Latest Checkup Result
+              <FaCalendarCheck /> {content[language].header}
             </div>
             <h1 className="text-4xl md:text-5xl font-black text-[#0a4d61]">{latestRecord.date}</h1>
-            <p className="text-[#139dc7] font-medium mt-1">Recorded at {latestRecord.time} via HealthSense Kiosk</p>
+            <p className="text-[#139dc7] font-medium mt-1">
+                {language === "Tagalog" ? "Naitala noong " : "Recorded at "}
+                {latestRecord.time} {content[language].subHeader}
+            </p>
           </div>
-          <div className={`${isHealthy ? 'bg-green-500 shadow-green-200' : 'bg-orange-500 shadow-orange-200'} text-white px-8 py-4 rounded-3xl font-bold text-center shadow-xl transition-colors duration-500`}>
-            <p className="text-[10px] uppercase opacity-80 mb-1">Overall Condition</p>
-            <p className="text-2xl">{isHealthy ? "EXCELLENT" : "STABLE"}</p>
+          <div className={`${isHealthy ? 'bg-green-500 shadow-green-200' : 'bg-orange-500 shadow-orange-200'} text-white px-8 py-4 rounded-3xl font-bold text-center shadow-xl transition-colors duration-500 min-w-48`}>
+            <p className="text-[10px] uppercase opacity-80 mb-1">{content[language].condition}</p>
+            <p className="text-2xl">{isHealthy ? content[language].excellent : content[language].stable}</p>
           </div>
         </div>
 
         {/* ACTION BAR */}
         <div className="flex flex-wrap items-center justify-between gap-4 mb-8 px-4">
           <h3 className="text-[#0a4d61] font-bold flex items-center gap-2 text-lg">
-            <FiInfo className="text-[#139dc7]" /> Report Summary
+            <FiInfo className="text-[#139dc7]" /> {content[language].summary}
           </h3>
           <div className="flex items-center gap-3">
-            <button className="flex items-center gap-2 px-5 py-2.5 bg-white/60 hover:bg-white text-[#139dc7] rounded-full border border-white font-bold text-xs transition-all shadow-sm active:scale-90">
-              <FaPrint size={12} /> Print
+            <button className="flex items-center gap-2 px-5 py-2.5 bg-white/60 hover:bg-white text-[#139dc7] rounded-full border border-white font-bold text-xs transition-all shadow-sm">
+              <FaPrint size={12} /> {content[language].print}
             </button>
-            <button className="flex items-center gap-2 px-6 py-2.5 bg-[#139dc7] hover:bg-[#0a4d61] text-white rounded-full font-bold text-xs transition-all shadow-lg shadow-blue-900/10 active:scale-95">
-              <FaDownload size={12} /> Export PDF
+            <button className="flex items-center gap-2 px-6 py-2.5 bg-[#139dc7] hover:bg-[#0a4d61] text-white rounded-full font-bold text-xs transition-all shadow-lg">
+              <FaDownload size={12} /> {content[language].export}
             </button>
           </div>
         </div>
 
         {/* RESULTS GRID */}
         <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-6">
-          <ResultCard 
-            icon={<FiActivity />} 
-            label="Blood Oxygen" 
-            value={latestRecord.oxygen} 
-            unit="%" 
-            status={Number(latestRecord.oxygen) >= 95 ? "Normal" : "Low"} 
-            type={Number(latestRecord.oxygen) >= 95 ? "success" : "danger"} 
-          />
-          <ResultCard 
-            icon={<FiHeart />} 
-            label="Blood Pressure" 
-            value={latestRecord.bp} 
-            unit="mmHg" 
-            status="Recorded" 
-            type="success" 
-          />
-          <ResultCard 
-            icon={<FiThermometer />} 
-            label="Body Temp" 
-            value={latestRecord.temp} 
-            unit="°C" 
-            status={Number(latestRecord.temp) <= 37.5 ? "Normal" : "Elevated"} 
-            type={Number(latestRecord.temp) <= 37.5 ? "success" : "warning"} 
-          />
-          <ResultCard 
-            icon={<FiBarChart />} 
-            label="Body Mass Index" 
-            value={latestRecord.bmi} 
-            unit="" 
-            status={Number(latestRecord.bmi) < 25 ? "Normal" : "Overweight"} 
-            type={Number(latestRecord.bmi) < 25 ? "success" : "warning"} 
-          />
-          <ResultCard icon={<MdMonitorWeight />} label="Weight" value={latestRecord.weight} unit="kg" status="Stable" type="success" />
-          <ResultCard icon={<MdHeight />} label="Height" value={latestRecord.height} unit="m" status="Recorded" type="success" />
+          {getHealthData(latestRecord).map((data, index) => (
+            <ResultCard 
+              key={index}
+              {...data}
+            />
+          ))}
         </div>
 
-        {/* HEALTH INSIGHTS SECTION */}
+        {/* HEALTH INSIGHTS */}
         <section className="mt-12 bg-[#0a4d61] rounded-[40px] p-8 md:p-10 text-white shadow-2xl relative overflow-hidden">
           <div className="relative z-10">
             <h3 className="flex items-center gap-2 text-xl font-bold mb-4">
-              <FiInfo className="text-[#9fc5f8]" /> Health Insights
+              <FiInfo className="text-[#9fc5f8]" /> {content[language].insights}
             </h3>
             <div className="grid md:grid-cols-2 gap-8">
               <p className="text-blue-100/80 leading-relaxed text-lg">
-                Your SpO2 levels of <span className="text-white font-bold">{latestRecord.oxygen}%</span> are within the optimal range. Your BMI of <span className="text-white font-bold">{latestRecord.bmi}</span> indicates a {Number(latestRecord.bmi) < 25 ? "healthy" : "monitored"} weight for your height.
+                {language === "English" ? (
+                  <>Your SpO2 levels of <span className="text-white font-bold">{latestRecord.oxygen}%</span> are within the optimal range. Your BMI of <span className="text-white font-bold">{latestRecord.bmi}</span> indicates a {Number(latestRecord.bmi) < 25 ? "healthy" : "monitored"} weight.</>
+                ) : (
+                  <>Ang iyong SpO2 na <span className="text-white font-bold">{latestRecord.oxygen}%</span> ay nasa tamang range. Ang iyong BMI na <span className="text-white font-bold">{latestRecord.bmi}</span> ay nagpapakita ng {Number(latestRecord.bmi) < 25 ? "malusog" : "binabantayang"} timbang.</>
+                )}
               </p>
               <ul className="space-y-4">
                 <li className="flex items-center gap-3 text-sm font-medium">
-                  <div className="w-2.5 h-2.5 rounded-full bg-green-400 shadow-[0_0_10px_rgba(74,222,128,0.5)]" /> 
-                  Maintain current hydration and activity levels.
+                  <div className="w-2.5 h-2.5 rounded-full bg-green-400" /> 
+                  {language === "English" ? "Maintain hydration." : "Uminom ng sapat na tubig."}
                 </li>
                 <li className="flex items-center gap-3 text-sm font-medium">
-                  <div className="w-2.5 h-2.5 rounded-full bg-blue-300 shadow-[0_0_10px_rgba(147,197,253,0.5)]" /> 
-                  Data synced with HealthSense Cloud Infrastructure.
+                  <div className="w-2.5 h-2.5 rounded-full bg-blue-300" /> 
+                  {language === "English" ? "Data synced with Cloud." : "Naka-sync ang data sa Cloud."}
                 </li>
               </ul>
             </div>
@@ -207,8 +316,7 @@ const Result: React.FC = () => {
   );
 };
 
-// Reusable Card Component (remains the same as your provided code)
-const ResultCard = ({ icon, label, value, unit, status, type }: { icon: any, label: string, value: string, unit: string, status: string, type: StatusType }) => {
+const ResultCard = ({ icon, title, value, unit, status, type }: { icon: any, title: string, value: string, unit: string, status: string, type: StatusType }) => {
   const typeColors = {
     success: "bg-green-500/10 text-green-600 border-green-200",
     warning: "bg-orange-500/10 text-orange-600 border-orange-200",
@@ -216,7 +324,7 @@ const ResultCard = ({ icon, label, value, unit, status, type }: { icon: any, lab
   };
 
   return (
-    <div className="bg-white/80 backdrop-blur-md border border-white p-7 rounded-4xl shadow-lg group hover:bg-white transition-all hover:shadow-xl hover:-translate-y-1">
+    <div className="bg-white/80 backdrop-blur-md border border-white p-7 rounded-4xl shadow-lg group hover:bg-white transition-all hover:-translate-y-1">
       <div className="flex justify-between items-start mb-6">
         <div className="w-14 h-14 bg-[#139dc7]/10 rounded-2xl flex items-center justify-center text-[#139dc7] text-3xl group-hover:bg-[#139dc7] group-hover:text-white transition-all duration-300">
           {icon}
@@ -226,7 +334,7 @@ const ResultCard = ({ icon, label, value, unit, status, type }: { icon: any, lab
         </span>
       </div>
       <div>
-        <p className="text-xs font-bold text-[#139dc7]/50 uppercase tracking-widest mb-1">{label}</p>
+        <p className="text-xs font-bold text-[#139dc7]/50 uppercase tracking-widest mb-1">{title}</p>
         <div className="flex items-baseline gap-1">
           <span className="text-4xl font-black text-[#0a4d61]">{value}</span>
           <span className="text-sm font-bold text-[#139dc7]">{unit}</span>

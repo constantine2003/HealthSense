@@ -272,7 +272,7 @@ const Profile: React.FC = () => {
               ].map((item, i) => (
                 <div key={i} className={`bg-white/50 border border-white p-4 lg:p-5 rounded-2xl hover:bg-white transition-colors ${item.full ? 'col-span-2' : 'col-span-1'}`}>
                   <label className="text-[8px] lg:text-[10px] font-black text-[#139dc7] uppercase mb-1 tracking-tight opacity-50 block">{item.label}</label>
-                  <p className="text-sm lg:text-lg font-bold text-[#0a4d61] leading-tight uppercase truncate">{item.value}</p>
+                  <p className="text-sm lg:text-lg font-bold text-[#0a4d61] leading-tight truncate">{item.value}</p>
                 </div>
               ))}
             </div>
