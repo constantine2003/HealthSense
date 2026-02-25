@@ -26,6 +26,7 @@ const History: React.FC = () => {
   const [historyData, setHistoryData] = useState<Record[]>([]);
   const [loading, setLoading] = useState(true);
   const [language, setLanguage] = useState<"English" | "Tagalog">("English");
+  const [units, setUnits] = useState<"metric" | "imperial">("metric");
 
   // Translation Object
   const content = {
@@ -49,7 +50,7 @@ const History: React.FC = () => {
         height: "Height",
         weight: "Weight",
         bmi: "BMI",
-        bp: "Blood Pressure"
+        bp: "BP"
       },
       status: {
         normal: "Normal",
@@ -87,7 +88,7 @@ const History: React.FC = () => {
         height: "Tangkad",
         weight: "Timbang",
         bmi: "BMI",
-        bp: "Presyon ng Dugo"
+        bp: "BP"
       },
       status: {
         normal: "Karaniwan",
@@ -111,23 +112,23 @@ const History: React.FC = () => {
     const fetchData = async () => {
       try {
         setLoading(true);
-        
         const { data: { user } } = await supabase.auth.getUser();
         if (!user) {
           navigate("/");
           return;
         }
 
-        // 1. Fetch Profile Language
+        // 2. Fetch Profile Language AND Units
         const { data: profile } = await supabase
           .from("profiles")
-          .select("language")
+          .select("language, units")
           .eq("id", user.id)
           .single();
         
         if (profile?.language) setLanguage(profile.language as "English" | "Tagalog");
+        // Set units from DB (fallback to metric)
+        if (profile?.units) setUnits(profile.units.toLowerCase() as "metric" | "imperial");
 
-        // 2. Fetch History Records
         const { data, error } = await supabase
           .from("health_checkups")
           .select("spo2, temperature, height, weight, bmi, blood_pressure, created_at")
@@ -156,11 +157,9 @@ const History: React.FC = () => {
       } catch (err) {
         console.error("Error fetching health history:", err);
       } finally {
-        // Aesthetic delay for the kiosk loader
         setTimeout(() => setLoading(false), 800);
       }
     };
-
     fetchData();
   }, [navigate]);
 
@@ -186,43 +185,56 @@ const History: React.FC = () => {
   // HEALTH LOGIC PROCESSOR WITH TRANSLATION
   const getHealthData = (record: Record) => {
     const lang = content[language];
+    const isMetric = units === "metric";
     const { oxygen: spo2, temp, height, weight, bmi: bmiVal, bp } = record;
     const healthData = [];
 
-    // SpO2
+    // SpO2 (Universal %)
     let spo2Status = lang.status.normal, spo2Type: StatusType = "success";
     const s = Number(spo2);
     if (s < 95) { spo2Status = lang.status.low; spo2Type = "danger"; }
     else if (s <= 98) { spo2Status = lang.status.normal; spo2Type = "warning"; }
     healthData.push({ title: lang.vitals.spo2, value: spo2, unit: "%", status: spo2Status, type: spo2Type, icon: <FiActivity /> });
 
-    // Temperature
+    // Temperature (C to F)
     let tempStatus = lang.status.normal, tempType: StatusType = "success";
     const t = Number(temp);
+    const displayTemp = isMetric ? t : (t * 9/5) + 32;
     if (t < 30) { tempStatus = lang.status.hypo; tempType = "danger"; }
     else if (t <= 37.5) { tempStatus = lang.status.normal; tempType = "success"; }
     else if (t <= 39) { tempStatus = lang.status.fever; tempType = "warning"; }
     else { tempStatus = lang.status.highFever; tempType = "danger"; }
-    healthData.push({ title: lang.vitals.temp, value: temp, unit: "°C", status: tempStatus, type: tempType, icon: <FiThermometer /> });
+    healthData.push({ title: lang.vitals.temp, value: displayTemp.toFixed(1), unit: isMetric ? "°C" : "°F", status: tempStatus, type: tempType, icon: <FiThermometer /> });
 
-    // Height
+    // Height (Fixed: 180cm -> 1.80m or 70.9in)
     let heightStatus = lang.status.average, heightType: StatusType = "success";
-    const h = Number(height);
-    if (h < 1.5) { heightStatus = lang.status.belowAverage; heightType = "danger"; }
-    healthData.push({ title: lang.vitals.height, value: height, unit: "m", status: heightStatus, type: heightType, icon: <MdHeight /> });
+    const rawH = Number(height);
+    const heightInMeters = rawH / 100; // Corrects the 180 to 1.80
+    const displayHeight = isMetric ? heightInMeters : (heightInMeters * 39.3701);
+    if (heightInMeters < 1.5) { heightStatus = lang.status.belowAverage; heightType = "danger"; }
+    healthData.push({ 
+        title: lang.vitals.height, 
+        value: isMetric ? heightInMeters.toFixed(2) : displayHeight.toFixed(1), 
+        unit: isMetric ? "m" : "in", 
+        status: heightStatus, 
+        type: heightType, 
+        icon: <MdHeight /> 
+    });
 
-    // Weight & BMI
+    // Weight (kg to lb)
     let bmiStatus = lang.status.normal, bmiType: StatusType = "success";
+    const w = Number(weight);
+    const displayWeight = isMetric ? w : (w * 2.20462);
     const b = Number(bmiVal);
     if (b < 18.5) { bmiStatus = lang.status.under; bmiType = "warning"; }
     else if (b < 25) { bmiStatus = lang.status.normal; bmiType = "success"; }
     else if (b < 30) { bmiStatus = lang.status.over; bmiType = "warning"; }
     else { bmiStatus = lang.status.obese; bmiType = "danger"; }
 
-    healthData.push({ title: lang.vitals.weight, value: weight, unit: "kg", status: bmiStatus, type: bmiType, icon: <MdMonitorWeight /> });
+    healthData.push({ title: lang.vitals.weight, value: displayWeight.toFixed(1), unit: isMetric ? "kg" : "lb", status: bmiStatus, type: bmiType, icon: <MdMonitorWeight /> });
     healthData.push({ title: lang.vitals.bmi, value: bmiVal, unit: "", status: bmiStatus, type: bmiType, icon: <FiBarChart /> });
 
-    // Blood Pressure
+    // Blood Pressure (Universal mmHg)
     let bpStatus = lang.status.ideal, bpType: StatusType = "success";
     if (bp.includes("/")) {
       const [systolic, diastolic] = bp.split("/").map(Number);
@@ -283,22 +295,27 @@ const History: React.FC = () => {
                   </div>
 
                   <div className="flex-1 grid grid-cols-2 sm:grid-cols-3 md:grid-cols-6 gap-4 w-full">
-                    {[
-                      { label: content[language].vitals.spo2, val: record.oxygen + "%" },
-                      { label: content[language].vitals.temp, val: record.temp + "°C" },
-                      { label: content[language].vitals.height, val: record.height + "m" },
-                      { label: content[language].vitals.weight, val: record.weight + "kg" },
-                      { label: content[language].vitals.bmi, val: record.bmi },
-                      { label: content[language].vitals.bp, val: record.bp, long: true }
-                    ].map((stat, i) => (
-                      <div key={i} className="bg-white/50 border border-white p-4 rounded-2xl shadow-sm group-hover:bg-white transition-colors">
-                        <p className="text-[10px] font-black text-[#139dc7] uppercase mb-2 tracking-tight opacity-50">{stat.label}</p>
-                        <p className={`font-bold text-[#0a4d61] ${stat.long ? 'text-sm md:text-base' : 'text-lg'} leading-none`}>
-                          {stat.val}
-                        </p>
-                      </div>
-                    ))}
-                  </div>
+  {/* We call the function here to get the converted values and correct units */}
+  {getHealthData(record).map((stat, i) => (
+    <div 
+      key={i} 
+      className="bg-white/50 border border-white p-4 rounded-2xl shadow-sm group-hover:bg-white transition-colors"
+    >
+      <p className="text-[10px] font-black text-[#139dc7] uppercase mb-2 tracking-tight opacity-50">
+        {stat.title}
+      </p>
+      <p className={`font-bold text-[#0a4d61] ${stat.title === content[language].vitals.bp ? 'text-sm md:text-base' : 'text-lg'} leading-none`}>
+        {stat.value}
+        {/* Only show the unit if it exists (BMI doesn't have one) */}
+        {stat.unit && (
+          <span className="text-[10px] ml-0.5 opacity-60 font-medium">
+            {stat.unit}
+          </span>
+        )}
+      </p>
+    </div>
+  ))}
+</div>
 
                   <button 
                     onClick={() => setSelectedRecord(record)}
