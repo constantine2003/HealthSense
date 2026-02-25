@@ -140,7 +140,7 @@ const History: React.FC = () => {
         
       </header>
 
-      <main className="flex-1 w-full max-w-[1440px] mx-auto px-6 lg:px-12 flex flex-col min-h-0">
+      <main className="flex-1 w-full max-w-360 mx-auto px-6 lg:px-12 flex flex-col min-h-0">
         <section className="mb-8 shrink-0 text-center lg:text-left">
           <h1 className="text-4xl font-bold text-[#139dc7] m-0">Checkup History</h1>
           <p className="text-[#139dc7]/60 mb-6">Review your past health checkups below.</p>
@@ -213,7 +213,7 @@ const History: React.FC = () => {
 
       {/* VIEW DETAILS MODAL */}
       {selectedRecord && (
-        <div className="fixed inset-0 z-[100] flex items-center justify-center p-4 sm:p-8 bg-[#001b2e]/60 backdrop-blur-xl animate-in fade-in duration-300">
+        <div className="fixed inset-0 z-100 flex items-center justify-center p-4 sm:p-8 bg-[#001b2e]/60 backdrop-blur-xl animate-in fade-in duration-300">
           
           {/* Background Overlay Click to Close */}
           <div className="absolute inset-0" onClick={() => setSelectedRecord(null)} />
@@ -252,7 +252,7 @@ const History: React.FC = () => {
                 {getHealthData(selectedRecord).map((data, i) => (
                   <div 
                     key={i} 
-                    className="group flex items-center gap-5 p-6 bg-white rounded-[32px] border border-[#139dc7]/5 shadow-[0_4px_20px_rgba(0,0,0,0.03)] hover:border-[#139dc7]/20 transition-all"
+                    className="group flex items-center gap-5 p-6 bg-white rounded-4xl border border-[#139dc7]/5 shadow-[0_4px_20px_rgba(0,0,0,0.03)] hover:border-[#139dc7]/20 transition-all"
                   >
                     {/* Icon Container */}
                     <div className={`w-16 h-16 rounded-2xl flex items-center justify-center text-3xl shrink-0 transition-transform group-hover:scale-110 ${
