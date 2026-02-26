@@ -50,10 +50,10 @@ const Profile: React.FC = () => {
           return;
         }
 
-        // 1. Added 'units' to the select query
+        // 1. Added 'large_text' to the select query
         const { data, error } = await supabase
           .from("profiles")
-          .select("first_name, middle_name, last_name, birthday, sex, recovery_email, language, username, units")
+          .select("first_name, middle_name, last_name, birthday, sex, recovery_email, language, username, units, large_text")
           .eq("id", user.id)
           .single();
 
@@ -64,8 +64,19 @@ const Profile: React.FC = () => {
           setLanguage(data.language || "English");
           setPendingLanguage(data.language || "English");
           
-          // 2. Set the unit state (defaulting to 'metric' if null)
-          // This ensures the correct button (Metric or Imperial) lights up
+          // 2. Sync Large Text state
+          // !! ensures it's a boolean even if the DB returns null
+          const isLarge = !!data.large_text;
+          setLargeText(isLarge);
+
+          // 3. Apply the global CSS class immediately
+          if (isLarge) {
+            document.documentElement.classList.add('large-text-mode');
+          } else {
+            document.documentElement.classList.remove('large-text-mode');
+          }
+
+          // 4. Set the unit state
           if (data.units) {
             setUnits(data.units.toLowerCase() as 'metric' | 'imperial');
           } else {
@@ -94,27 +105,33 @@ const Profile: React.FC = () => {
     return age;
   };
 
+  // Inside Profile.tsx, update your handleSave function:
   const handleSave = async () => {
     try {
       setSaving(true);
       const { data: { user } } = await supabase.auth.getUser();
       if (!user) return;
 
-      // Update both language and units in the Supabase "profiles" table
+      // 1. Update Supabase (Ensure 'large_text' column exists in your 'profiles' table)
       const { error } = await supabase
         .from("profiles")
         .update({
           language: pendingLanguage,
-          units: units // This saves 'metric' or 'imperial' to your units column
+          units: units,
+          large_text: largeText // Add this line
         })
         .eq("id", user.id);
 
       if (error) throw error;
 
-      // Commit the changes to the app state
-      setLanguage(pendingLanguage);
-      // setUnits(units); // Ensure your local state is synced
+      // 2. APPLY TO DOM IMMEDIATELY
+      if (largeText) {
+        document.documentElement.classList.add('large-text-mode');
+      } else {
+        document.documentElement.classList.remove('large-text-mode');
+      }
 
+      setLanguage(pendingLanguage);
       setSaveStatus(true);
       setTimeout(() => setSaveStatus(false), 3000);
     } catch (err) {
@@ -298,20 +315,27 @@ const Profile: React.FC = () => {
 
               <div className="space-y-5 lg:space-y-6">
                 {/* LARGE TEXT TOGGLE */}
-                <div className="flex items-center justify-between p-4 bg-white/40 rounded-2xl border border-white/50">
-                  <div className="flex items-center gap-3">
-                    <FaEye className="text-[#139dc7]" size={18} />
-                    <h3 className="text-xs lg:text-sm font-black text-[#0a4d61] uppercase">
-                       {language === "English" ? "Large Text" : "Malaking Teksto"}
-                    </h3>
-                  </div>
-                  <button 
-                    onClick={() => setLargeText(!largeText)}
-                    className={`w-11 h-6 lg:w-13 lg:h-7 rounded-full transition-all relative ${largeText ? 'bg-[#139dc7]' : 'bg-gray-200'}`}
-                  >
-                    <div className={`absolute top-1 w-4 h-4 lg:w-5 lg:h-5 bg-white rounded-full shadow transition-all ${largeText ? 'left-6 lg:left-7' : 'left-1'}`} />
-                  </button>
-                </div>
+                <div className="flex flex-col gap-2 p-4 bg-white/40 rounded-2xl border border-white/50">
+  <div className="flex items-center justify-between">
+    <div className="flex items-center gap-3">
+      <FaEye className="text-[#139dc7]" size={18} />
+      <h3 className="text-xs lg:text-sm font-black text-[#0a4d61] uppercase">
+        {language === "English" ? "Large Display" : "Malaking Display"}
+      </h3>
+    </div>
+    <button 
+      onClick={() => setLargeText(!largeText)}
+      className={`w-11 h-6 lg:w-13 lg:h-7 rounded-full transition-all relative ${largeText ? 'bg-[#139dc7]' : 'bg-gray-200'}`}
+    >
+      <div className={`absolute top-1 w-4 h-4 lg:w-5 lg:h-5 bg-white rounded-full shadow transition-all ${largeText ? 'left-6 lg:left-7' : 'left-1'}`} />
+    </button>
+  </div>
+  <p className="text-[9px] font-medium text-[#139dc7]/60 italic leading-tight">
+    {language === "English" 
+      ? "Increases text size and button scale for easier navigation." 
+      : "Pinapalaki ang teksto at mga pindutan para sa mas madaling paggamit."}
+  </p>
+</div>
 
                 {/* MEASUREMENT UNITS */}
                 <div className="space-y-2">

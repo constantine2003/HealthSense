@@ -36,3 +36,16 @@
   scrollbar-width: thin;
   scrollbar-color: rgba(19, 157, 199, 0.3) transparent;
 }
+
+:root {
+  --ui-scale: 1; /* Default 100% */
+  /* This ensures that 1rem = 16px * scale. 
+     If scale is 1.25, 1rem becomes 20px. */
+  font-size: calc(16px * var(--ui-scale));
+  transition: font-size 0.3s ease-in-out;
+}
+
+/* This targets standard Tailwind classes like text-base, text-xl, etc. */
+html.large-text-mode {
+  --ui-scale: 1.25; /* Bumps everything by 25% */
+}

@@ -295,27 +295,27 @@ const History: React.FC = () => {
                   </div>
 
                   <div className="flex-1 grid grid-cols-2 sm:grid-cols-3 md:grid-cols-6 gap-4 w-full">
-  {/* We call the function here to get the converted values and correct units */}
-  {getHealthData(record).map((stat, i) => (
-    <div 
-      key={i} 
-      className="bg-white/50 border border-white p-4 rounded-2xl shadow-sm group-hover:bg-white transition-colors"
-    >
-      <p className="text-[10px] font-black text-[#139dc7] uppercase mb-2 tracking-tight opacity-50">
-        {stat.title}
-      </p>
-      <p className={`font-bold text-[#0a4d61] ${stat.title === content[language].vitals.bp ? 'text-sm md:text-base' : 'text-lg'} leading-none`}>
-        {stat.value}
-        {/* Only show the unit if it exists (BMI doesn't have one) */}
-        {stat.unit && (
-          <span className="text-[10px] ml-0.5 opacity-60 font-medium">
-            {stat.unit}
-          </span>
-        )}
-      </p>
-    </div>
-  ))}
-</div>
+                    {/* We call the function here to get the converted values and correct units */}
+                    {getHealthData(record).map((stat, i) => (
+                      <div 
+                        key={i} 
+                        className="bg-white/50 border border-white p-4 rounded-2xl shadow-sm group-hover:bg-white transition-colors"
+                      >
+                        <p className="text-[10px] font-black text-[#139dc7] uppercase mb-2 tracking-tight opacity-50">
+                          {stat.title}
+                        </p>
+                        <p className={`font-bold text-[#0a4d61] ${stat.title === content[language].vitals.bp ? 'text-sm md:text-base' : 'text-lg'} leading-none`}>
+                          {stat.value}
+                          {/* Only show the unit if it exists (BMI doesn't have one) */}
+                          {stat.unit && (
+                            <span className="text-[10px] ml-0.5 opacity-60 font-medium">
+                              {stat.unit}
+                            </span>
+                          )}
+                        </p>
+                      </div>
+                    ))}
+                  </div>
 
                   <button 
                     onClick={() => setSelectedRecord(record)}
@@ -332,54 +332,64 @@ const History: React.FC = () => {
 
       {/* VIEW DETAILS MODAL */}
       {selectedRecord && (
-        <div className="fixed inset-0 z-100 flex items-center justify-center p-4 sm:p-8 bg-[#001b2e]/60 backdrop-blur-xl animate-in fade-in duration-300">
+        <div className="fixed inset-0 z-100 flex items-center justify-center p-3 sm:p-8 bg-[#001b2e]/60 backdrop-blur-xl animate-in fade-in duration-300">
           <div className="absolute inset-0" onClick={() => setSelectedRecord(null)} />
-          <div className="bg-white/95 w-full max-w-2xl rounded-[50px] shadow-[0_32px_64px_rgba(0,0,0,0.2)] overflow-hidden relative border border-white/50 animate-in zoom-in-95 slide-in-from-bottom-10 duration-500">
-            <div className="h-3 w-full bg-linear-to-r from-[#139dc7] to-[#34A0A4]" />
+          
+          {/* Adjusted max-height and overflow-y-auto to prevent cutting off on short screens */}
+          <div className="bg-white/95 w-full max-w-2xl max-h-[90vh] overflow-y-auto rounded-[30px] sm:rounded-[50px] shadow-[0_32px_64px_rgba(0,0,0,0.2)] relative border border-white/50 animate-in zoom-in-95 slide-in-from-bottom-10 duration-500">
+            
+            <div className="sticky top-0 z-20 h-2 sm:h-3 w-full bg-linear-to-r from-[#139dc7] to-[#34A0A4]" />
+            
+            {/* Moved close button for better thumb-reach on mobile/kiosk */}
             <button 
               onClick={() => setSelectedRecord(null)}
-              className="absolute top-8 right-8 w-14 h-14 rounded-2xl bg-slate-100 text-slate-500 flex items-center justify-center hover:bg-red-500 hover:text-white transition-all active:scale-90 shadow-sm z-10"
+              className="absolute top-4 right-4 sm:top-8 sm:right-8 w-10 h-10 sm:w-14 sm:h-14 rounded-xl sm:rounded-2xl bg-slate-100 text-slate-500 flex items-center justify-center hover:bg-red-500 hover:text-white transition-all active:scale-90 shadow-sm z-30"
             >
-              <FaTimes size={24} />
+              <FaTimes size={18} className="sm:text-[24px]" />
             </button>
 
-            <div className="p-8 sm:p-12">
-              <div className="mb-10">
+            <div className="p-6 sm:p-12">
+              <div className="mb-6 sm:mb-10">
                 <div className="flex items-center gap-3 mb-2">
-                  <div className="px-3 py-1 bg-[#139dc7]/10 rounded-lg text-[#139dc7] text-[10px] font-black uppercase tracking-tighter">
+                  <div className="px-3 py-1 bg-[#139dc7]/10 rounded-lg text-[#139dc7] text-[9px] sm:text-[10px] font-black uppercase tracking-tighter">
                     {content[language].diagnosticSummary}
                   </div>
                 </div>
-                <h2 className="text-4xl font-black text-[#0a4d61] tracking-tight">{content[language].reportTitle}</h2>
-                <div className="flex items-center gap-2 mt-2">
+                {/* Responsive Font Size for Title */}
+                <h2 className="text-2xl sm:text-4xl font-black text-[#0a4d61] tracking-tight leading-tight">
+                  {content[language].reportTitle}
+                </h2>
+                <div className="flex items-center gap-2 mt-2 text-xs sm:text-base">
                   <span className="text-[#139dc7] font-bold">{selectedRecord.date}</span>
                   <span className="w-1.5 h-1.5 rounded-full bg-[#139dc7]/30" />
                   <span className="text-[#139dc7]/60 font-medium">{selectedRecord.time}</span>
                 </div>
               </div>
 
-              <div className="grid grid-cols-1 sm:grid-cols-2 gap-5">
+              {/* Changed gap-3 for mobile to save vertical space */}
+              <div className="grid grid-cols-1 sm:grid-cols-2 gap-3 sm:gap-5">
                 {getHealthData(selectedRecord).map((data, i) => (
-                  <div key={i} className="group flex items-center gap-5 p-6 bg-white rounded-4xl border border-[#139dc7]/5 shadow-[0_4px_20px_rgba(0,0,0,0.03)] hover:border-[#139dc7]/20 transition-all">
-                    <div className={`w-16 h-16 rounded-2xl flex items-center justify-center text-3xl shrink-0 transition-transform group-hover:scale-110 ${
+                  <div key={i} className="group flex items-center gap-4 sm:gap-5 p-4 sm:p-6 bg-white rounded-3xl sm:rounded-4xl border border-[#139dc7]/5 shadow-[0_4px_20px_rgba(0,0,0,0.03)] hover:border-[#139dc7]/20 transition-all">
+                    {/* Responsive Icon Size */}
+                    <div className={`w-12 h-12 sm:w-16 sm:h-16 rounded-xl sm:rounded-2xl flex items-center justify-center text-2xl sm:text-3xl shrink-0 transition-transform group-hover:scale-110 ${
                       data.type === 'success' ? 'bg-green-100 text-green-600' : 
                       data.type === 'warning' ? 'bg-orange-100 text-orange-600' : 'bg-red-100 text-red-600'
                     }`}>
                       {data.icon}
                     </div>
 
-                    <div className="flex-1">
-                      <p className="text-[10px] font-black uppercase text-[#139dc7]/40 leading-none mb-1.5 tracking-widest">{data.title}</p>
+                    <div className="flex-1 min-w-0">
+                      <p className="text-[8px] sm:text-[10px] font-black uppercase text-[#139dc7]/40 leading-none mb-1 sm:mb-1.5 tracking-widest truncate">{data.title}</p>
                       <div className="flex items-baseline gap-1">
-                        <p className="text-2xl font-black text-[#0a4d61] leading-none">{data.value}</p>
-                        <span className="text-sm font-bold text-[#0a4d61]/40 uppercase">{data.unit}</span>
+                        <p className="text-xl sm:text-2xl font-black text-[#0a4d61] leading-none">{data.value}</p>
+                        <span className="text-[10px] sm:text-sm font-bold text-[#0a4d61]/40 uppercase">{data.unit}</span>
                       </div>
                       
-                      <div className={`mt-2 inline-flex items-center gap-1.5 px-3 py-1 rounded-full text-[10px] font-black uppercase tracking-tighter ${
+                      <div className={`mt-1.5 sm:mt-2 inline-flex items-center gap-1.5 px-2.5 py-0.5 sm:px-3 sm:py-1 rounded-full text-[8px] sm:text-[10px] font-black uppercase tracking-tighter ${
                         data.type === 'success' ? 'bg-green-500/10 text-green-600' : 
                         data.type === 'warning' ? 'bg-orange-500/10 text-orange-600' : 'bg-red-500/10 text-red-600'
                       }`}>
-                        <span className={`w-1.5 h-1.5 rounded-full animate-pulse ${
+                        <span className={`w-1 h-1 sm:w-1.5 sm:h-1.5 rounded-full animate-pulse ${
                           data.type === 'success' ? 'bg-green-500' : 
                           data.type === 'warning' ? 'bg-orange-500' : 'bg-red-500'
                         }`} />
@@ -390,11 +400,12 @@ const History: React.FC = () => {
                 ))}
               </div>
 
-              <div className="mt-10 pt-8 border-t border-[#139dc7]/10 flex justify-between items-center">
-                <p className="text-[10px] font-bold text-[#139dc7]/30 uppercase tracking-[0.2em]">
+              {/* Footer: Mobile flex-col, Tablet/Desktop flex-row */}
+              <div className="mt-8 sm:mt-10 pt-6 sm:pt-8 border-t border-[#139dc7]/10 flex flex-col sm:flex-row gap-4 justify-between items-center">
+                <p className="text-[9px] sm:text-[10px] font-bold text-[#139dc7]/30 uppercase tracking-[0.2em] text-center">
                   {content[language].verified}
                 </p>
-                <button onClick={() => window.print()} className="text-[#139dc7] text-xs font-black uppercase hover:underline">
+                <button onClick={() => window.print()} className="text-[#139dc7] text-xs font-black uppercase hover:underline p-2">
                   {content[language].download}
                 </button>
               </div>
