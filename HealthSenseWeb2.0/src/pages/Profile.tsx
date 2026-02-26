@@ -316,26 +316,26 @@ const Profile: React.FC = () => {
               <div className="space-y-5 lg:space-y-6">
                 {/* LARGE TEXT TOGGLE */}
                 <div className="flex flex-col gap-2 p-4 bg-white/40 rounded-2xl border border-white/50">
-  <div className="flex items-center justify-between">
-    <div className="flex items-center gap-3">
-      <FaEye className="text-[#139dc7]" size={18} />
-      <h3 className="text-xs lg:text-sm font-black text-[#0a4d61] uppercase">
-        {language === "English" ? "Large Display" : "Malaking Display"}
-      </h3>
-    </div>
-    <button 
-      onClick={() => setLargeText(!largeText)}
-      className={`w-11 h-6 lg:w-13 lg:h-7 rounded-full transition-all relative ${largeText ? 'bg-[#139dc7]' : 'bg-gray-200'}`}
-    >
-      <div className={`absolute top-1 w-4 h-4 lg:w-5 lg:h-5 bg-white rounded-full shadow transition-all ${largeText ? 'left-6 lg:left-7' : 'left-1'}`} />
-    </button>
-  </div>
-  <p className="text-[9px] font-medium text-[#139dc7]/60 italic leading-tight">
-    {language === "English" 
-      ? "Increases text size and button scale for easier navigation." 
-      : "Pinapalaki ang teksto at mga pindutan para sa mas madaling paggamit."}
-  </p>
-</div>
+                  <div className="flex items-center justify-between">
+                    <div className="flex items-center gap-3">
+                      <FaEye className="text-[#139dc7]" size={18} />
+                      <h3 className="text-xs lg:text-sm font-black text-[#0a4d61] uppercase">
+                        {language === "English" ? "Large Display" : "Malaking Display"}
+                      </h3>
+                    </div>
+                    <button 
+                      onClick={() => setLargeText(!largeText)}
+                      className={`w-11 h-6 lg:w-13 lg:h-7 rounded-full transition-all relative ${largeText ? 'bg-[#139dc7]' : 'bg-gray-200'}`}
+                    >
+                      <div className={`absolute top-1 w-4 h-4 lg:w-5 lg:h-5 bg-white rounded-full shadow transition-all ${largeText ? 'left-6 lg:left-7' : 'left-1'}`} />
+                    </button>
+                  </div>
+                  <p className="text-[9px] font-medium text-[#139dc7]/60 italic leading-tight">
+                    {language === "English" 
+                      ? "Increases text size and button scale for easier navigation." 
+                      : "Pinapalaki ang teksto at mga pindutan para sa mas madaling paggamit."}
+                  </p>
+                </div>
 
                 {/* MEASUREMENT UNITS */}
                 <div className="space-y-2">
