@@ -226,7 +226,7 @@ const AdminDashboard = () => {
                   </div>
                 </div>
                 
-                <div className="h-[350px]">
+                <div className="h-87.5">
                   <ResponsiveContainer width="100%" height="100%">
                     <AreaChart data={processedChartData}>
                       <defs>
@@ -339,7 +339,7 @@ const AdminDashboard = () => {
 
       {/* MODAL */}
 {selectedUser && (
-  <div className="fixed inset-0 z-[100] flex items-center justify-center bg-[#0a4d61]/60 backdrop-blur-md p-6 overflow-y-auto">
+  <div className="fixed inset-0 z-100 flex items-center justify-center bg-[#0a4d61]/60 backdrop-blur-md p-6 overflow-y-auto">
     <div className="bg-white/95 backdrop-blur-2xl w-full max-w-4xl rounded-[50px] shadow-2xl border border-white my-auto animate-in zoom-in-95 duration-200 overflow-hidden">
       
       {/* Header */}
@@ -362,7 +362,7 @@ const AdminDashboard = () => {
         <div className="lg:col-span-3 space-y-8">
           <section>
             <h4 className="text-[10px] font-black text-[#0a4d61]/40 uppercase tracking-[0.3em] mb-4 flex items-center gap-2">
-              <span className="w-8 h-[2px] bg-[#139dc7]/20"></span> Primary Identity
+              <span className="w-8 h-0.5 bg-[#139dc7]/20"></span> Primary Identity
             </h4>
             
             <div className="space-y-4">
@@ -395,7 +395,7 @@ const AdminDashboard = () => {
 
           <section>
             <h4 className="text-[10px] font-black text-[#0a4d61]/40 uppercase tracking-[0.3em] mb-4 flex items-center gap-2">
-              <span className="w-8 h-[2px] bg-[#139dc7]/20"></span> Demographics<span className="w-8 h-[2px] bg-[#139dc7]/20"></span>
+              <span className="w-8 h-0.5 bg-[#139dc7]/20"></span> Demographics<span className="w-8 h-0.5 bg-[#139dc7]/20"></span>
             </h4>
             <div className="grid grid-cols-2 gap-4">
               <div className="flex flex-col gap-1.5">
