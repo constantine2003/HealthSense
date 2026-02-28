@@ -22,6 +22,7 @@
   let isCountingDown = false;
   let hasCaptured = false;
   let isRedoingSpecific = false; 
+  let sessionStarted = false; // Tracks if they've begun the process
   let countdown = 3;
   let progress = 0;
   let scanInterval: any;
@@ -78,8 +79,6 @@
   }
 
   function injectData() {
-    // Current setup: Only temperature is mocked with a real value. 
-    // Others stay 0/default as per your requirement for "unconnected" sensors.
     if (currentPhase === 'temp') {
         results.temp = 36.6;
     } else if (currentPhase === 'bp') {
@@ -109,6 +108,11 @@
     };
 
     onFinish(payload);
+    sessionStarted = false;
+    currentPhase = 'review';
+    results = { weight: 0, height: 0, temp: 0, spo2: 0, bp: "0/0" };
+    hasCaptured = false;
+    progress = 0;
   }
 
   function nextPhase() {
@@ -155,9 +159,6 @@
 
     nextPhase();
   }
-
-  // Session is considered "New" only if no readings have been taken (all at 0)
-  $: isNewSession = results.weight === 0 && results.height === 0 && results.temp === 0 && results.spo2 === 0 && results.bp === "0/0";
 </script>
 
 <div class="h-full w-full bg-[#f8fbff] flex flex-col p-10 select-none overflow-hidden text-slate-900">
@@ -245,7 +246,7 @@
     <div class="flex-1 flex flex-col" in:slide>
       <h1 class="text-5xl font-[1000] text-blue-950 uppercase tracking-tighter mb-2">Checkup</h1>
       <p class="text-blue-900/30 font-bold uppercase text-sm mb-6 tracking-widest">
-        {isNewSession ? 'Ready to begin your session' : 'Review your measurements'}
+        {!sessionStarted ? 'Ready to begin your session' : 'Review your measurements'}
       </p>
       
       <div class="grid grid-cols-1 gap-3 overflow-y-auto pr-2 custom-scrollbar">
@@ -275,15 +276,18 @@
       </div>
 
       <div class="mt-auto pt-6 space-y-4">
-        {#if isNewSession}
-          <button on:click={() => currentPhase = 'weight'} class="w-full py-8 bg-blue-600 text-white rounded-[2.5rem] text-2xl font-black uppercase shadow-xl active:scale-[0.98] transition-all">
+        {#if !sessionStarted}
+          <button on:click={() => { sessionStarted = true; currentPhase = 'weight'; }} class="w-full py-8 bg-blue-600 text-white rounded-[2.5rem] text-2xl font-black uppercase shadow-xl active:scale-[0.98] transition-all">
             Start Full Checkup
           </button>
         {:else}
           <button on:click={handleSave} class="w-full py-8 bg-green-500 text-white rounded-[2.5rem] text-2xl font-black uppercase shadow-xl shadow-green-100 active:scale-[0.98] transition-all">
             Save & Exit
           </button>
-          <button on:click={() => {results = { weight: 0, height: 0, temp: 0, spo2: 0, bp: "0/0" };}} class="w-full py-4 text-blue-900/20 font-black uppercase text-xs tracking-widest active:text-red-400">
+          <button on:click={() => {
+            results = { weight: 0, height: 0, temp: 0, spo2: 0, bp: "0/0" };
+            sessionStarted = false; // Reset to start new session
+          }} class="w-full py-4 text-blue-900/20 font-black uppercase text-xs tracking-widest active:text-red-400">
             Clear All Data
           </button>
         {/if}
