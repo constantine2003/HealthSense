@@ -1,7 +1,9 @@
 <script lang="ts">
   import { fade, slide, scale } from 'svelte/transition';
+  
   export let onFinish: (data: any) => void;
   export let onCancel: () => void;
+  export let user: any; 
 
   // --- TYPES ---
   interface CheckupResults {
@@ -20,6 +22,7 @@
   let isCountingDown = false;
   let hasCaptured = false;
   let isRedoingSpecific = false; 
+  let sessionStarted = false; // Tracks if they've begun the process
   let countdown = 3;
   let progress = 0;
   let scanInterval: any;
@@ -33,14 +36,13 @@
     bp: "0/0" 
   };
 
-  // --- PHASE CONFIGURATION ---
   const phases = {
-    weight: { title: "Weight", desc: "Step onto the platform and stand still", icon: "⚖️", duration: 50, unit: "kg" },
-    height: { title: "Height", desc: "Stand straight against the back sensor", icon: "📏", duration: 50, unit: "m" },
-    temp: { title: "Temperature", desc: "Place your hand/forehead near the sensor", icon: "🌡️", duration: 40, unit: "°C" },
-    spo2: { title: "SpO2", desc: "Place your finger firmly in the clip", icon: "🫀", duration: 60, unit: "%" },
-    bp: { title: "Blood Pressure", desc: "Insert arm into cuff and remain very still", icon: "💓", duration: 100, unit: "mmHg" }
-  } as const; // Added 'as const' for stricter typing
+    weight: { title: "Weight", desc: "Step onto the platform", icon: "⚖️", duration: 30, unit: "kg" },
+    height: { title: "Height", desc: "Stand straight", icon: "📏", duration: 30, unit: "m" },
+    temp: { title: "Temperature", desc: "Place forehead near sensor", icon: "🌡️", duration: 40, unit: "°C" },
+    spo2: { title: "SpO2", desc: "Place finger in clip", icon: "🫀", duration: 30, unit: "%" },
+    bp: { title: "Blood Pressure", desc: "Remain very still", icon: "💓", duration: 50, unit: "mmHg" }
+  } as const;
 
   function startSequence() {
     clearInterval(scanInterval);
@@ -62,44 +64,76 @@
   function startScan() {
     isScanning = true;
     progress = 0;
-    // CurrentPhase is guaranteed to be a key of phases here because of the 'if' block in HTML
     const activePhase = currentPhase as keyof typeof phases;
     const speed = phases[activePhase].duration;
 
     scanInterval = setInterval(() => {
-      progress += 2;
+      progress += 5;
       if (progress >= 100) {
         clearInterval(scanInterval);
         isScanning = false;
         hasCaptured = true;
-        injectMockData();
+        injectData();
       }
     }, speed); 
   }
 
-  function injectMockData() {
-    if (currentPhase === 'weight') results.weight = 72.4;
-    else if (currentPhase === 'height') results.height = 1.75;
-    else if (currentPhase === 'temp') results.temp = 36.6;
-    else if (currentPhase === 'spo2') results.spo2 = 98;
-    else if (currentPhase === 'bp') results.bp = "120/80";
+  function injectData() {
+    if (currentPhase === 'temp') {
+        results.temp = 36.6;
+    } else if (currentPhase === 'bp') {
+        results.bp = "0/0";
+    } else if (currentPhase !== 'review') {
+        const key = currentPhase as Extract<keyof CheckupResults, 'weight' | 'height' | 'spo2'>;
+        results[key] = 0;
+    }
+  }
+
+  function handleSave() {
+    // Calculate BMI only if we have both measurements, otherwise 0
+    const bmiVal = (results.weight > 0 && results.height > 0) 
+        ? parseFloat((results.weight / (results.height * results.height)).toFixed(1)) 
+        : 0;
+
+    // Structure this payload exactly as your health_checkups table expects
+    const payload = {
+      user_id: user?.id,
+      spo2: results.spo2,
+      temperature: results.temp,
+      height: results.height,
+      weight: results.weight,
+      bmi: bmiVal,
+      blood_pressure: results.bp,
+      created_at: new Date().toISOString()
+    };
+
+    onFinish(payload);
+    sessionStarted = false;
+    currentPhase = 'review';
+    results = { weight: 0, height: 0, temp: 0, spo2: 0, bp: "0/0" };
+    hasCaptured = false;
+    progress = 0;
   }
 
   function nextPhase() {
     hasCaptured = false;
     progress = 0;
-    
+
     if (isRedoingSpecific) {
       isRedoingSpecific = false;
       currentPhase = 'review';
       return;
     }
 
-    if (currentPhase === 'weight') currentPhase = 'height';
-    else if (currentPhase === 'height') currentPhase = 'temp';
-    else if (currentPhase === 'temp') currentPhase = 'spo2';
-    else if (currentPhase === 'spo2') currentPhase = 'bp';
-    else if (currentPhase === 'bp') currentPhase = 'review';
+    const order: Phase[] = ['weight', 'height', 'temp', 'spo2', 'bp', 'review'];
+    const currentIndex = order.indexOf(currentPhase);
+    
+    // Safely move to the next index or stay at review
+    if (currentIndex < order.length - 1) {
+        currentPhase = order[currentIndex + 1];
+    } else {
+        currentPhase = 'review';
+    }
   }
 
   function redoSpecific(phase: Phase) {
@@ -114,16 +148,23 @@
     isScanning = false;
     isCountingDown = false;
     hasCaptured = false;
+
+    // Ensure results remain at default/zero if skipped
+    if (currentPhase === 'bp') {
+        results.bp = "0/0";
+    } else if (currentPhase !== 'review') {
+        const key = currentPhase as keyof CheckupResults;
+        if (key !== 'bp') (results[key] as number) = 0;
+    }
+
     nextPhase();
   }
-
-  $: isNewSession = results.weight === 0 && results.bp === "0/0";
 </script>
 
 <div class="h-full w-full bg-[#f8fbff] flex flex-col p-10 select-none overflow-hidden text-slate-900">
   
   <div class="flex items-center justify-between mb-12">
-    <button on:click={onCancel} class="text-blue-900/30 font-black uppercase tracking-widest text-xs">Exit</button>
+    <button on:click={onCancel} class="text-blue-900/30 font-black uppercase tracking-widest text-xs active:scale-95">Exit</button>
     <div class="flex gap-1">
       {#each ['weight', 'height', 'temp', 'spo2', 'bp', 'review'] as p}
         <div class="h-1.5 w-8 rounded-full {currentPhase === p ? 'bg-blue-600' : 'bg-blue-100'} transition-all duration-500"></div>
@@ -158,7 +199,7 @@
         </h2>
       {:else if hasCaptured}
         <div in:scale class="flex flex-col items-center">
-          <div class="w-40 h-40 bg-green-50 text-green-500 rounded-full flex items-center justify-center text-6xl mb-6">✓</div>
+          <div class="w-40 h-40 bg-green-50 text-green-500 rounded-full flex items-center justify-center text-6xl mb-6 shadow-sm">✓</div>
           <h2 class="text-2xl font-black text-blue-900/40 uppercase tracking-widest mb-2">Result</h2>
           <div class="text-7xl font-[1000] text-blue-950 mb-2">
             {results[currentPhase as keyof CheckupResults]} 
@@ -182,21 +223,21 @@
 
     <div class="space-y-4 pt-10">
       {#if hasCaptured}
-        <button on:click={nextPhase} class="w-full py-8 bg-blue-600 text-white rounded-[2.5rem] text-2xl font-black uppercase shadow-xl">
+        <button on:click={nextPhase} class="w-full py-8 bg-blue-600 text-white rounded-[2.5rem] text-2xl font-black uppercase shadow-xl active:scale-[0.98] transition-transform">
           Confirm & {isRedoingSpecific ? 'Back to Summary' : 'Continue'}
         </button>
       {:else if !isScanning && !isCountingDown}
-        <button on:click={startSequence} class="w-full py-8 bg-blue-600 text-white rounded-[2.5rem] text-2xl font-black uppercase shadow-xl">
+        <button on:click={startSequence} class="w-full py-8 bg-blue-600 text-white rounded-[2.5rem] text-2xl font-black uppercase shadow-xl active:scale-[0.98] transition-transform">
           Start Reading
         </button>
       {/if}
 
       <div class="grid grid-cols-2 gap-4">
-        <button on:click={startSequence} disabled={isScanning || isCountingDown} class="py-6 bg-white border-2 border-blue-50 text-blue-900/40 rounded-4xl font-black uppercase text-xs tracking-widest">
+        <button on:click={startSequence} disabled={isScanning || isCountingDown} class="py-6 bg-white border-2 border-blue-50 text-blue-900/40 rounded-4xl font-black uppercase text-xs tracking-widest active:bg-blue-50 disabled:opacity-50">
           Retry
         </button>
-        <button on:click={skipPhase} disabled={isScanning || isCountingDown} class="py-6 bg-red-50 text-red-400 rounded-4xl font-black uppercase text-xs tracking-widest">
-          Done
+        <button on:click={skipPhase} disabled={isScanning || isCountingDown} class="py-6 bg-red-50 text-red-400 rounded-4xl font-black uppercase text-xs tracking-widest active:bg-red-100 disabled:opacity-50">
+          Skip Step
         </button>
       </div>
     </div>
@@ -205,10 +246,10 @@
     <div class="flex-1 flex flex-col" in:slide>
       <h1 class="text-5xl font-[1000] text-blue-950 uppercase tracking-tighter mb-2">Checkup</h1>
       <p class="text-blue-900/30 font-bold uppercase text-sm mb-6 tracking-widest">
-        {isNewSession ? 'Ready to begin your session' : 'Review your measurements'}
+        {!sessionStarted ? 'Ready to begin your session' : 'Review your measurements'}
       </p>
       
-      <div class="grid grid-cols-1 gap-3 overflow-y-auto pr-2">
+      <div class="grid grid-cols-1 gap-3 overflow-y-auto pr-2 custom-scrollbar">
         {#each Object.entries(phases) as [key, config]}
           {@const k = key as keyof CheckupResults}
           <div class="p-5 bg-white rounded-4xl border border-blue-50 flex justify-between items-center shadow-sm {results[k] === 0 || results[k] === "0/0" ? 'opacity-60' : ''}">
@@ -235,15 +276,18 @@
       </div>
 
       <div class="mt-auto pt-6 space-y-4">
-        {#if isNewSession}
-          <button on:click={() => currentPhase = 'weight'} class="w-full py-8 bg-blue-600 text-white rounded-[2.5rem] text-2xl font-black uppercase shadow-xl">
+        {#if !sessionStarted}
+          <button on:click={() => { sessionStarted = true; currentPhase = 'weight'; }} class="w-full py-8 bg-blue-600 text-white rounded-[2.5rem] text-2xl font-black uppercase shadow-xl active:scale-[0.98] transition-all">
             Start Full Checkup
           </button>
         {:else}
-          <button on:click={() => onFinish(results)} class="w-full py-8 bg-green-500 text-white rounded-[2.5rem] text-2xl font-black uppercase shadow-xl shadow-green-100">
+          <button on:click={handleSave} class="w-full py-8 bg-green-500 text-white rounded-[2.5rem] text-2xl font-black uppercase shadow-xl shadow-green-100 active:scale-[0.98] transition-all">
             Save & Exit
           </button>
-          <button on:click={() => {results = { weight: 0, height: 0, temp: 0, spo2: 0, bp: "0/0" };}} class="w-full py-4 text-blue-900/20 font-black uppercase text-xs tracking-widest">
+          <button on:click={() => {
+            results = { weight: 0, height: 0, temp: 0, spo2: 0, bp: "0/0" };
+            sessionStarted = false; // Reset to start new session
+          }} class="w-full py-4 text-blue-900/20 font-black uppercase text-xs tracking-widest active:text-red-400">
             Clear All Data
           </button>
         {/if}
@@ -251,3 +295,13 @@
     </div>
   {/if}
 </div>
+
+<style>
+  .custom-scrollbar::-webkit-scrollbar {
+    width: 4px;
+  }
+  .custom-scrollbar::-webkit-scrollbar-thumb {
+    background: #e2e8f0;
+    border-radius: 10px;
+  }
+</style>
