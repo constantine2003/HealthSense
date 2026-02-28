@@ -1,6 +1,17 @@
 <script lang="ts">
   import { fade, slide, scale } from 'svelte/transition';
-  
+  import { onDestroy } from 'svelte';
+  import {
+    startMeasurement,
+    cancelMeasurement,
+    bridgeStatus,
+    measureProgress as esp32Progress,
+    latestReading,
+    lastError,
+    sensorStatus,
+    type SensorKey,
+  } from '../stores/esp32Store';
+
   export let onFinish: (data: any) => void;
   export let onCancel: () => void;
   export let user: any; 
@@ -25,7 +36,6 @@
   let sessionStarted = false; // Tracks if they've begun the process
   let countdown = 3;
   let progress = 0;
-  let scanInterval: any;
 
   // --- DATA STORAGE ---
   let results: CheckupResults = { 
@@ -36,6 +46,46 @@
     bp: "0/0" 
   };
 
+  // --- ESP32 STORE SUBSCRIPTIONS ---
+  const unsubProgress = esp32Progress.subscribe((val) => {
+    if (isScanning) {
+      progress = val;
+      if (val >= 100) {
+        isScanning = false;
+      }
+    }
+  });
+
+  const unsubReading = latestReading.subscribe((reading) => {
+    if (!reading) return;
+    const sensor = reading.sensor as keyof CheckupResults;
+    if (sensor !== currentPhase) return;
+    if (sensor === 'bp') {
+      results.bp = String(reading.value);
+    } else {
+      (results as any)[sensor] = reading.value;
+    }
+    hasCaptured = true;
+    isScanning = false;
+    progress = 100;
+  });
+
+  const unsubError = lastError.subscribe((msg) => {
+    if (msg && isScanning) {
+      isScanning = false;
+      isCountingDown = false;
+      progress = 0;
+    }
+  });
+
+  // --- LIFECYCLE ---
+  onDestroy(() => {
+    unsubProgress();
+    unsubReading();
+    unsubError();
+  });
+
+  // --- PHASE CONFIGURATION ---
   const phases = {
     weight: { title: "Weight", desc: "Step onto the platform", icon: "⚖️", duration: 30, unit: "kg" },
     height: { title: "Height", desc: "Stand straight", icon: "📏", duration: 30, unit: "m" },
@@ -45,8 +95,6 @@
   } as const;
 
   function startSequence() {
-    clearInterval(scanInterval);
-    isScanning = false;
     hasCaptured = false;
     progress = 0;
     isCountingDown = true;
@@ -64,38 +112,34 @@
   function startScan() {
     isScanning = true;
     progress = 0;
-    const activePhase = currentPhase as keyof typeof phases;
-    const speed = phases[activePhase].duration;
+    const sensor = currentPhase as SensorKey;
 
-    scanInterval = setInterval(() => {
-      progress += 5;
-      if (progress >= 100) {
-        clearInterval(scanInterval);
+    // Only send to ESP32 when the bridge is live and sensor is confirmed connected.
+    // If either is missing, abort and show an error — no mock data.
+    const bridgeOnline    = $bridgeStatus === 'esp32Ready';
+    const sensorConnected = $sensorStatus[sensor] === 'connected';
+
+    if (bridgeOnline && sensorConnected) {
+      const sent = startMeasurement(sensor);
+      if (!sent) {
+        // WS closed between the check and the send
         isScanning = false;
-        hasCaptured = true;
-        injectData();
+        lastError.set('Connection lost — please retry');
       }
-    }, speed); 
-  }
-
-  function injectData() {
-    if (currentPhase === 'temp') {
-        results.temp = 36.6;
-    } else if (currentPhase === 'bp') {
-        results.bp = "0/0";
-    } else if (currentPhase !== 'review') {
-        const key = currentPhase as Extract<keyof CheckupResults, 'weight' | 'height' | 'spo2'>;
-        results[key] = 0;
+    } else {
+      isScanning = false;
+      lastError.set(
+        !bridgeOnline
+          ? 'Bridge not connected — start the serial bridge and retry'
+          : 'Sensor not detected — check wiring and retry'
+      );
     }
   }
 
   function handleSave() {
-    // Calculate BMI only if we have both measurements, otherwise 0
-    const bmiVal = (results.weight > 0 && results.height > 0) 
-        ? parseFloat((results.weight / (results.height * results.height)).toFixed(1)) 
-        : 0;
-
-    // Structure this payload exactly as your health_checkups table expects
+    const bmiVal = (results.weight > 0 && results.height > 0)
+      ? parseFloat((results.weight / (results.height * results.height)).toFixed(1))
+      : 0;
     const payload = {
       user_id: user?.id,
       spo2: results.spo2,
@@ -106,7 +150,6 @@
       blood_pressure: results.bp,
       created_at: new Date().toISOString()
     };
-
     onFinish(payload);
     sessionStarted = false;
     currentPhase = 'review';
@@ -144,21 +187,36 @@
   }
 
   function skipPhase() {
-    clearInterval(scanInterval);
+    cancelMeasurement();
     isScanning = false;
     isCountingDown = false;
     hasCaptured = false;
-
-    // Ensure results remain at default/zero if skipped
     if (currentPhase === 'bp') {
-        results.bp = "0/0";
+      results.bp = "0/0";
     } else if (currentPhase !== 'review') {
-        const key = currentPhase as keyof CheckupResults;
-        if (key !== 'bp') (results[key] as number) = 0;
+      const key = currentPhase as keyof CheckupResults;
+      if (key !== 'bp') (results[key] as number) = 0;
     }
-
     nextPhase();
   }
+
+  // Friendly label for the ESP32 status badge (used in widget + header)
+  $: statusLabel = (() => {
+    switch ($bridgeStatus) {
+      case 'esp32Ready':   return { text: 'ESP32 Connected',   color: 'bg-green-500' };
+      case 'esp32Missing': return { text: 'ESP32 Missing',     color: 'bg-amber-400' };
+      case 'connecting':   return { text: 'Bridge Connecting', color: 'bg-blue-400'  };
+      case 'connected':    return { text: 'Bridge Open',       color: 'bg-blue-300'  };
+      default:             return { text: 'Bridge Offline',    color: 'bg-red-400'   };
+    }
+  })();
+
+  // Whether the sensor for the current phase is physically connected on the ESP32.
+  // Only meaningful when the bridge is online; falls back to true so mock data runs.
+  $: currentSensorAvailable = currentPhase === 'review'
+    ? true
+    : $bridgeStatus !== 'esp32Ready'           // bridge offline → use mock, treat as available
+      || $sensorStatus[currentPhase as SensorKey] !== 'disconnected';
 </script>
 
 <div class="h-full w-full bg-[#f8fbff] flex flex-col p-10 select-none overflow-hidden text-slate-900">
@@ -170,10 +228,22 @@
         <div class="h-1.5 w-8 rounded-full {currentPhase === p ? 'bg-blue-600' : 'bg-blue-100'} transition-all duration-500"></div>
       {/each}
     </div>
-    <span class="text-blue-600 font-black text-[10px] uppercase">
+    <div class="flex flex-col items-end gap-1">
+      <span class="text-blue-600 font-black text-[10px] uppercase">
         {currentPhase === 'review' ? 'Summary' : `Step ${Object.keys(phases).indexOf(currentPhase) + 1} of 5`}
-    </span>
+      </span>
+      <span class="inline-flex items-center gap-1.5 px-2 py-0.5 rounded-full text-[9px] font-black uppercase tracking-widest text-white {statusLabel.color} transition-colors duration-500">
+        <span class="w-1.5 h-1.5 rounded-full bg-white/60 animate-pulse"></span>
+        {statusLabel.text}
+      </span>
+    </div>
   </div>
+
+  {#if $lastError && isScanning === false}
+    <div in:fade out:fade class="mb-4 px-4 py-3 bg-red-50 border border-red-100 rounded-2xl text-red-500 text-xs font-bold uppercase tracking-widest text-center">
+      ⚠ Sensor error: {$lastError}
+    </div>
+  {/if}
 
   {#if currentPhase !== 'review'}
     <div class="flex-1 flex flex-col items-center justify-center text-center px-4">
@@ -205,6 +275,26 @@
             {results[currentPhase as keyof CheckupResults]} 
             <span class="text-2xl">{phases[currentPhase as keyof typeof phases].unit}</span>
           </div>
+          {#if currentPhase === 'temp' && typeof results.temp === 'number' && results.temp > 0}
+            {@const t = results.temp}
+            <div class="mt-3 px-5 py-2 rounded-2xl text-sm font-black uppercase tracking-widest
+              {t >= 37.5 ? 'bg-red-50 text-red-500' : t >= 37.0 ? 'bg-amber-50 text-amber-500' : 'bg-green-50 text-green-500'}">
+              {t >= 37.5 ? '🔴 Fever' : t >= 37.0 ? '🟡 Slightly elevated' : '🟢 Normal'}
+            </div>
+          {/if}
+        </div>
+      {:else if !currentSensorAvailable}
+        <!-- Sensor is physically disconnected from the ESP32 -->
+        <div in:fade class="flex flex-col items-center">
+          <div class="w-48 h-48 bg-slate-50 rounded-[4rem] flex items-center justify-center text-8xl mb-10 shadow-inner opacity-40">
+            {phases[currentPhase as keyof typeof phases].icon}
+          </div>
+          <h1 class="text-4xl font-[1000] text-slate-300 uppercase tracking-tighter mb-4">
+            {phases[currentPhase as keyof typeof phases].title}
+          </h1>
+          <p class="text-sm text-slate-400 font-bold uppercase tracking-widest">
+            Sensor not connected
+          </p>
         </div>
       {:else}
         <div in:fade class="flex flex-col items-center">
@@ -226,18 +316,22 @@
         <button on:click={nextPhase} class="w-full py-8 bg-blue-600 text-white rounded-[2.5rem] text-2xl font-black uppercase shadow-xl active:scale-[0.98] transition-transform">
           Confirm & {isRedoingSpecific ? 'Back to Summary' : 'Continue'}
         </button>
-      {:else if !isScanning && !isCountingDown}
+      {:else if !isScanning && !isCountingDown && currentSensorAvailable}
         <button on:click={startSequence} class="w-full py-8 bg-blue-600 text-white rounded-[2.5rem] text-2xl font-black uppercase shadow-xl active:scale-[0.98] transition-transform">
           Start Reading
         </button>
       {/if}
 
       <div class="grid grid-cols-2 gap-4">
-        <button on:click={startSequence} disabled={isScanning || isCountingDown} class="py-6 bg-white border-2 border-blue-50 text-blue-900/40 rounded-4xl font-black uppercase text-xs tracking-widest active:bg-blue-50 disabled:opacity-50">
-          Retry
-        </button>
+        {#if currentSensorAvailable}
+          <button on:click={startSequence} disabled={isScanning || isCountingDown} class="py-6 bg-white border-2 border-blue-50 text-blue-900/40 rounded-4xl font-black uppercase text-xs tracking-widest active:bg-blue-50 disabled:opacity-50">
+            Retry
+          </button>
+        {:else}
+          <div class="py-6 bg-slate-50 rounded-4xl"></div>
+        {/if}
         <button on:click={skipPhase} disabled={isScanning || isCountingDown} class="py-6 bg-red-50 text-red-400 rounded-4xl font-black uppercase text-xs tracking-widest active:bg-red-100 disabled:opacity-50">
-          Skip Step
+          {currentSensorAvailable ? 'Skip Step' : 'Next →'}
         </button>
       </div>
     </div>

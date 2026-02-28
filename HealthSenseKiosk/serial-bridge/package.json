@@ -1,0 +1,15 @@
+{
+  "name": "healthsense-serial-bridge",
+  "version": "1.0.0",
+  "description": "Serial-to-WebSocket bridge for HealthSense ESP32 kiosk",
+  "type": "module",
+  "main": "server.js",
+  "scripts": {
+    "start": "node server.js",
+    "dev": "node --watch server.js"
+  },
+  "dependencies": {
+    "serialport": "^12.0.0",
+    "ws": "^8.18.0"
+  }
+}

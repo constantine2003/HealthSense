@@ -5,8 +5,10 @@
   import History from './lib/pages/history.svelte';
   import Checkup from './lib/pages/checkup.svelte';
   import CreateAccount from './lib/pages/createaccount.svelte'; 
+  import ESP32StatusWidget from './lib/components/ESP32StatusWidget.svelte';
   
   import { supabase } from './lib/pages/supabaseClient';
+  import { connect as esp32Connect, disconnect as esp32Disconnect } from './lib/stores/esp32Store';
 
   type ScreenState = 'welcome' | 'login' | 'signup' | 'home' | 'history' | 'checkup';
   
@@ -20,11 +22,14 @@
   
   const loginSuccess = (userData: any): void => { 
     user = userData; 
-    currentScreen = 'home'; 
+    currentScreen = 'home';
+    // Start (or keep alive) the ESP32 bridge WebSocket
+    esp32Connect();
   };
 
   const logout = async (): Promise<void> => { 
     await supabase.auth.signOut();
+    esp32Disconnect();
     user = null; 
     currentScreen = 'welcome'; 
   };
@@ -54,6 +59,9 @@
       isSaving = false;
     }
   };
+
+  // Whether the user is logged in (show the ESP32 widget on these screens)
+  $: loggedIn = user !== null && ['home', 'history', 'checkup'].includes(currentScreen);
 </script>
 
 <main 
@@ -115,6 +123,11 @@
     </div>
   {/if}
 </main>
+
+<!-- ESP32 status widget: floating top-right, only when logged in -->
+{#if loggedIn}
+  <ESP32StatusWidget />
+{/if}
 
 <style>
   :global(body, html) {
