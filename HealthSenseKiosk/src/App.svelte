@@ -6,25 +6,23 @@
   import Checkup from './lib/pages/checkup.svelte';
   import CreateAccount from './lib/pages/createaccount.svelte'; 
   
-  // FIX 1: Import supabase so the logout function works
   import { supabase } from './lib/pages/supabaseClient';
 
   type ScreenState = 'welcome' | 'login' | 'signup' | 'home' | 'history' | 'checkup';
   
   let currentScreen: ScreenState = 'welcome';
   let user: any = null;
+  let isSaving = false; // New state for loading overlay
 
   const startKiosk = (): void => { currentScreen = 'login' };
   const goBack = (): void => { currentScreen = 'welcome' };
   const goToSignUp = (): void => { currentScreen = 'signup' }; 
   
-  // FIX 2: Ensure this is correctly typed for props
   const loginSuccess = (userData: any): void => { 
     user = userData; 
     currentScreen = 'home'; 
   };
 
-  // FIX 3: Async functions must return Promise<void>
   const logout = async (): Promise<void> => { 
     await supabase.auth.signOut();
     user = null; 
@@ -35,9 +33,26 @@
   const closeHistory = (): void => { currentScreen = 'home' };
   const startCheckup = (): void => { currentScreen = 'checkup' };
 
-  const finishCheckup = (data: any): void => {
-    console.log("Checkup Data Received:", data);
-    currentScreen = 'home'; 
+  // FIX: Async function to handle the database insert
+  const finishCheckup = async (data: any): Promise<void> => {
+    try {
+      isSaving = true;
+      console.log("Saving Checkup Data:", data);
+
+      const { error } = await supabase
+        .from('health_checkups')
+        .insert([data]);
+
+      if (error) throw error;
+
+      // Reset to home after successful save
+      currentScreen = 'home'; 
+    } catch (err: any) {
+      console.error("Database Insert Error:", err.message);
+      alert("Failed to save health report. Please try again.");
+    } finally {
+      isSaving = false;
+    }
   };
 </script>
 
@@ -85,7 +100,18 @@
 
   {:else if currentScreen === 'checkup'}
     <div class="flex-1">
-       <Checkup onFinish={finishCheckup} onCancel={closeHistory} />
+       <Checkup 
+          {user} 
+          onFinish={finishCheckup} 
+          onCancel={closeHistory} 
+        />
+    </div>
+  {/if}
+
+  {#if isSaving}
+    <div class="fixed inset-0 bg-blue-950/80 backdrop-blur-sm z-100 flex flex-col items-center justify-center text-white">
+      <div class="w-16 h-16 border-4 border-white border-t-transparent rounded-full animate-spin mb-6"></div>
+      <p class="font-black uppercase tracking-[0.3em] text-sm">Uploading Report...</p>
     </div>
   {/if}
 </main>
