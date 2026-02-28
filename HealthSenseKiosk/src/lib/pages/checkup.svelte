@@ -3,19 +3,35 @@
   export let onFinish: (data: any) => void;
   export let onCancel: () => void;
 
+  // --- TYPES ---
+  interface CheckupResults {
+    weight: number;
+    height: number;
+    temp: number;
+    spo2: number;
+    bp: string;
+  }
+
+  type Phase = keyof CheckupResults | 'review';
+
   // --- LOGIC STATES ---
-  type Phase = 'weight' | 'height' | 'temp' | 'spo2' | 'bp' | 'review';
-  let currentPhase: Phase = 'weight';
+  let currentPhase: Phase = 'review'; 
   let isScanning = false;
   let isCountingDown = false;
   let hasCaptured = false;
-  let isRedoingSpecific = false; // New: tracks if we are redoing just one test
+  let isRedoingSpecific = false; 
   let countdown = 3;
   let progress = 0;
   let scanInterval: any;
 
   // --- DATA STORAGE ---
-  let results = { weight: 0, height: 0, temp: 0, spo2: 0, bp: "0/0" };
+  let results: CheckupResults = { 
+    weight: 0, 
+    height: 0, 
+    temp: 0, 
+    spo2: 0, 
+    bp: "0/0" 
+  };
 
   // --- PHASE CONFIGURATION ---
   const phases = {
@@ -24,7 +40,7 @@
     temp: { title: "Temperature", desc: "Place your hand/forehead near the sensor", icon: "🌡️", duration: 40, unit: "°C" },
     spo2: { title: "SpO2", desc: "Place your finger firmly in the clip", icon: "🫀", duration: 60, unit: "%" },
     bp: { title: "Blood Pressure", desc: "Insert arm into cuff and remain very still", icon: "💓", duration: 100, unit: "mmHg" }
-  };
+  } as const; // Added 'as const' for stricter typing
 
   function startSequence() {
     clearInterval(scanInterval);
@@ -46,7 +62,10 @@
   function startScan() {
     isScanning = true;
     progress = 0;
-    const speed = phases[currentPhase as keyof typeof phases].duration;
+    // CurrentPhase is guaranteed to be a key of phases here because of the 'if' block in HTML
+    const activePhase = currentPhase as keyof typeof phases;
+    const speed = phases[activePhase].duration;
+
     scanInterval = setInterval(() => {
       progress += 2;
       if (progress >= 100) {
@@ -70,7 +89,6 @@
     hasCaptured = false;
     progress = 0;
     
-    // If we were just redoing one specific test, go straight back to review
     if (isRedoingSpecific) {
       isRedoingSpecific = false;
       currentPhase = 'review';
@@ -84,7 +102,6 @@
     else if (currentPhase === 'bp') currentPhase = 'review';
   }
 
-  // New: Function to trigger a redo from the summary page
   function redoSpecific(phase: Phase) {
     isRedoingSpecific = true;
     currentPhase = phase;
@@ -99,6 +116,8 @@
     hasCaptured = false;
     nextPhase();
   }
+
+  $: isNewSession = results.weight === 0 && results.bp === "0/0";
 </script>
 
 <div class="h-full w-full bg-[#f8fbff] flex flex-col p-10 select-none overflow-hidden text-slate-900">
@@ -134,22 +153,29 @@
             <span class="text-6xl font-black text-blue-950">{progress}%</span>
           </div>
         </div>
-        <h2 class="text-3xl font-[1000] text-blue-600 animate-pulse uppercase tracking-tighter">Capturing {phases[currentPhase].title}</h2>
+        <h2 class="text-3xl font-[1000] text-blue-600 animate-pulse uppercase tracking-tighter">
+          Capturing {phases[currentPhase as keyof typeof phases].title}
+        </h2>
       {:else if hasCaptured}
         <div in:scale class="flex flex-col items-center">
           <div class="w-40 h-40 bg-green-50 text-green-500 rounded-full flex items-center justify-center text-6xl mb-6">✓</div>
           <h2 class="text-2xl font-black text-blue-900/40 uppercase tracking-widest mb-2">Result</h2>
           <div class="text-7xl font-[1000] text-blue-950 mb-2">
-            {results[currentPhase]} <span class="text-2xl">{phases[currentPhase].unit}</span>
+            {results[currentPhase as keyof CheckupResults]} 
+            <span class="text-2xl">{phases[currentPhase as keyof typeof phases].unit}</span>
           </div>
         </div>
       {:else}
         <div in:fade class="flex flex-col items-center">
           <div class="w-48 h-48 bg-blue-50 rounded-[4rem] flex items-center justify-center text-8xl mb-10 shadow-inner">
-            {phases[currentPhase].icon}
+            {phases[currentPhase as keyof typeof phases].icon}
           </div>
-          <h1 class="text-5xl font-[1000] text-blue-950 uppercase tracking-tighter mb-4">{phases[currentPhase].title}</h1>
-          <p class="text-xl text-blue-900/40 font-bold max-w-xs uppercase">{phases[currentPhase].desc}</p>
+          <h1 class="text-5xl font-[1000] text-blue-950 uppercase tracking-tighter mb-4">
+            {phases[currentPhase as keyof typeof phases].title}
+          </h1>
+          <p class="text-xl text-blue-900/40 font-bold max-w-xs uppercase">
+            {phases[currentPhase as keyof typeof phases].desc}
+          </p>
         </div>
       {/if}
     </div>
@@ -170,27 +196,34 @@
           Retry
         </button>
         <button on:click={skipPhase} disabled={isScanning || isCountingDown} class="py-6 bg-red-50 text-red-400 rounded-4xl font-black uppercase text-xs tracking-widest">
-          Skip
+          Done
         </button>
       </div>
     </div>
 
   {:else}
     <div class="flex-1 flex flex-col" in:slide>
-      <h1 class="text-5xl font-[1000] text-blue-950 uppercase tracking-tighter mb-6">Summary</h1>
+      <h1 class="text-5xl font-[1000] text-blue-950 uppercase tracking-tighter mb-2">Checkup</h1>
+      <p class="text-blue-900/30 font-bold uppercase text-sm mb-6 tracking-widest">
+        {isNewSession ? 'Ready to begin your session' : 'Review your measurements'}
+      </p>
       
       <div class="grid grid-cols-1 gap-3 overflow-y-auto pr-2">
         {#each Object.entries(phases) as [key, config]}
-          <div class="p-5 bg-white rounded-4xl border border-blue-50 flex justify-between items-center shadow-sm">
+          {@const k = key as keyof CheckupResults}
+          <div class="p-5 bg-white rounded-4xl border border-blue-50 flex justify-between items-center shadow-sm {results[k] === 0 || results[k] === "0/0" ? 'opacity-60' : ''}">
             <div class="flex flex-col">
               <span class="font-black text-blue-400 uppercase text-[10px] tracking-widest">{config.title}</span>
-              <span class="text-2xl font-black text-blue-950">{results[key as keyof typeof results]} <span class="text-sm text-blue-900/30">{config.unit}</span></span>
+              <span class="text-2xl font-black text-blue-950">
+                {results[k] === 0 || results[k] === "0/0" ? '--' : results[k]} 
+                <span class="text-sm text-blue-900/30 font-black">{config.unit}</span>
+              </span>
             </div>
             
             <button 
                 type="button"
-                on:click={() => redoSpecific(key as Phase)}
-                aria-label="Redo {key} phase"
+                on:click={() => redoSpecific(k)}
+                aria-label="Redo {config.title} test"
                 class="p-4 bg-blue-50 text-blue-600 rounded-2xl active:scale-90 transition-transform"
             >
                 <svg xmlns="http://www.w3.org/2000/svg" class="w-6 h-6" fill="none" viewBox="0 0 24 24" stroke="currentColor">
@@ -202,12 +235,18 @@
       </div>
 
       <div class="mt-auto pt-6 space-y-4">
-        <button on:click={() => onFinish(results)} class="w-full py-8 bg-green-500 text-white rounded-[2.5rem] text-2xl font-black uppercase shadow-xl shadow-green-100">
-          Save & Exit
-        </button>
-        <button on:click={() => {currentPhase = 'weight'; results = { weight: 0, height: 0, temp: 0, spo2: 0, bp: "0/0" };}} class="w-full py-4 text-blue-900/20 font-black uppercase text-xs tracking-widest">
-          Redo All Tests (Clear Data)
-        </button>
+        {#if isNewSession}
+          <button on:click={() => currentPhase = 'weight'} class="w-full py-8 bg-blue-600 text-white rounded-[2.5rem] text-2xl font-black uppercase shadow-xl">
+            Start Full Checkup
+          </button>
+        {:else}
+          <button on:click={() => onFinish(results)} class="w-full py-8 bg-green-500 text-white rounded-[2.5rem] text-2xl font-black uppercase shadow-xl shadow-green-100">
+            Save & Exit
+          </button>
+          <button on:click={() => {results = { weight: 0, height: 0, temp: 0, spo2: 0, bp: "0/0" };}} class="w-full py-4 text-blue-900/20 font-black uppercase text-xs tracking-widest">
+            Clear All Data
+          </button>
+        {/if}
       </div>
     </div>
   {/if}
