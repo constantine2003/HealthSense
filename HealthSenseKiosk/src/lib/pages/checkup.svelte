@@ -32,8 +32,11 @@
   let isScanning = false;
   let isCountingDown = false;
   let hasCaptured = false;
-  let isRedoingSpecific = false; 
-  let sessionStarted = false; // Tracks if they've begun the process
+  let isRedoingSpecific = false;
+  // 'idle'  → sitting on review/home screen, no active session
+  // 'single' → user tapped "Measure" on one sensor; saves only that sensor on completion
+  // 'full'   → "Start Full Checkup" was clicked; goes through all sensors sequentially
+  let mode: 'idle' | 'single' | 'full' = 'idle';
   let countdown = 3;
   let progress = 0;
 
@@ -137,23 +140,40 @@
   }
 
   function handleSave() {
-    const bmiVal = (results.weight > 0 && results.height > 0)
+    const hasWeight = results.weight > 0;
+    const hasHeight = results.height > 0;
+    const bmiVal = (hasWeight && hasHeight)
       ? parseFloat((results.weight / (results.height * results.height)).toFixed(1))
-      : 0;
+      : null;
+
+    // Send null for skipped/unmeasured sensors. Keeps history calculations clean.
     const payload = {
-      user_id: user?.id,
-      spo2: results.spo2,
-      temperature: results.temp,
-      height: results.height,
-      weight: results.weight,
-      bmi: bmiVal,
-      blood_pressure: results.bp,
-      created_at: new Date().toISOString()
+      user_id:        user?.id,
+      temperature:    results.temp   > 0     ? results.temp   : null,
+      spo2:           results.spo2   > 0     ? results.spo2   : null,
+      height:         results.height > 0     ? results.height : null,
+      weight:         results.weight > 0     ? results.weight : null,
+      bmi:            bmiVal,
+      blood_pressure: results.bp !== '0/0'   ? results.bp     : null,
+      created_at:     new Date().toISOString(),
     };
+
     onFinish(payload);
-    sessionStarted = false;
+    // Reset state after saving
+    mode = 'idle';
+    isRedoingSpecific = false;
     currentPhase = 'review';
     results = { weight: 0, height: 0, temp: 0, spo2: 0, bp: "0/0" };
+    hasCaptured = false;
+    progress = 0;
+  }
+
+  // Start a single-sensor measurement from the review screen.
+  // On completion the user will be offered "Save as Reading" (not "Continue").
+  function measureSingle(phase: Phase) {
+    mode = 'single';
+    isRedoingSpecific = false;
+    currentPhase = phase;
     hasCaptured = false;
     progress = 0;
   }
@@ -162,24 +182,21 @@
     hasCaptured = false;
     progress = 0;
 
-    if (isRedoingSpecific) {
+    // Single-sensor mode or redo-specific: always return to review
+    if (mode === 'single' || isRedoingSpecific) {
       isRedoingSpecific = false;
       currentPhase = 'review';
       return;
     }
 
+    // Full checkup: advance through weight → height → temp → spo2 → bp → review
     const order: Phase[] = ['weight', 'height', 'temp', 'spo2', 'bp', 'review'];
     const currentIndex = order.indexOf(currentPhase);
-    
-    // Safely move to the next index or stay at review
-    if (currentIndex < order.length - 1) {
-        currentPhase = order[currentIndex + 1];
-    } else {
-        currentPhase = 'review';
-    }
+    currentPhase = currentIndex < order.length - 1 ? order[currentIndex + 1] : 'review';
   }
 
   function redoSpecific(phase: Phase) {
+    // redoSpecific is only used during a full checkup (from review) to re-take one sensor
     isRedoingSpecific = true;
     currentPhase = phase;
     hasCaptured = false;
@@ -191,6 +208,15 @@
     isScanning = false;
     isCountingDown = false;
     hasCaptured = false;
+
+    if (mode === 'single') {
+      // Cancel individual reading → go straight back to review
+      mode = 'idle';
+      currentPhase = 'review';
+      return;
+    }
+
+    // Full checkup: record skip as null then advance
     if (currentPhase === 'bp') {
       results.bp = "0/0";
     } else if (currentPhase !== 'review') {
@@ -230,7 +256,11 @@
     </div>
     <div class="flex flex-col items-end gap-1">
       <span class="text-blue-600 font-black text-[10px] uppercase">
-        {currentPhase === 'review' ? 'Summary' : `Step ${Object.keys(phases).indexOf(currentPhase) + 1} of 5`}
+        {currentPhase === 'review'
+          ? 'Summary'
+          : mode === 'single'
+            ? `${phases[currentPhase as keyof typeof phases].title} — Single Reading`
+            : `Step ${Object.keys(phases).indexOf(currentPhase) + 1} of 5`}
       </span>
       <span class="inline-flex items-center gap-1.5 px-2 py-0.5 rounded-full text-[9px] font-black uppercase tracking-widest text-white {statusLabel.color} transition-colors duration-500">
         <span class="w-1.5 h-1.5 rounded-full bg-white/60 animate-pulse"></span>
@@ -313,9 +343,20 @@
 
     <div class="space-y-4 pt-10">
       {#if hasCaptured}
-        <button on:click={nextPhase} class="w-full py-8 bg-blue-600 text-white rounded-[2.5rem] text-2xl font-black uppercase shadow-xl active:scale-[0.98] transition-transform">
-          Confirm & {isRedoingSpecific ? 'Back to Summary' : 'Continue'}
-        </button>
+        {#if mode === 'single'}
+          <!-- Single-sensor mode: offer to save just this reading -->
+          <button on:click={handleSave} class="w-full py-8 bg-green-500 text-white rounded-[2.5rem] text-2xl font-black uppercase shadow-xl shadow-green-100 active:scale-[0.98] transition-transform">
+            Save as Reading
+          </button>
+          <button on:click={nextPhase} class="w-full py-4 text-blue-900/30 font-black uppercase text-xs tracking-widest active:text-blue-600">
+            Back to Summary
+          </button>
+        {:else}
+          <!-- Full checkup / redo mode: advance to next sensor -->
+          <button on:click={nextPhase} class="w-full py-8 bg-blue-600 text-white rounded-[2.5rem] text-2xl font-black uppercase shadow-xl active:scale-[0.98] transition-transform">
+            Confirm & {isRedoingSpecific ? 'Back to Summary' : 'Continue'}
+          </button>
+        {/if}
       {:else if !isScanning && !isCountingDown && currentSensorAvailable}
         <button on:click={startSequence} class="w-full py-8 bg-blue-600 text-white rounded-[2.5rem] text-2xl font-black uppercase shadow-xl active:scale-[0.98] transition-transform">
           Start Reading
@@ -323,16 +364,25 @@
       {/if}
 
       <div class="grid grid-cols-2 gap-4">
-        {#if currentSensorAvailable}
+        {#if hasCaptured}
+          <button on:click={startSequence} class="py-6 bg-white border-2 border-blue-50 text-blue-900/40 rounded-4xl font-black uppercase text-xs tracking-widest active:bg-blue-50">
+            Retake
+          </button>
+          <!-- Skip is irrelevant once captured; spacer keeps layout balanced -->
+          <div></div>
+        {:else if currentSensorAvailable}
           <button on:click={startSequence} disabled={isScanning || isCountingDown} class="py-6 bg-white border-2 border-blue-50 text-blue-900/40 rounded-4xl font-black uppercase text-xs tracking-widest active:bg-blue-50 disabled:opacity-50">
             Retry
           </button>
+          <button on:click={skipPhase} disabled={isScanning || isCountingDown} class="py-6 bg-red-50 text-red-400 rounded-4xl font-black uppercase text-xs tracking-widest active:bg-red-100 disabled:opacity-50">
+            {mode === 'single' ? 'Cancel' : 'Skip Step'}
+          </button>
         {:else}
           <div class="py-6 bg-slate-50 rounded-4xl"></div>
+          <button on:click={skipPhase} disabled={isScanning || isCountingDown} class="py-6 bg-red-50 text-red-400 rounded-4xl font-black uppercase text-xs tracking-widest active:bg-red-100 disabled:opacity-50">
+            Next →
+          </button>
         {/if}
-        <button on:click={skipPhase} disabled={isScanning || isCountingDown} class="py-6 bg-red-50 text-red-400 rounded-4xl font-black uppercase text-xs tracking-widest active:bg-red-100 disabled:opacity-50">
-          {currentSensorAvailable ? 'Skip Step' : 'Next →'}
-        </button>
       </div>
     </div>
 
@@ -340,47 +390,67 @@
     <div class="flex-1 flex flex-col" in:slide>
       <h1 class="text-5xl font-[1000] text-blue-950 uppercase tracking-tighter mb-2">Checkup</h1>
       <p class="text-blue-900/30 font-bold uppercase text-sm mb-6 tracking-widest">
-        {!sessionStarted ? 'Ready to begin your session' : 'Review your measurements'}
+        {mode === 'idle' ? 'Tap a sensor to take an individual reading, or start a full session' : 'Review your measurements'}
       </p>
       
       <div class="grid grid-cols-1 gap-3 overflow-y-auto pr-2 custom-scrollbar">
         {#each Object.entries(phases) as [key, config]}
           {@const k = key as keyof CheckupResults}
-          <div class="p-5 bg-white rounded-4xl border border-blue-50 flex justify-between items-center shadow-sm {results[k] === 0 || results[k] === "0/0" ? 'opacity-60' : ''}">
+          {@const hasResult = results[k] !== 0 && results[k] !== "0/0"}
+          <div class="p-5 bg-white rounded-4xl border border-blue-50 flex justify-between items-center shadow-sm {!hasResult ? 'opacity-60' : ''}">
             <div class="flex flex-col">
               <span class="font-black text-blue-400 uppercase text-[10px] tracking-widest">{config.title}</span>
               <span class="text-2xl font-black text-blue-950">
-                {results[k] === 0 || results[k] === "0/0" ? '--' : results[k]} 
+                {hasResult ? results[k] : '--'}
                 <span class="text-sm text-blue-900/30 font-black">{config.unit}</span>
               </span>
             </div>
-            
-            <button 
-                type="button"
-                on:click={() => redoSpecific(k)}
-                aria-label="Redo {config.title} test"
-                class="p-4 bg-blue-50 text-blue-600 rounded-2xl active:scale-90 transition-transform"
-            >
-                <svg xmlns="http://www.w3.org/2000/svg" class="w-6 h-6" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+
+            <div class="flex gap-2">
+              {#if mode === 'idle'}
+                <!-- Individual reading mode: each sensor has its own Measure button -->
+                <button
+                  type="button"
+                  on:click={() => measureSingle(k)}
+                  aria-label="Measure {config.title}"
+                  class="px-4 py-3 bg-blue-600 text-white rounded-2xl font-black uppercase text-[10px] tracking-widest active:scale-90 transition-transform"
+                >
+                  Measure
+                </button>
+              {:else}
+                <!-- Full-checkup mode: redo individual sensor -->
+                <button
+                  type="button"
+                  on:click={() => redoSpecific(k)}
+                  aria-label="Redo {config.title} test"
+                  class="p-4 bg-blue-50 text-blue-600 rounded-2xl active:scale-90 transition-transform"
+                >
+                  <svg xmlns="http://www.w3.org/2000/svg" class="w-6 h-6" fill="none" viewBox="0 0 24 24" stroke="currentColor">
                     <path stroke-linecap="round" stroke-linejoin="round" stroke-width="3" d="M4 4v5h.582m15.356 2A8.001 8.001 0 004.582 9m0 0H9m11 11v-5h-.581m0 0a8.003 8.003 0 01-15.357-2m15.357 2H15" />
-                </svg>
-            </button>
+                  </svg>
+                </button>
+              {/if}
+            </div>
           </div>
         {/each}
       </div>
 
       <div class="mt-auto pt-6 space-y-4">
-        {#if !sessionStarted}
-          <button on:click={() => { sessionStarted = true; currentPhase = 'weight'; }} class="w-full py-8 bg-blue-600 text-white rounded-[2.5rem] text-2xl font-black uppercase shadow-xl active:scale-[0.98] transition-all">
+        {#if mode === 'idle'}
+          <button
+            on:click={() => { mode = 'full'; currentPhase = 'weight'; hasCaptured = false; progress = 0; }}
+            class="w-full py-8 bg-blue-600 text-white rounded-[2.5rem] text-2xl font-black uppercase shadow-xl active:scale-[0.98] transition-all"
+          >
             Start Full Checkup
           </button>
         {:else}
+          <!-- Full checkup mode: save all measurements -->
           <button on:click={handleSave} class="w-full py-8 bg-green-500 text-white rounded-[2.5rem] text-2xl font-black uppercase shadow-xl shadow-green-100 active:scale-[0.98] transition-all">
             Save & Exit
           </button>
           <button on:click={() => {
             results = { weight: 0, height: 0, temp: 0, spo2: 0, bp: "0/0" };
-            sessionStarted = false; // Reset to start new session
+            mode = 'idle';
           }} class="w-full py-4 text-blue-900/20 font-black uppercase text-xs tracking-widest active:text-red-400">
             Clear All Data
           </button>

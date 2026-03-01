@@ -119,6 +119,10 @@ function connectSerial() {
     path: CONFIG.SERIAL_PORT,
     baudRate: CONFIG.BAUD_RATE,
     autoOpen: false,
+    // Prevent the OS from toggling DTR/RTS when the port opens/closes.
+    // Without this, opening the port resets the ESP32 on Windows (CH340/CP210x),
+    // which causes an immediate 'close' event and an infinite retry loop.
+    hupcl: false,
   });
 
   const parser = port.pipe(new ReadlineParser({ delimiter: '\n' }));
@@ -273,6 +277,16 @@ function startWebSocketServer() {
 
     ws.on('close', () => log(`WebSocket client disconnected: ${remote}`));
     ws.on('error', (e) => warn(`WebSocket client error (${remote}): ${e.message}`));
+  });
+
+  httpServer.on('error', (e) => {
+    if (e.code === 'EADDRINUSE') {
+      err(`Port ${CONFIG.WS_PORT} is already in use. Is another bridge instance running? Exiting so the process manager can retry.`);
+    } else {
+      err(`HTTP server error: ${e.message}`);
+    }
+    // Exit with code 1 so node --watch / a supervisor can restart cleanly.
+    process.exit(1);
   });
 
   httpServer.listen(CONFIG.WS_PORT, CONFIG.WS_HOST, () => {

@@ -8,13 +8,18 @@
   import ESP32StatusWidget from './lib/components/ESP32StatusWidget.svelte';
   
   import { supabase } from './lib/pages/supabaseClient';
-  import { connect as esp32Connect, disconnect as esp32Disconnect } from './lib/stores/esp32Store';
+  import { connect as esp32Connect } from './lib/stores/esp32Store';
+  import { onMount } from 'svelte';
 
   type ScreenState = 'welcome' | 'login' | 'signup' | 'home' | 'history' | 'checkup';
   
   let currentScreen: ScreenState = 'welcome';
   let user: any = null;
-  let isSaving = false; // New state for loading overlay
+  let isSaving = false;
+
+  // Connect the bridge immediately on app startup so the fingerprint sensor
+  // is available on the login and signup screens (not just after login).
+  onMount(() => { esp32Connect(); });
 
   const startKiosk = (): void => { currentScreen = 'login' };
   const goBack = (): void => { currentScreen = 'welcome' };
@@ -23,13 +28,14 @@
   const loginSuccess = (userData: any): void => { 
     user = userData; 
     currentScreen = 'home';
-    // Start (or keep alive) the ESP32 bridge WebSocket
-    esp32Connect();
+    // Bridge is already running; esp32Connect() is idempotent so calling it here
+    // is safe, but not required.
   };
 
   const logout = async (): Promise<void> => { 
     await supabase.auth.signOut();
-    esp32Disconnect();
+    // Do NOT disconnect the WebSocket here — the bridge must stay alive so the
+    // fingerprint sensor remains available on the login/signup screens.
     user = null; 
     currentScreen = 'welcome'; 
   };
@@ -38,11 +44,18 @@
   const closeHistory = (): void => { currentScreen = 'home' };
   const startCheckup = (): void => { currentScreen = 'checkup' };
 
-  // FIX: Async function to handle the database insert
+  // Async function to handle the database insert
   const finishCheckup = async (data: any): Promise<void> => {
     try {
       isSaving = true;
-      console.log("Saving Checkup Data:", data);
+
+      // Verify we have a valid user ID before attempting the insert.
+      // user.id comes from supabase.auth.getUser() → data.user.id (UUID string).
+      if (!data.user_id) {
+        throw new Error('No authenticated user — please log in again.');
+      }
+
+      console.log("Saving checkup:", JSON.stringify(data, null, 2));
 
       const { error } = await supabase
         .from('health_checkups')
@@ -50,11 +63,10 @@
 
       if (error) throw error;
 
-      // Reset to home after successful save
       currentScreen = 'home'; 
     } catch (err: any) {
-      console.error("Database Insert Error:", err.message);
-      alert("Failed to save health report. Please try again.");
+      console.error("DB insert failed:", err);
+      alert(`Failed to save health report:\n${err?.message ?? err}`);
     } finally {
       isSaving = false;
     }

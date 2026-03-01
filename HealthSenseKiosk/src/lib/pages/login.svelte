@@ -1,6 +1,13 @@
 <script lang="ts">
   import { fade, slide, scale } from 'svelte/transition';
-  import { supabase } from './supabaseClient'; // Ensure this path is correct
+  import { onDestroy } from 'svelte';
+  import { supabase } from './supabaseClient';
+  import {
+    startFingerprintVerify,
+    cancelFingerprint,
+    fingerprintEvent,
+    bridgeStatus,
+  } from '../stores/esp32Store';
   import fingerprintIcon from '../../assets/fingerprint-svgrepo-com.svg';
 
   export let onBack: () => void;
@@ -15,6 +22,32 @@
   let isCaps = true;
   let isSubmitting = false; 
   let recoveryEmail = "";
+
+  // --- FINGERPRINT STATE ---
+  // 'idle'     → modal just opened, waiting for user to tap
+  // 'scanning' → fp_verify sent, waiting for finger placement
+  // 'matching' → finger detected, searching templates
+  // 'success'  → match found, logging in
+  // 'noMatch'  → no matching fingerprint found
+  // 'error'    → sensor or bridge error
+  let scanStatus: 'idle' | 'scanning' | 'matching' | 'success' | 'noMatch' | 'error' = 'idle';
+  let scanMessage = "";
+  let isLookingUpUser = false;
+
+  function toggleFingerprint() {
+    showFingerprintModal = true;
+    scanStatus = 'idle';
+    scanMessage = "";
+    // Auto-start scanning as soon as the modal opens — no second tap needed.
+    // Small delay lets the modal animate in first.
+    setTimeout(() => startScan(), 350);
+  }
+  function closeFingerprint() {
+    showFingerprintModal = false;
+    scanStatus = 'idle';
+    scanMessage = "";
+    cancelFingerprint();
+  }
 
   const rows = {
     numbers: ['1','2','3','4','5','6','7','8','9','0'],
@@ -37,28 +70,70 @@
     if (focusedField === 'password') password = password.slice(0, -1);
   }
 
-  function toggleFingerprint() { showFingerprintModal = true; }
-  function closeFingerprint() { 
-    showFingerprintModal = false; 
-    scanStatus = 'idle';
+
+  // --- FINGERPRINT VERIFY FLOW ---
+  async function startScan() {
+    if (scanStatus === 'scanning' || scanStatus === 'matching') return;
+
+    if ($bridgeStatus !== 'esp32Ready') {
+      scanStatus = 'error';
+      scanMessage = 'ESP32 not connected';
+      return;
+    }
+    scanStatus = 'scanning';
+    scanMessage = 'Place your finger on the sensor';
+    startFingerprintVerify();
   }
 
-  // --- BIOMETRIC SCAN SIMULATION ---
-  let scanStatus: 'scanning' | 'success' | 'idle' = 'idle';
+  // React to fingerprint events — explicit subscribe so events never get batched/suppressed
+  const unsubFP = fingerprintEvent.subscribe(evt => {
+    if (!evt || !showFingerprintModal) return;
+    if (evt.type === 'fp_progress') {
+      if (evt.step === 'place_finger') {
+        scanStatus = 'scanning';
+        scanMessage = evt.message ?? 'Place your finger on the sensor';
+      }
+    } else if (evt.type === 'fp_match') {
+      scanStatus = 'matching';
+      scanMessage = 'Match found — logging in…';
+      loginWithSlot(evt.slot!);
+    } else if (evt.type === 'fp_noMatch') {
+      scanStatus = 'noMatch';
+      scanMessage = 'Fingerprint not recognized';
+    } else if (evt.type === 'fp_error') {
+      scanStatus = 'error';
+      scanMessage = evt.message ?? 'Sensor error';
+    }
+  });
+  onDestroy(unsubFP);
 
-  function simulateScan() {
-    if (scanStatus !== 'idle') return;
-    scanStatus = 'scanning';
-    
-    setTimeout(() => {
+  async function loginWithSlot(slot: number) {
+    isLookingUpUser = true;
+    try {
+      const { data: profile, error } = await supabase
+        .from('profiles')
+        .select('*')
+        .eq('fingerprint_id', slot)
+        .single();
+
+      if (error || !profile) {
+        scanStatus = 'error';
+        scanMessage = 'No account linked to this fingerprint';
+        return;
+      }
+
       scanStatus = 'success';
       setTimeout(() => {
         showFingerprintModal = false;
         scanStatus = 'idle';
-        // Note: For a real thesis, you'd fetch the last registered user here
-        onLogin({ first_name: "Biometric", last_name: "User" }); 
-      }, 1000);
-    }, 1500);
+        onLogin(profile);
+      }, 800);
+    } catch (err: any) {
+      scanStatus = 'error';
+      scanMessage = err.message ?? 'Database error';
+    } finally {
+      isLookingUpUser = false;
+    }
   }
   
   // --- ACTUAL LOGIN LOGIC ---
@@ -356,8 +431,9 @@
         role="presentation"
       >
         <button 
-          on:click={simulateScan}
-          class="relative w-48 h-48 rounded-full flex items-center justify-center mb-10 transition-all duration-500 overflow-hidden bg-slate-50 border border-blue-50 shadow-inner group"
+          on:click={startScan}
+          disabled={scanStatus === 'scanning' || scanStatus === 'matching' || scanStatus === 'success'}
+          class="relative w-48 h-48 rounded-full flex items-center justify-center mb-10 transition-all duration-500 overflow-hidden bg-slate-50 border border-blue-50 shadow-inner group disabled:cursor-default"
         >
           {#if scanStatus === 'success'}
             <div class="absolute inset-0 bg-green-500 flex items-center justify-center z-50" in:fade>
@@ -365,8 +441,14 @@
                 <path stroke-linecap="round" stroke-linejoin="round" d="M5 13l4 4L19 7" />
               </svg>
             </div>
+          {:else if scanStatus === 'noMatch' || scanStatus === 'error'}
+            <div class="absolute inset-0 bg-red-50 flex items-center justify-center z-50" in:fade>
+              <svg xmlns="http://www.w3.org/2000/svg" class="w-20 h-20 text-red-400" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="2.5">
+                <path stroke-linecap="round" stroke-linejoin="round" d="M6 18L18 6M6 6l12 12" />
+              </svg>
+            </div>
           {:else}
-            {#if scanStatus === 'scanning'}
+            {#if scanStatus === 'scanning' || scanStatus === 'matching'}
               <div 
                 class="absolute inset-3 border-[3px] border-slate-200 rounded-full z-10"
               ></div>
@@ -380,13 +462,12 @@
               <img 
                 src={fingerprintIcon} 
                 alt="Scanning" 
-                class="w-20 h-20 z-10 transition-all duration-500 {scanStatus === 'scanning' ? 'opacity-100 scale-105' : 'opacity-20'}" 
-                style="filter: {scanStatus === 'scanning' ? 'brightness(0) saturate(100%) invert(48%) sepia(79%) saturate(2500%) hue-rotate(200deg) brightness(100%) contrast(105%)' : 'grayscale(100%)'};"
+                class="w-20 h-20 z-10 transition-all duration-500 {scanStatus === 'scanning' || scanStatus === 'matching' ? 'opacity-100 scale-105' : 'opacity-20'}" 
+                style="filter: {scanStatus === 'scanning' || scanStatus === 'matching' ? 'brightness(0) saturate(100%) invert(48%) sepia(79%) saturate(2500%) hue-rotate(200deg) brightness(100%) contrast(105%)' : 'grayscale(100%)'};" 
               />
               
-              {#if scanStatus === 'scanning'}
-                <div class="absolute inset-0 z-20 pointer-events-none" style="clip-path: circle(50% at 50% 50%);">
-                  <div class="w-full h-0.75 bg-blue-400 shadow-[0_0_20px_#3b82f6] animate-[scan_2s_linear_infinite] opacity-0"></div>
+              {#if scanStatus === 'scanning' || scanStatus === 'matching'}
+                <div class="absolute inset-0 z-20 pointer-events-none" style="clip-path: circle(50% at 50% 50%);">                  <div class="w-full h-0.75 bg-blue-400 shadow-[0_0_20px_#3b82f6] animate-[scan_2s_linear_infinite] opacity-0"></div>
                 </div>
                 
                 <div class="absolute inset-0 bg-blue-500/10 animate-pulse z-0"></div>
@@ -396,18 +477,34 @@
         </button>
 
         <h3 class="text-3xl font-[1000] uppercase tracking-tighter mb-2 
-          {scanStatus === 'success' ? 'text-green-600' : 'text-blue-950'}">
+          {scanStatus === 'success' ? 'text-green-600' : scanStatus === 'noMatch' || scanStatus === 'error' ? 'text-red-500' : 'text-blue-950'}">
           {#if scanStatus === 'idle'} Tap To Scan
-          {:else if scanStatus === 'scanning'} Verifying...
-          {:else} Success
+          {:else if scanStatus === 'scanning'} Place Finger
+          {:else if scanStatus === 'matching'} Verifying…
+          {:else if scanStatus === 'success'} Authenticated
+          {:else if scanStatus === 'noMatch'} Not Recognized
+          {:else} Error
           {/if}
         </h3>
 
         <p class="text-blue-900/40 font-bold text-[10px] uppercase tracking-[0.2em] mb-10">
-          HealthSense Biometric Auth
+          {#if scanMessage}
+            {scanMessage}
+          {:else}
+            HealthSense Biometric Auth
+          {/if}
         </p>
 
-        {#if scanStatus !== 'success'}
+        {#if scanStatus === 'noMatch' || scanStatus === 'error'}
+          <div class="flex gap-3">
+            <button on:click={startScan} class="px-6 py-2 rounded-full bg-blue-600 text-white font-black uppercase text-[10px] tracking-widest active:bg-blue-700">
+              Try Again
+            </button>
+            <button on:click={closeFingerprint} class="px-6 py-2 rounded-full bg-slate-100 text-slate-400 font-black uppercase text-[10px] tracking-widest active:bg-red-50 active:text-red-400">
+              Cancel
+            </button>
+          </div>
+        {:else if scanStatus !== 'success'}
           <button on:click={closeFingerprint} class="px-6 py-2 rounded-full bg-slate-100 text-slate-400 font-black uppercase text-[10px] tracking-widest active:bg-red-50 active:text-red-400 transition-colors">
             Cancel
           </button>

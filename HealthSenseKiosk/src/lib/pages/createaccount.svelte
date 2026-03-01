@@ -1,6 +1,13 @@
 <script lang="ts">
   import { fade, slide, scale } from 'svelte/transition';
+  import { onDestroy } from 'svelte';
   import { supabase } from './supabaseClient';
+  import {
+    startFingerprintEnroll,
+    cancelFingerprint,
+    fingerprintEvent,
+    bridgeStatus,
+  } from '../stores/esp32Store';
   import fingerprintIcon from '../../assets/fingerprint-svgrepo-com.svg';
 
   export let onBack: () => void;
@@ -53,8 +60,45 @@
 
   // --- BIOMETRIC MODAL STATE ---
   let showBiometricModal = false;
-  let scanStatus: 'idle' | 'scanning' | 'success' | 'error' = 'idle';
+  // 'idle'     → ready to start
+  // 'scanning' → waiting for first finger placement
+  // 'lift'     → first scan done, waiting for finger to lift
+  // 'again'    → waiting for the same finger a second time
+  // 'success'  → enrollment complete
+  // 'error'    → something went wrong
+  let scanStatus: 'idle' | 'scanning' | 'lift' | 'again' | 'success' | 'error' = 'idle';
+  let scanMessage = "";
   let fingerprintRegistered = false;
+  let fingerprintSlot: number | null = null;   // slot saved during enroll, stored in DB
+  let addFingerprint = false;                  // checkbox: user opts in to biometric login
+
+  // Explicit store subscription — more reliable than $: reactive blocks
+  // because Svelte will never batch-suppress a direct subscriber callback.
+  const unsubFP = fingerprintEvent.subscribe((evt) => {
+    if (!evt) return;
+    if (evt.type === 'fp_progress') {
+      if (evt.step === 'place_finger') {
+        scanStatus = 'scanning';
+        scanMessage = evt.message ?? 'Place your finger on the sensor';
+      } else if (evt.step === 'lift_finger') {
+        scanStatus = 'lift';
+        scanMessage = evt.message ?? 'Lift your finger';
+      } else if (evt.step === 'place_again') {
+        scanStatus = 'again';
+        scanMessage = evt.message ?? 'Place the same finger again';
+      }
+    } else if (evt.type === 'fp_enrolled') {
+      fingerprintSlot = evt.slot!;
+      fingerprintRegistered = true;
+      scanStatus = 'success';
+      scanMessage = 'Fingerprint registered successfully';
+      setTimeout(() => { showBiometricModal = false; }, 1500);
+    } else if (evt.type === 'fp_error') {
+      scanStatus = 'error';
+      scanMessage = evt.message ?? 'Sensor error — please try again';
+    }
+  });
+  onDestroy(unsubFP);
 
   // --- KEYBOARD CONFIG ---
   const rows = {
@@ -84,18 +128,34 @@
     if (focusedField === 'recoveryEmail') recoveryEmail = recoveryEmail.slice(0, -1);
   }
 
-  function startFingerprintScan() {
+  async function startFingerprintScan() {
+    // Open the modal immediately regardless of bridge state so the user
+    // sees feedback inside the modal rather than a jarring alert().
+    scanStatus = 'idle';
+    scanMessage = '';
     showBiometricModal = true;
-    scanStatus = 'scanning';
-    setTimeout(() => {
-      if (Math.random() > 0.2) {
-        scanStatus = 'success';
-        fingerprintRegistered = true;
-        setTimeout(() => { showBiometricModal = false; }, 1500);
-      } else {
-        scanStatus = 'error';
-      }
-    }, 2500);
+
+    // Give the modal time to animate in, then check the bridge.
+    await new Promise<void>((r) => setTimeout(r, 350));
+
+    if ($bridgeStatus !== 'esp32Ready') {
+      scanStatus = 'error';
+      scanMessage = 'ESP32 not connected — make sure the bridge and device are running';
+      return;
+    }
+
+    // Determine next free slot: MAX(fingerprint_id) + 1, or 1 if nobody enrolled yet
+    const { data: slotRow } = await supabase
+      .from('profiles')
+      .select('fingerprint_id')
+      .not('fingerprint_id', 'is', null)
+      .order('fingerprint_id', { ascending: false })
+      .limit(1)
+      .maybeSingle();
+
+    const nextSlot = slotRow?.fingerprint_id != null ? (slotRow.fingerprint_id as number) + 1 : 1;
+
+    startFingerprintEnroll(nextSlot);
   }
 
   // --- UPDATED SUBMIT WITH MIDDLE NAME & .COM FIX ---
@@ -139,10 +199,11 @@
             middle_name: middleName || null,
             last_name: lastName,
             username: generatedUsername,
-            // 3. Store the real email if they have it, or null/fake if they don't
+            // Store the real email if they have it, or null/fake if they don't
             recovery_email: hasRealEmail ? authEmail : null, 
             birthday: dbDate,
             sex: sex,
+            fingerprint_id: fingerprintSlot,   // null if user skipped enrollment
             created_at: new Date().toISOString()
           };
 
@@ -389,28 +450,49 @@
         {isSubmitting ? 'Processing...' : 'Complete Registration'}
       </button>
 
-      <div class="flex items-center gap-4 w-full pt-2">
-        <div class="h-px flex-1 bg-blue-900/10"></div>
-        <span class="text-[10px] font-black text-blue-900/30 uppercase tracking-widest">Biometric Option</span>
-        <div class="h-px flex-1 bg-blue-900/10"></div>
-      </div>
-
+      <!-- Fingerprint opt-in checkbox card -->
       <button
         type="button"
-        on:click={startFingerprintScan}
-        class="w-full h-20 rounded-2xl border-2 transition-all flex items-center justify-center gap-4 
-        {fingerprintRegistered ? 'bg-green-50 border-green-500' : 'bg-white/50 border-dashed border-blue-200 active:bg-white'}"
+        on:click={() => { addFingerprint = !addFingerprint; if (!addFingerprint) { fingerprintRegistered = false; fingerprintSlot = null; } }}
+        class="w-full rounded-2xl border-2 px-5 py-4 flex items-center gap-4 text-left transition-all
+          {addFingerprint ? 'bg-blue-50 border-blue-400' : 'bg-white/50 border-blue-100 active:bg-white/80'}"
       >
-        {#if fingerprintRegistered}
-          <div class="flex items-center gap-2" in:scale>
-              <svg class="w-6 h-6 text-green-600" fill="currentColor" viewBox="0 0 20 20"><path d="M10 18a8 8 0 100-16 8 8 0 000 16zm3.707-9.293a1 1 0 00-1.414-1.414L9 10.586 7.707 9.293a1 1 0 00-1.414 1.414l2 2a1 1 0 001.414 0l4-4z"/></svg>
-              <span class="text-green-600 font-bold uppercase tracking-widest text-[10px]">Fingerprint Linked</span>
-          </div>
-        {:else}
-          <img src={fingerprintIcon} alt="" class="w-8 h-8 opacity-40" style="filter: grayscale(100%)" />
-          <span class="text-blue-900/40 font-bold uppercase tracking-widest text-[10px]">Register Fingerprint</span>
-        {/if}
+        <!-- Checkbox indicator -->
+        <div class="w-7 h-7 rounded-lg border-2 flex-shrink-0 flex items-center justify-center transition-all
+          {addFingerprint ? 'bg-blue-500 border-blue-500' : 'bg-white border-blue-200'}">
+          {#if addFingerprint}
+            <svg class="w-4 h-4 text-white" fill="currentColor" viewBox="0 0 20 20"><path d="M16.707 5.293a1 1 0 00-1.414 0L8 12.586 4.707 9.293a1 1 0 00-1.414 1.414l4 4a1 1 0 001.414 0l8-8a1 1 0 000-1.414z"/></svg>
+          {/if}
+        </div>
+        <!-- Label -->
+        <div class="flex-1 min-w-0">
+          <p class="text-[11px] font-black text-blue-950 uppercase tracking-widest leading-tight">Register Fingerprint Login</p>
+          <p class="text-[10px] text-blue-900/40 font-semibold mt-0.5">Log in instantly with your fingerprint instead of a password</p>
+        </div>
+        <!-- Fingerprint icon -->
+        <img src={fingerprintIcon} alt="" class="w-8 h-8 flex-shrink-0 transition-all
+          {addFingerprint ? 'opacity-70' : 'opacity-20'}" style="filter: grayscale(100%)" />
       </button>
+
+      <!-- Scan button — only visible when opted in -->
+      {#if addFingerprint}
+        <button
+          type="button"
+          on:click={startFingerprintScan}
+          class="w-full h-16 rounded-2xl border-2 transition-all flex items-center justify-center gap-3
+          {fingerprintRegistered
+            ? 'bg-green-50 border-green-400'
+            : 'bg-blue-500 border-blue-500 active:bg-blue-600'}"
+        >
+          {#if fingerprintRegistered}
+            <svg class="w-5 h-5 text-green-600" fill="currentColor" viewBox="0 0 20 20"><path d="M10 18a8 8 0 100-16 8 8 0 000 16zm3.707-9.293a1 1 0 00-1.414-1.414L9 10.586 7.707 9.293a1 1 0 00-1.414 1.414l2 2a1 1 0 001.414 0l4-4z"/></svg>
+            <span class="text-green-600 font-black uppercase tracking-widest text-[10px]">Fingerprint Linked</span>
+          {:else}
+            <img src={fingerprintIcon} alt="" class="w-6 h-6" style="filter: invert(1)" />
+            <span class="text-white font-black uppercase tracking-widest text-[10px]">Scan Fingerprint Now</span>
+          {/if}
+        </button>
+      {/if}
     </div>
   </div>
 
@@ -423,27 +505,48 @@
               src={fingerprintIcon} 
               alt="" 
               class="w-16 h-16 transition-all duration-500 
-              {scanStatus === 'scanning' ? 'opacity-100 scale-110 animate-pulse hue-rotate-180' : ''}
-              {scanStatus === 'success' ? 'opacity-100 scale-100' : 'opacity-20'}"
-              style={scanStatus === 'success' ? 'filter: invert(48%) sepia(79%) saturate(2476%) hue-rotate(86deg) brightness(118%) contrast(119%);' : ''}
+              {['scanning','lift','again'].includes(scanStatus) ? 'opacity-100 scale-110 animate-pulse' : ''}
+              {scanStatus === 'success' ? 'opacity-100 scale-100' : ''}
+              {scanStatus === 'idle' || scanStatus === 'error' ? 'opacity-20' : ''}"
+              style={scanStatus === 'success' ? 'filter: invert(48%) sepia(79%) saturate(2476%) hue-rotate(86deg) brightness(118%) contrast(119%);' : 
+                     ['scanning','lift','again'].includes(scanStatus) ? 'filter: brightness(0) saturate(100%) invert(48%) sepia(79%) saturate(2500%) hue-rotate(200deg) brightness(100%) contrast(105%);' : ''}
             />
           </div>
-          {#if scanStatus === 'scanning'}
+          {#if ['scanning','lift','again'].includes(scanStatus)}
             <div class="absolute inset-0 border-4 border-blue-500 rounded-full border-t-transparent animate-spin"></div>
           {/if}
         </div>
         <div class="space-y-2">
-          {#if scanStatus === 'scanning'}
-            <h2 class="text-2xl font-black text-blue-950 uppercase tracking-tight">Scanning...</h2>
-            <p class="text-blue-900/40 font-bold text-xs uppercase tracking-widest">Place finger on the scanner</p>
+          {#if scanStatus === 'idle'}
+            <h2 class="text-2xl font-black text-blue-950 uppercase tracking-tight">Starting…</h2>
+            <p class="text-blue-900/40 font-bold text-xs uppercase tracking-widest">Contacting fingerprint sensor</p>
+          {:else if scanStatus === 'scanning'}
+            <h2 class="text-2xl font-black text-blue-950 uppercase tracking-tight">Scan 1 of 2</h2>
+            <p class="text-blue-900/40 font-bold text-xs uppercase tracking-widest">{scanMessage}</p>
+          {:else if scanStatus === 'lift'}
+            <h2 class="text-2xl font-black text-blue-600 uppercase tracking-tight">First Scan Done</h2>
+            <p class="text-blue-900/40 font-bold text-xs uppercase tracking-widest">{scanMessage}</p>
+          {:else if scanStatus === 'again'}
+            <h2 class="text-2xl font-black text-blue-950 uppercase tracking-tight">Scan 2 of 2</h2>
+            <p class="text-blue-900/40 font-bold text-xs uppercase tracking-widest">{scanMessage}</p>
           {:else if scanStatus === 'success'}
             <h2 class="text-2xl font-black text-green-600 uppercase tracking-tight">Success!</h2>
             <p class="text-green-900/40 font-bold text-xs uppercase tracking-widest">Biometric Linked</p>
           {:else if scanStatus === 'error'}
             <h2 class="text-2xl font-black text-red-600 uppercase tracking-tight">Scan Failed</h2>
-            <p class="text-red-900/40 font-bold text-xs uppercase tracking-widest">Sensor error or movement</p>
+            <p class="text-red-400 font-bold text-xs uppercase tracking-widest">{scanMessage}</p>
           {/if}
         </div>
+        {#if scanStatus === 'error'}
+          <div class="flex gap-3">
+            <button on:click={startFingerprintScan} class="px-5 py-2 rounded-full bg-blue-600 text-white font-black uppercase text-[10px] tracking-widest">Retry</button>
+            <button on:click={() => { showBiometricModal = false; cancelFingerprint(); }} class="px-5 py-2 rounded-full bg-slate-100 text-slate-400 font-black uppercase text-[10px] tracking-widest">Cancel</button>
+          </div>
+        {:else if scanStatus !== 'success'}
+          <button on:click={() => { showBiometricModal = false; cancelFingerprint(); }} class="px-5 py-2 rounded-full bg-slate-100 text-slate-400 font-black uppercase text-[10px] tracking-widest active:bg-red-50 active:text-red-400">
+            Cancel
+          </button>
+        {/if}
       </div>
     </div>
   {/if}

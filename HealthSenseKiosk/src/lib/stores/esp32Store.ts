@@ -24,17 +24,18 @@ import { writable, derived, get } from 'svelte/store';
 
 // ─── Types ────────────────────────────────────────────────────────────────────
 
-export type SensorKey = 'weight' | 'height' | 'temp' | 'spo2' | 'bp';
+export type SensorKey = 'weight' | 'height' | 'temp' | 'spo2' | 'bp' | 'fingerprint';
 
 export type SensorState = 'unknown' | 'connected' | 'disconnected' | 'error';
 export type SensorStatusMap = Record<SensorKey, SensorState>;
 
 const DEFAULT_SENSOR_STATUS: SensorStatusMap = {
-  weight: 'unknown',
-  height: 'unknown',
-  temp:   'unknown',
-  spo2:   'unknown',
-  bp:     'unknown',
+  weight:      'unknown',
+  height:      'unknown',
+  temp:        'unknown',
+  spo2:        'unknown',
+  bp:          'unknown',
+  fingerprint: 'unknown',
 };
 
 export type BridgeStatus =
@@ -48,6 +49,15 @@ export interface SensorReading {
   sensor: SensorKey;
   value: number | string;
   timestamp: number;
+}
+
+// Events emitted by fingerprint operations (enroll + verify)
+export interface FingerprintEvent {
+  type: 'fp_progress' | 'fp_enrolled' | 'fp_match' | 'fp_noMatch' | 'fp_error';
+  step?: string;        // 'place_finger' | 'lift_finger' | 'place_again'
+  message?: string;
+  slot?: number;        // template slot (1-127)
+  confidence?: number;  // 0-100 confidence score from FINGERPRINT_OK search
 }
 
 export interface BridgeMessage {
@@ -76,6 +86,9 @@ export const measureProgress = writable<number>(0);
 
 /** Last error message from the bridge/ESP32 */
 export const lastError = writable<string | null>(null);
+
+/** Fingerprint operation events (enroll steps, match result, no-match) */
+export const fingerprintEvent = writable<FingerprintEvent | null>(null);
 
 /** True when the webapp can issue sensor commands */
 export const isReady = derived(bridgeStatus, ($s) => $s === 'esp32Ready');
@@ -234,14 +247,77 @@ function handleMessage(msg: BridgeMessage): void {
       measureProgress.set(0);
       // Mark the offending sensor as errored
       if (msg.sensor) {
-        sensorStatus.update((cur) => ({ ...cur, [msg.sensor as SensorKey]: 'error' }));
+        const errSensor = msg.sensor as SensorKey;
+        sensorStatus.update((cur) => ({ ...cur, [errSensor]: 'error' }));
+        // Propagate fingerprint errors through the fingerprint event channel too
+        if (errSensor === 'fingerprint') {
+          fingerprintEvent.set({ type: 'fp_error', message: msg.message as string });
+        }
       }
+      break;
+    }
+
+    case 'fp_progress': {
+      fingerprintEvent.set({
+        type:    'fp_progress',
+        step:    msg.step    as string,
+        message: msg.message as string,
+      });
+      break;
+    }
+
+    case 'fp_enrolled': {
+      fingerprintEvent.set({ type: 'fp_enrolled', slot: msg.slot as number });
+      // A successful enroll proves the sensor is alive
+      sensorStatus.update((cur) => ({ ...cur, fingerprint: 'connected' }));
+      break;
+    }
+
+    case 'fp_match': {
+      fingerprintEvent.set({
+        type:       'fp_match',
+        slot:       msg.slot       as number,
+        confidence: msg.confidence as number,
+      });
+      sensorStatus.update((cur) => ({ ...cur, fingerprint: 'connected' }));
+      break;
+    }
+
+    case 'fp_noMatch': {
+      fingerprintEvent.set({ type: 'fp_noMatch' });
       break;
     }
 
     default:
       break;
   }
+}
+
+// ─── Fingerprint API ──────────────────────────────────────────────────────────────
+
+/**
+ * Tell the ESP32 to start fingerprint enrollment into the given slot (1-127).
+ * The webapp must call this AFTER determining the next free slot from the DB.
+ */
+export function startFingerprintEnroll(slot: number): boolean {
+  fingerprintEvent.set(null);
+  lastError.set(null);
+  return send({ command: 'fp_enroll', slot });
+}
+
+/**
+ * Tell the ESP32 to scan for a fingerprint and search its stored templates.
+ * Listen to `fingerprintEvent` for `fp_match` / `fp_noMatch` results.
+ */
+export function startFingerprintVerify(): boolean {
+  fingerprintEvent.set(null);
+  lastError.set(null);
+  return send({ command: 'fp_verify' });
+}
+
+/** Cancel any in-progress fingerprint operation on the ESP32. */
+export function cancelFingerprint(): boolean {
+  return send({ command: 'fp_cancel' });
 }
 
 // ─── Command API ──────────────────────────────────────────────────────────────
