@@ -23,7 +23,7 @@ interface Toast {
 let toastId = 0;
 
 const ToastContainer = ({ toasts, onRemove }: { toasts: Toast[]; onRemove: (id: number) => void }) => (
-  <div className="fixed bottom-8 right-8 z-[200] flex flex-col gap-3 pointer-events-none">
+  <div className="fixed bottom-8 right-8 z-200 flex flex-col gap-3 pointer-events-none">
     {toasts.map(t => (
       <div
         key={t.id}
@@ -389,7 +389,7 @@ const AdminDashboard = () => {
           {activeView === 'patients' && (
             <div className="bg-white/70 backdrop-blur-xl rounded-[40px] border border-white shadow-lg overflow-hidden">
               <div className="p-8 border-b border-white/50 flex items-center gap-4 flex-wrap">
-                <div className="relative flex-1 min-w-[200px] max-w-md">
+                <div className="relative flex-1 min-w-50 max-w-md">
                   <FaSearch className="absolute left-6 top-1/2 -translate-y-1/2 text-[#139dc7]/40" />
                   <input
                     type="text"
@@ -507,7 +507,7 @@ const AdminDashboard = () => {
 
       {/* ── MODAL ── */}
       {selectedUser && (
-        <div className="fixed inset-0 z-[100] flex items-center justify-center bg-[#0a4d61]/60 backdrop-blur-md p-6 overflow-y-auto">
+        <div className="fixed inset-0 z-100 flex items-center justify-center bg-[#0a4d61]/60 backdrop-blur-md p-6 overflow-y-auto">
           <div className="bg-white/95 backdrop-blur-2xl w-full max-w-4xl rounded-[50px] shadow-2xl border border-white my-auto animate-in zoom-in-95 duration-200 overflow-hidden">
 
             {/* Header */}
@@ -655,7 +655,7 @@ const AdminDashboard = () => {
                 ) : (
                   <div className="space-y-4 max-h-[60vh] overflow-y-auto pr-2">
                     {patientCheckups.map((c, i) => (
-                      <div key={i} className="bg-slate-50/80 rounded-[24px] p-6 border border-slate-100 ring-1 ring-black/5">
+                      <div key={i} className="bg-slate-50/80 rounded-3xl p-6 border border-slate-100 ring-1 ring-black/5">
                         <div className="flex items-center justify-between mb-4">
                           <span className="text-[10px] font-black text-[#139dc7] uppercase tracking-widest">
                             Checkup #{patientCheckups.length - i}

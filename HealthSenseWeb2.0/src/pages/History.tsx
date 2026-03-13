@@ -419,7 +419,7 @@ const History: React.FC = () => {
           ) : (
             filteredData.map((record, index) => {
               return (
-                <div key={index} className="group relative bg-white/70 backdrop-blur-xl rounded-[32px] border border-white shadow-sm p-6 md:p-8 transition-all hover:shadow-lg hover:shadow-[#139dc7]/8 hover:-translate-y-0.5">
+                <div key={index} className="group relative bg-white/70 backdrop-blur-xl rounded-4xl border border-white shadow-sm p-6 md:p-8 transition-all hover:shadow-lg hover:shadow-[#139dc7]/8 hover:-translate-y-0.5">
                   <div className="flex flex-col xl:flex-row items-center gap-6 md:gap-8">
 
                     {/* Date block */}
@@ -467,10 +467,10 @@ const History: React.FC = () => {
 
       {/* ── DETAIL MODAL ── */}
       {selectedRecord && (
-        <div className="fixed inset-0 z-[100] flex items-center justify-center p-3 sm:p-8 bg-[#001b2e]/60 backdrop-blur-xl animate-in fade-in duration-300">
+        <div className="fixed inset-0 z-100 flex items-center justify-center p-3 sm:p-8 bg-[#001b2e]/60 backdrop-blur-xl animate-in fade-in duration-300">
           <div className="absolute inset-0" onClick={() => setSelectedRecord(null)} />
           <div className="bg-white/95 w-full max-w-2xl max-h-[90vh] overflow-y-auto rounded-[30px] sm:rounded-[50px] shadow-2xl relative border border-white/50 animate-in zoom-in-95 slide-in-from-bottom-10 duration-300">
-            <div className="sticky top-0 z-20 h-2 sm:h-3 w-full bg-gradient-to-r from-[#139dc7] to-[#34A0A4]" />
+            <div className="sticky top-0 z-20 h-2 sm:h-3 w-full bg-linear-to-r from-[#139dc7] to-[#34A0A4]" />
             <button
               onClick={() => setSelectedRecord(null)}
               className="absolute top-4 right-4 sm:top-8 sm:right-8 w-10 h-10 sm:w-14 sm:h-14 rounded-xl sm:rounded-2xl bg-slate-100 text-slate-500 flex items-center justify-center hover:bg-red-500 hover:text-white transition-all active:scale-90 shadow-sm z-30"
