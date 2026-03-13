@@ -58,8 +58,6 @@ export function analyzeHealth(record: HealthInput): Condition[] {
   // ─── Pulse Pressure (systolic - diastolic) ────────────────────────────────
   const pulsePressure = validBP ? systolic - diastolic : 0;
 
-  // ─── Mean Arterial Pressure ───────────────────────────────────────────────
-  const map = validBP ? diastolic + pulsePressure / 3 : 0;
 
 
   // ═══════════════════════════════════════════════════════════════════════════

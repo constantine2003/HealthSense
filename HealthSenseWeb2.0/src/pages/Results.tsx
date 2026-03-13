@@ -1,10 +1,10 @@
 import React, { useState, useEffect, useRef } from "react";
 import { useNavigate } from "react-router-dom";
-import { FaArrowLeft, FaDownload, FaCalendarCheck, FaPrint, FaShieldAlt, FaExclamationTriangle, FaCheckCircle, FaChevronDown, FaChevronUp } from "react-icons/fa";
+import { FaArrowLeft, FaDownload, FaCalendarCheck, FaPrint, FaShieldAlt, FaExclamationTriangle, FaCheckCircle, FaChevronDown } from "react-icons/fa";
 import { FiActivity, FiThermometer, FiBarChart, FiHeart, FiInfo, FiAlertCircle } from "react-icons/fi";
 import { MdHeight, MdMonitorWeight } from "react-icons/md";
 import { supabase } from "../supabaseClient";
-import { analyzeHealth, type RiskLevel, type Condition } from "../utils/healthAnalysis";
+import { analyzeHealth } from "../utils/healthAnalysis";
 
 type StatusType = "success" | "warning" | "danger";
 
@@ -356,7 +356,7 @@ const Result: React.FC = () => {
 
           {/* All clear */}
           {conditions.length === 0 ? (
-            <div className="bg-white/70 backdrop-blur-md border border-green-200 rounded-[24px] p-6 md:p-8 flex items-center gap-5">
+            <div className="bg-white/70 backdrop-blur-md border border-green-200 rounded-3xl p-6 md:p-8 flex items-center gap-5">
               <div className="w-14 h-14 bg-green-100 rounded-2xl flex items-center justify-center shrink-0">
                 <FaCheckCircle className="text-green-500 text-2xl" />
               </div>
