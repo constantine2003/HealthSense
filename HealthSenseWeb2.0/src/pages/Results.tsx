@@ -1,4 +1,4 @@
-import React, { useState, useEffect, useRef } from "react";
+import React, { useState, useEffect } from "react";
 import { useNavigate } from "react-router-dom";
 import { FaArrowLeft, FaDownload, FaCalendarCheck, FaPrint, FaShieldAlt, FaExclamationTriangle, FaCheckCircle, FaChevronDown } from "react-icons/fa";
 import { FiActivity, FiThermometer, FiBarChart, FiHeart, FiInfo, FiAlertCircle } from "react-icons/fi";
@@ -50,19 +50,313 @@ function injectPrintStyles() {
   document.head.appendChild(style);
 }
 
-let html2canvasLib: typeof import("html2canvas")["default"] | null = null;
 let jsPDFLib: typeof import("jspdf")["default"] | null = null;
 async function preloadPDFLibs() {
-  if (!html2canvasLib || !jsPDFLib) {
-    const [{ default: h2c }, { default: jsPDF }] = await Promise.all([import("html2canvas"), import("jspdf")]);
-    html2canvasLib = h2c; jsPDFLib = jsPDF;
+  if (!jsPDFLib) {
+    const { default: jsPDF } = await import("jspdf");
+    jsPDFLib = jsPDF;
   }
 }
 preloadPDFLibs().catch(() => {});
 
+// ─── PDF BUILDER ──────────────────────────────────────────────────────────────
+async function exportToPDF(record: HealthRecord, language: "English" | "Tagalog", units: "metric" | "imperial") {
+  await preloadPDFLibs();
+  const jsPDF = jsPDFLib!;
+  const doc = new jsPDF({ orientation: "portrait", unit: "mm", format: "a4" });
+
+  const W = 210;
+  const MARGIN = 16;
+  const COL = W - MARGIN * 2;
+  let y = 0;
+
+  // ── helpers ────────────────────────────────────────────────────────────────
+  const hex = (h: string) => {
+    const r = parseInt(h.slice(1, 3), 16);
+    const g = parseInt(h.slice(3, 5), 16);
+    const b = parseInt(h.slice(5, 7), 16);
+    return [r, g, b] as [number, number, number];
+  };
+  const setFill = (h: string) => doc.setFillColor(...hex(h));
+  const setDraw = (h: string) => doc.setDrawColor(...hex(h));
+  const setTxt  = (h: string) => doc.setTextColor(...hex(h));
+
+  const wrap = (text: string, maxW: number, size: number): string[] => {
+    doc.setFontSize(size);
+    return doc.splitTextToSize(text, maxW);
+  };
+
+  const pageH = 297;
+  const checkPage = (needed: number) => {
+    if (y + needed > pageH - 12) { doc.addPage(); y = 16; }
+  };
+
+  // ── HEADER BLOCK ──────────────────────────────────────────────────────────
+  setFill("#0a4d61");
+  doc.rect(0, 0, W, 32, "F");
+  setTxt("#ffffff");
+  doc.setFont("helvetica", "bold");
+  doc.setFontSize(18);
+  doc.text("HealthSense", MARGIN, 13);
+  doc.setFontSize(9);
+  doc.setFont("helvetica", "normal");
+  doc.text("Health Checkup Report", MARGIN, 20);
+  doc.text(`Generated: ${new Date().toLocaleString()}`, MARGIN, 26);
+
+  // right side: date
+  doc.setFont("helvetica", "bold");
+  doc.setFontSize(11);
+  doc.text(record.date, W - MARGIN, 14, { align: "right" });
+  doc.setFont("helvetica", "normal");
+  doc.setFontSize(9);
+  doc.text(`at ${record.time}`, W - MARGIN, 20, { align: "right" });
+
+  y = 40;
+
+  // ── OVERALL STATUS ────────────────────────────────────────────────────────
+  const isHealthy = Number(record.oxygen) >= 95 && Number(record.bmi) < 25;
+  const statusColor = isHealthy ? "#16a34a" : "#ea580c";
+  const statusLabel = isHealthy
+    ? (language === "Tagalog" ? "NAPAKAHUSAY" : "EXCELLENT")
+    : (language === "Tagalog" ? "MAAYOS" : "STABLE");
+
+  setFill(statusColor);
+  doc.roundedRect(MARGIN, y, COL, 14, 3, 3, "F");
+  setTxt("#ffffff");
+  doc.setFont("helvetica", "bold");
+  doc.setFontSize(13);
+  doc.text(`Overall Condition: ${statusLabel}`, W / 2, y + 9, { align: "center" });
+  y += 20;
+
+  // ── VITALS GRID (2 columns) ───────────────────────────────────────────────
+  setTxt("#0a4d61");
+  doc.setFont("helvetica", "bold");
+  doc.setFontSize(11);
+  doc.text("Vital Signs", MARGIN, y);
+  y += 6;
+
+  const isMetric = units === "metric";
+  const vitals: { label: string; value: string; unit: string; status: string; color: string }[] = [];
+
+  // SpO2
+  const spo2 = Number(record.oxygen);
+  vitals.push({
+    label: "SpO2 (Oxygen)",
+    value: record.oxygen,
+    unit: "%",
+    status: isNaN(spo2) ? "No Data" : spo2 < 95 ? "Low" : "Normal",
+    color: isNaN(spo2) ? "#f59e0b" : spo2 < 95 ? "#dc2626" : "#16a34a",
+  });
+
+  // Temperature
+  const t = Number(record.temp);
+  const displayTemp = isMetric ? t : (t * 9 / 5) + 32;
+  vitals.push({
+    label: "Temperature",
+    value: isNaN(t) ? "--" : displayTemp.toFixed(1),
+    unit: isMetric ? "°C" : "°F",
+    status: isNaN(t) ? "No Data" : t > 39 ? "High Fever" : t > 37.5 ? "Fever" : "Normal",
+    color: isNaN(t) ? "#f59e0b" : t > 39 ? "#dc2626" : t > 37.5 ? "#ea580c" : "#16a34a",
+  });
+
+  // Weight
+  const w = Number(record.weight);
+  const displayW = isMetric ? w : w * 2.20462;
+  const b = Number(record.bmi);
+  vitals.push({
+    label: "Weight",
+    value: isNaN(w) ? "--" : displayW.toFixed(1),
+    unit: isMetric ? "kg" : "lb",
+    status: isNaN(b) ? "No Data" : b < 18.5 ? "Underweight" : b >= 30 ? "Obese" : b >= 25 ? "Overweight" : "Normal",
+    color: isNaN(b) ? "#f59e0b" : b < 18.5 || b >= 25 ? (b >= 30 ? "#dc2626" : "#ea580c") : "#16a34a",
+  });
+
+  // BMI
+  vitals.push({
+    label: "BMI",
+    value: record.bmi,
+    unit: "",
+    status: isNaN(b) ? "No Data" : b < 18.5 ? "Underweight" : b >= 30 ? "Obese" : b >= 25 ? "Overweight" : "Normal",
+    color: isNaN(b) ? "#f59e0b" : b < 18.5 || b >= 25 ? (b >= 30 ? "#dc2626" : "#ea580c") : "#16a34a",
+  });
+
+  // Height
+  const rawH = Number(record.height);
+  const heightM = rawH / 100;
+  const displayH = isMetric ? heightM : heightM * 39.3701;
+  vitals.push({
+    label: "Height",
+    value: isNaN(rawH) ? "--" : (isMetric ? heightM.toFixed(2) : displayH.toFixed(1)),
+    unit: isMetric ? "m" : "in",
+    status: "Normal",
+    color: "#16a34a",
+  });
+
+  // Blood Pressure
+  let bpStatus = "Normal", bpColor = "#16a34a";
+  if (record.bp?.includes("/") && !record.bp.includes("--")) {
+    const [sys, dia] = record.bp.split("/").map(Number);
+    if (sys > 140 || dia > 90) { bpStatus = "High"; bpColor = "#dc2626"; }
+    else if (sys > 120 || dia > 80) { bpStatus = "Elevated"; bpColor = "#ea580c"; }
+  } else { bpStatus = "No Data"; bpColor = "#f59e0b"; }
+  vitals.push({ label: "Blood Pressure", value: record.bp, unit: "mmHg", status: bpStatus, color: bpColor });
+
+  // Draw 2-column grid
+  const cellW = (COL - 6) / 2;
+  const cellH = 20;
+  vitals.forEach((v, i) => {
+    const col = i % 2;
+    const row = Math.floor(i / 2);
+    const cx = MARGIN + col * (cellW + 6);
+    const cy = y + row * (cellH + 4);
+
+    checkPage(cellH + 4);
+
+    setFill("#f0f8ff");
+    setDraw("#d0e8f0");
+    doc.setLineWidth(0.3);
+    doc.roundedRect(cx, cy, cellW, cellH, 2, 2, "FD");
+
+    // status dot
+    doc.setFillColor(...hex(v.color));
+    doc.circle(cx + 5, cy + 5, 1.5, "F");
+
+    setTxt("#139dc7");
+    doc.setFont("helvetica", "normal");
+    doc.setFontSize(7);
+    doc.text(v.label.toUpperCase(), cx + 10, cy + 5.5);
+
+    setTxt("#0a4d61");
+    doc.setFont("helvetica", "bold");
+    doc.setFontSize(14);
+    doc.text(`${v.value}${v.unit}`, cx + 5, cy + 14);
+
+    setTxt(v.color);
+    doc.setFont("helvetica", "bold");
+    doc.setFontSize(7);
+    doc.text(v.status, cx + cellW - 4, cy + 5.5, { align: "right" });
+  });
+
+  y += Math.ceil(vitals.length / 2) * (cellH + 4) + 8;
+
+  // ── HEALTH INSIGHTS ───────────────────────────────────────────────────────
+  const conditions = analyzeHealth(record);
+
+  checkPage(16);
+  setTxt("#0a4d61");
+  doc.setFont("helvetica", "bold");
+  doc.setFontSize(11);
+  doc.text("AI Health Analysis", MARGIN, y);
+
+  if (conditions.length === 0) {
+    y += 5;
+    checkPage(14);
+    setFill("#f0fdf4");
+    setDraw("#bbf7d0");
+    doc.setLineWidth(0.3);
+    doc.roundedRect(MARGIN, y, COL, 12, 2, 2, "FD");
+    setTxt("#15803d");
+    doc.setFont("helvetica", "bold");
+    doc.setFontSize(10);
+    doc.text("✓  All Vitals Normal — readings are within healthy ranges.", MARGIN + 5, y + 7.5);
+    y += 18;
+  } else {
+    // summary line
+    const high = conditions.filter(c => c.risk === "high").length;
+    const mod  = conditions.filter(c => c.risk === "moderate").length;
+    const low  = conditions.filter(c => c.risk === "low").length;
+    y += 5;
+    doc.setFont("helvetica", "normal");
+    doc.setFontSize(8);
+    setTxt("#64748b");
+    doc.text(
+      `${conditions.length} condition(s) detected — ${high} High Risk · ${mod} Moderate · ${low} Low Risk`,
+      MARGIN, y
+    );
+    y += 6;
+
+    const riskColors: Record<string, { bg: string; border: string; text: string; label: string }> = {
+      high:     { bg: "#fef2f2", border: "#fca5a5", text: "#dc2626", label: "HIGH RISK" },
+      moderate: { bg: "#fffbeb", border: "#fcd34d", text: "#b45309", label: "MODERATE"  },
+      low:      { bg: "#f0f9ff", border: "#bae6fd", text: "#0369a1", label: "LOW RISK"  },
+    };
+
+    for (const cond of conditions) {
+      const cfg = riskColors[cond.risk];
+      const name = language === "Tagalog" ? cond.nameTagalog : cond.name;
+      const explanation = language === "Tagalog" ? cond.explanationTagalog : cond.explanation;
+      const lines = wrap(explanation, COL - 20, 8);
+      const blockH = 8 + lines.length * 4.2 + 8;
+
+      checkPage(blockH + 4);
+
+      setFill(cfg.bg);
+      setDraw(cfg.border);
+      doc.setLineWidth(0.4);
+      doc.roundedRect(MARGIN, y, COL, blockH, 2, 2, "FD");
+
+      // left accent bar
+      doc.setFillColor(...hex(cfg.text));
+      doc.rect(MARGIN, y, 3, blockH, "F");
+
+      // condition name
+      setTxt(cfg.text);
+      doc.setFont("helvetica", "bold");
+      doc.setFontSize(9);
+      doc.text(name, MARGIN + 7, y + 6);
+
+      // risk badge
+      doc.setFont("helvetica", "bold");
+      doc.setFontSize(6.5);
+      doc.text(cfg.label, W - MARGIN - 2, y + 6, { align: "right" });
+
+      // related vitals
+      setTxt("#64748b");
+      doc.setFont("helvetica", "normal");
+      doc.setFontSize(7);
+      doc.text(`Vitals: ${cond.relatedVitals.join(", ")}`, MARGIN + 7, y + 11);
+
+      // explanation
+      setTxt("#374151");
+      doc.setFont("helvetica", "normal");
+      doc.setFontSize(8);
+      doc.text(lines, MARGIN + 7, y + 16);
+
+      y += blockH + 4;
+    }
+  }
+
+  // ── DISCLAIMER ────────────────────────────────────────────────────────────
+  checkPage(14);
+  y += 4;
+  setFill("#f8fafc");
+  setDraw("#e2e8f0");
+  doc.setLineWidth(0.3);
+  doc.roundedRect(MARGIN, y, COL, 12, 2, 2, "FD");
+  setTxt("#94a3b8");
+  doc.setFont("helvetica", "italic");
+  doc.setFontSize(7);
+  const disclaimer = "This analysis is for informational purposes only and does not constitute medical advice. Consult a qualified healthcare professional for diagnosis and treatment.";
+  const dLines = wrap(disclaimer, COL - 8, 7);
+  doc.text(dLines, MARGIN + 4, y + 4.5);
+  y += 14;
+
+  // ── FOOTER ────────────────────────────────────────────────────────────────
+  const totalPages = (doc as any).internal.getNumberOfPages();
+  for (let p = 1; p <= totalPages; p++) {
+    doc.setPage(p);
+    setTxt("#94a3b8");
+    doc.setFont("helvetica", "normal");
+    doc.setFontSize(7);
+    doc.text("HealthSense Kiosk — Confidential Health Report", MARGIN, 291);
+    doc.text(`Page ${p} of ${totalPages}`, W - MARGIN, 291, { align: "right" });
+  }
+
+  doc.save(`HealthSense_Report_${record.date.replace(/[\s,]+/g, "_")}.pdf`);
+}
+
 const Result: React.FC = () => {
   const navigate = useNavigate();
-  const printRef = useRef<HTMLDivElement>(null);
   const [loading, setLoading] = useState(true);
   const [exporting, setExporting] = useState(false);
   const [latestRecord, setLatestRecord] = useState<HealthRecord | null>(null);
@@ -137,60 +431,10 @@ const Result: React.FC = () => {
   const handlePrint = () => window.print();
 
   const handleExportPDF = async () => {
-    if (!printRef.current || !latestRecord) return;
+    if (!latestRecord) return;
     setExporting(true);
     try {
-      await preloadPDFLibs();
-      const html2canvas = html2canvasLib!;
-      const jsPDF = jsPDFLib!;
-      const canvas = await html2canvas(printRef.current, {
-        scale: 2, useCORS: true, allowTaint: true, backgroundColor: "#eaf4ff", logging: false,
-        ignoreElements: (el) => el.classList.contains("hs-no-print"),
-        onclone: (cloned: Document) => {
-          const patch = cloned.createElement("style");
-          patch.textContent = `
-            *, *::before, *::after { backdrop-filter: none !important; -webkit-backdrop-filter: none !important; transition: none !important; transform: none !important; animation: none !important; }
-            .text-green-400 { color: #4ade80 !important; } .text-green-600 { color: #16a34a !important; }
-            .text-orange-600 { color: #ea580c !important; } .text-red-600 { color: #dc2626 !important; }
-            .text-white { color: #ffffff !important; }
-            [class*="bg-white/"] { background-color: #f0f8ff !important; }
-            [class*="bg-green-500/"] { background-color: #f0fdf4 !important; }
-            [class*="bg-orange-500/"] { background-color: #fff7ed !important; }
-            [class*="bg-red-500/"] { background-color: #fef2f2 !important; }
-            [class*="text-[#139dc7]/"] { color: #139dc7 !important; }
-            [class*="bg-[#139dc7]/"] { background-color: #e0f5fb !important; }
-            .hs-card { background: #f0f8ff !important; border: 1px solid #d0e8f8 !important; box-shadow: none !important; }
-            .hs-hero { background: #eaf4ff !important; border: 1px solid #c0d8f0 !important; box-shadow: none !important; }
-            .blur-3xl { filter: none !important; opacity: 0 !important; }
-          `;
-          cloned.head.appendChild(patch);
-          cloned.querySelectorAll("*").forEach((el) => {
-            const h = el as HTMLElement;
-            h.style.backdropFilter = "none";
-            (h.style as CSSStyleDeclaration & { webkitBackdropFilter: string }).webkitBackdropFilter = "none";
-            h.style.transform = "none"; h.style.transition = "none";
-          });
-          const grid = cloned.querySelector(".hs-grid") as HTMLElement | null;
-          if (grid) grid.style.gridTemplateColumns = "repeat(3, 1fr)";
-        },
-      });
-      const imgData = canvas.toDataURL("image/png");
-      const pdf = new jsPDF({ orientation: "portrait", unit: "mm", format: "a4" });
-      const pageW = pdf.internal.pageSize.getWidth();
-      const pageH = pdf.internal.pageSize.getHeight();
-      const imgW = pageW;
-      const imgH = (canvas.height * pageW) / canvas.width;
-      if (imgH <= pageH) {
-        pdf.addImage(imgData, "PNG", 0, 0, imgW, imgH);
-      } else {
-        let yOffset = 0, remaining = imgH;
-        while (remaining > 0) {
-          pdf.addImage(imgData, "PNG", 0, -yOffset, imgW, imgH);
-          remaining -= pageH; yOffset += pageH;
-          if (remaining > 0) pdf.addPage();
-        }
-      }
-      pdf.save(`HealthSense_Report_${latestRecord.date.replace(/[\s,]+/g, "_")}.pdf`);
+      await exportToPDF(latestRecord, language, units);
     } catch (err) {
       console.error("PDF export failed:", err);
       alert(`PDF export failed: ${(err as Error).message ?? "Unknown error"}. Try the Print button instead.`);
@@ -269,9 +513,9 @@ const Result: React.FC = () => {
   const modCount  = conditions.filter(c => c.risk === "moderate").length;
 
   const riskConfig = {
-    low:      { bg: "bg-sky-50",    border: "border-sky-200",    badge: "bg-sky-100 text-sky-700",    icon: <FaCheckCircle className="text-sky-500" />,       dot: "bg-sky-400"    },
+    low:      { bg: "bg-sky-50",    border: "border-sky-200",    badge: "bg-sky-100 text-sky-700",    icon: <FaCheckCircle className="text-sky-500" />,          dot: "bg-sky-400"    },
     moderate: { bg: "bg-amber-50",  border: "border-amber-200",  badge: "bg-amber-100 text-amber-700", icon: <FaExclamationTriangle className="text-amber-500" />, dot: "bg-amber-400"  },
-    high:     { bg: "bg-red-50",    border: "border-red-200",    badge: "bg-red-100 text-red-700",    icon: <FiAlertCircle className="text-red-500" />,          dot: "bg-red-500"    },
+    high:     { bg: "bg-red-50",    border: "border-red-200",    badge: "bg-red-100 text-red-700",    icon: <FiAlertCircle className="text-red-500" />,           dot: "bg-red-500"    },
   };
 
   return (
@@ -282,7 +526,7 @@ const Result: React.FC = () => {
         </button>
       </header>
 
-      <main id="hs-print-region" ref={printRef} className="max-w-5xl mx-auto px-4 md:px-6 pb-16">
+      <main id="hs-print-region" className="max-w-5xl mx-auto px-4 md:px-6 pb-16">
 
         {/* HERO */}
         <div className="hs-hero bg-white/70 backdrop-blur-xl rounded-[28px] md:rounded-[40px] p-5 md:p-8 lg:p-12 border border-white shadow-2xl mb-4 md:mb-6 flex flex-col md:flex-row justify-between items-center gap-4 md:gap-6">
@@ -325,7 +569,6 @@ const Result: React.FC = () => {
 
         {/* ══ HEALTH INSIGHTS SECTION ══ */}
         <section className="mt-6 md:mt-8">
-          {/* Section header */}
           <div className="flex items-center justify-between mb-4 px-1">
             <div>
               <h2 className="text-lg md:text-xl font-black text-[#0a4d61] flex items-center gap-2">
@@ -334,8 +577,6 @@ const Result: React.FC = () => {
               </h2>
               <p className="text-[10px] text-[#139dc7]/50 font-bold uppercase tracking-widest mt-0.5">{lang.insightsSubtitle}</p>
             </div>
-
-            {/* Summary badge */}
             {conditions.length > 0 && (
               <div className="flex items-center gap-2 shrink-0">
                 {highCount > 0 && (
@@ -354,7 +595,6 @@ const Result: React.FC = () => {
             )}
           </div>
 
-          {/* All clear */}
           {conditions.length === 0 ? (
             <div className="bg-white/70 backdrop-blur-md border border-green-200 rounded-3xl p-6 md:p-8 flex items-center gap-5">
               <div className="w-14 h-14 bg-green-100 rounded-2xl flex items-center justify-center shrink-0">
@@ -372,44 +612,26 @@ const Result: React.FC = () => {
                 const isOpen = expandedCondition === i;
                 const name = language === "Tagalog" ? cond.nameTagalog : cond.name;
                 const explanation = language === "Tagalog" ? cond.explanationTagalog : cond.explanation;
-
                 return (
                   <div key={i} className={`${cfg.bg} ${cfg.border} border rounded-[22px] overflow-hidden transition-all duration-200`}>
-                    {/* Row */}
-                    <button
-                      onClick={() => setExpandedCondition(isOpen ? null : i)}
-                      className="w-full flex items-center gap-4 p-4 md:p-5 text-left"
-                    >
-                      {/* Risk icon */}
-                      <div className={`w-10 h-10 rounded-xl flex items-center justify-center shrink-0 ${cfg.bg} border ${cfg.border}`}>
-                        {cfg.icon}
-                      </div>
-
-                      {/* Name + vitals */}
+                    <button onClick={() => setExpandedCondition(isOpen ? null : i)} className="w-full flex items-center gap-4 p-4 md:p-5 text-left">
+                      <div className={`w-10 h-10 rounded-xl flex items-center justify-center shrink-0 ${cfg.bg} border ${cfg.border}`}>{cfg.icon}</div>
                       <div className="flex-1 min-w-0">
                         <p className="font-black text-[#0a4d61] text-sm md:text-base leading-tight truncate">{name}</p>
                         <div className="flex flex-wrap items-center gap-1.5 mt-1.5">
                           <span className="text-[8px] font-black uppercase tracking-wider text-[#139dc7]/50">{lang.relatedVitals}:</span>
                           {cond.relatedVitals.map(v => (
-                            <span key={v} className="text-[8px] font-black uppercase px-2 py-0.5 bg-white/70 text-[#139dc7] rounded-full border border-[#139dc7]/20">
-                              {v}
-                            </span>
+                            <span key={v} className="text-[8px] font-black uppercase px-2 py-0.5 bg-white/70 text-[#139dc7] rounded-full border border-[#139dc7]/20">{v}</span>
                           ))}
                         </div>
                       </div>
-
-                      {/* Risk badge + chevron */}
                       <div className="flex items-center gap-2 shrink-0">
-                        <span className={`text-[8px] font-black uppercase px-2.5 py-1 rounded-full hidden sm:inline ${cfg.badge}`}>
-                          {lang.riskLabels[cond.risk]}
-                        </span>
+                        <span className={`text-[8px] font-black uppercase px-2.5 py-1 rounded-full hidden sm:inline ${cfg.badge}`}>{lang.riskLabels[cond.risk]}</span>
                         <div className={`w-7 h-7 rounded-full flex items-center justify-center transition-transform duration-200 ${isOpen ? "bg-[#0a4d61]/10 rotate-180" : "bg-white/50"}`}>
                           <FaChevronDown size={10} className="text-[#0a4d61]/60" />
                         </div>
                       </div>
                     </button>
-
-                    {/* Expanded explanation */}
                     {isOpen && (
                       <div className="px-5 pb-5 pt-0">
                         <div className="h-px bg-white/60 mb-4" />
@@ -425,13 +647,11 @@ const Result: React.FC = () => {
             </div>
           )}
 
-          {/* Disclaimer */}
           <div className="mt-4 flex items-start gap-2.5 px-1">
             <FiInfo className="text-[#139dc7]/30 shrink-0 mt-0.5" size={13} />
             <p className="text-[9px] md:text-[10px] text-[#139dc7]/40 font-medium leading-relaxed">{lang.disclaimer}</p>
           </div>
         </section>
-
       </main>
     </div>
   );
@@ -443,7 +663,7 @@ const ResultCard = ({ icon, title, value, unit, status, type }: {
   const typeColors = {
     success: "bg-green-500/10 text-green-600 border-green-200",
     warning: "bg-orange-500/10 text-orange-600 border-orange-200",
-    danger: "bg-red-500/10 text-red-600 border-red-200"
+    danger:  "bg-red-500/10 text-red-600 border-red-200"
   };
   return (
     <div className="hs-card bg-white/80 backdrop-blur-md border border-white p-4 md:p-5 lg:p-6 rounded-2xl md:rounded-3xl shadow-lg group hover:bg-white transition-all hover:-translate-y-1">
@@ -451,9 +671,7 @@ const ResultCard = ({ icon, title, value, unit, status, type }: {
         <div className="w-9 h-9 md:w-11 md:h-11 lg:w-12 lg:h-12 bg-[#139dc7]/10 rounded-xl md:rounded-2xl flex items-center justify-center text-[#139dc7] text-lg md:text-2xl group-hover:bg-[#139dc7] group-hover:text-white transition-all duration-300 shrink-0">
           {icon}
         </div>
-        <span className={`text-[8px] md:text-[9px] font-black uppercase px-2 py-1 rounded-full border shadow-sm leading-none ${typeColors[type]}`}>
-          {status}
-        </span>
+        <span className={`text-[8px] md:text-[9px] font-black uppercase px-2 py-1 rounded-full border shadow-sm leading-none ${typeColors[type]}`}>{status}</span>
       </div>
       <div>
         <p className="text-[9px] md:text-[10px] font-bold text-[#139dc7]/50 uppercase tracking-widest mb-0.5">{title}</p>
