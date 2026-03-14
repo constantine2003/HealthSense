@@ -172,7 +172,7 @@ const DetailModal: React.FC<{
 }> = ({ record, language, lang, onClose, getHealthData }) => {
   const [expandedCondition, setExpandedCondition] = useState<number | null>(null);
   const [exporting, setExporting] = useState(false);
-  const units = language === "Tagalog" ? "metric" : "metric"; // passed via closure below
+  // const units = language === "Tagalog" ? "metric" : "metric"; // passed via closure below
 
   const conditions = analyzeHealth(record);
   const highCount = conditions.filter(c => c.risk === "high").length;
@@ -185,12 +185,12 @@ const DetailModal: React.FC<{
   };
 
   return (
-    <div className="fixed inset-0 z-[100] flex items-center justify-center p-4 sm:p-8 bg-[#001b2e]/70 backdrop-blur-xl animate-in fade-in duration-200">
+    <div className="fixed inset-0 z-100 flex items-center justify-center p-4 sm:p-8 bg-[#001b2e]/70 backdrop-blur-xl animate-in fade-in duration-200">
       {/* Backdrop click to close */}
       <div className="absolute inset-0" onClick={onClose} />
 
       {/* Modal shell: overflow-hidden clips scrollbar inside the rounded corners */}
-      <div className="relative w-full max-w-2xl max-h-[90vh] flex flex-col bg-white rounded-[32px] border border-[#d0e8f0] shadow-2xl shadow-[#0a4d61]/20 overflow-hidden animate-in zoom-in-95 slide-in-from-bottom-6 duration-200">
+      <div className="relative w-full max-w-2xl max-h-[90vh] flex flex-col bg-white rounded-4xl border border-[#d0e8f0] shadow-2xl shadow-[#0a4d61]/20 overflow-hidden animate-in zoom-in-95 slide-in-from-bottom-6 duration-200">
 
         {/* ── Sticky header ── */}
         <div className="shrink-0 border-b border-[#139dc7]/10">
