@@ -51,7 +51,7 @@
   function sensorLabel(state: SensorState): string {
     switch (state) {
       case 'connected':    return 'Connected';
-      case 'disconnected': return 'Not detected';
+      case 'disconnected': return 'Disconnected';
       case 'error':        return 'Error';
       default:             return 'Unknown';
     }

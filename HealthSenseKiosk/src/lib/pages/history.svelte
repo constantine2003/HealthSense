@@ -40,6 +40,11 @@
       if (val <= 98) return { status: "Normal", color: "#F97316" };
       return { status: "Excellent", color: "#22c55e" };
     }
+    if (type === 'hr') {
+      if (val < 60) return { status: "Low", color: "#F97316" };
+      if (val <= 100) return { status: "Normal", color: "#22c55e" };
+      return { status: "High", color: "#EF4444" };
+    }
     if (type === 'temp') {
       const t = parseFloat(val);
       if (t < 35) return { status: "Hypothermia", color: "#EF4444" };
@@ -81,6 +86,9 @@
       time: d.toLocaleTimeString('en-US', { hour: '2-digit', minute: '2-digit' })
     };
   };
+
+  const readHeartRate = (item: any) => item?.heart_rate ?? item?.heartRate ?? item?.hr ?? null;
+  const readSpo2 = (item: any) => item?.spo2 ?? null;
 
   // Helper to handle keyboard "Enter" or "Space" for accessibility
   function handleKeydown(event: KeyboardEvent) {
@@ -130,8 +138,8 @@
 
             <div class="grid grid-cols-3 gap-4 border-t border-blue-50 pt-6">
                 <div class="flex flex-col">
-                    <span class="text-[9px] font-bold text-blue-400 uppercase">SpO2</span>
-                    <span class="font-black text-lg text-blue-950">{item.spo2 || '--'}%</span>
+                <span class="text-[9px] font-bold text-blue-400 uppercase">HR + SpO2</span>
+                <span class="font-black text-lg text-blue-950">{readHeartRate(item) || '--'} bpm / {readSpo2(item) || '--'}%</span>
                 </div>
                 <div class="flex flex-col">
                     <span class="text-[9px] font-bold text-blue-400 uppercase">Temp</span>
@@ -164,7 +172,10 @@
   </div>
 
   {#if selectedCheckup}
-    {@const s = getStatus(selectedCheckup.spo2, 'spo2')}
+    {@const spo2Val = readSpo2(selectedCheckup)}
+    {@const hrVal = readHeartRate(selectedCheckup)}
+    {@const s = getStatus(spo2Val, 'spo2')}
+    {@const hr = getStatus(hrVal, 'hr')}
     {@const t = getStatus(selectedCheckup.temp || selectedCheckup.temperature, 'temp')}
     {@const bmi = getBMIInfo(selectedCheckup)}
     {@const bp = getStatus(selectedCheckup.bp || selectedCheckup.blood_pressure, 'bp')}
@@ -201,9 +212,20 @@
         </div>
 
         <div class="space-y-4">
-          <div class="flex justify-between items-center p-6 bg-blue-50/50 rounded-3xl border border-blue-100">
-            <div><p class="text-[10px] font-black text-blue-400 uppercase mb-1">Blood Oxygen</p><h4 class="text-3xl font-black text-blue-950">{selectedCheckup.spo2 || '--'}%</h4></div>
-            <span class="px-4 py-2 rounded-xl text-white font-black text-[10px] uppercase" style="background: {s.color}">{s.status}</span>
+          <div class="p-6 bg-blue-50/50 rounded-3xl border border-blue-100 space-y-4">
+            <p class="text-[10px] font-black text-blue-400 uppercase mb-1">HR + SpO2</p>
+            <div class="grid grid-cols-2 gap-4">
+              <div class="bg-white rounded-2xl p-4 border border-blue-100">
+                <p class="text-[10px] font-black text-blue-400 uppercase">Heart Rate</p>
+                <h4 class="text-3xl font-black text-blue-950">{hrVal || '--'} bpm</h4>
+                <span class="inline-block mt-2 px-3 py-1 rounded-lg text-white font-black text-[10px] uppercase" style="background: {hr.color}">{hr.status}</span>
+              </div>
+              <div class="bg-white rounded-2xl p-4 border border-blue-100">
+                <p class="text-[10px] font-black text-blue-400 uppercase">Blood Oxygen</p>
+                <h4 class="text-3xl font-black text-blue-950">{spo2Val || '--'}%</h4>
+                <span class="inline-block mt-2 px-3 py-1 rounded-lg text-white font-black text-[10px] uppercase" style="background: {s.color}">{s.status}</span>
+              </div>
+            </div>
           </div>
 
           <div class="flex justify-between items-center p-6 bg-blue-50/50 rounded-3xl border border-blue-100">

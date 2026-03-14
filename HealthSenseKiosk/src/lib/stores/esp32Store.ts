@@ -11,7 +11,7 @@
  * Message protocol (bridge → webapp):
  *   { type: 'bridge',    event: 'esp32Connected' | 'esp32Disconnected' }
  *   { type: 'progress',  sensor: SensorKey, progress: number }   // 0-100
- *   { type: 'reading',   sensor: SensorKey, value: number | string }
+ *   { type: 'reading',   sensor: SensorKey, value: number | string | { spo2, heartRate } }
  *   { type: 'error',     sensor: SensorKey, message: string }
  *   { type: 'pong',      esp32Connected: boolean }
  *
@@ -47,7 +47,7 @@ export type BridgeStatus =
 
 export interface SensorReading {
   sensor: SensorKey;
-  value: number | string;
+  value: number | string | { spo2: number; heartRate: number };
   timestamp: number;
 }
 
@@ -216,6 +216,7 @@ function handleMessage(msg: BridgeMessage): void {
     case 'sensorStatus': {
       // ESP32 reports which physical sensors are wired & responding.
       // Payload: { sensors: { weight: bool, height: bool, temp: bool, spo2: bool, bp: bool } }
+      // Note: 'spo2' protocol key corresponds to the MAX30102 combined HR + SpO2 sensor.
       const raw = msg.sensors as Record<string, boolean>;
       if (raw && typeof raw === 'object') {
         sensorStatus.update((cur) => {
@@ -232,9 +233,24 @@ function handleMessage(msg: BridgeMessage): void {
     case 'reading': {
       measureProgress.set(100);
       const readSensor = msg.sensor as SensorKey;
+
+      let value: number | string | { spo2: number; heartRate: number } = msg.value as number | string;
+      // MAX30102 emits a combined payload for the 'spo2' key:
+      // { value: { spo2: 98, heartRate: 72 } }
+      if (readSensor === 'spo2') {
+        const raw = msg.value as Record<string, unknown>;
+        if (raw && typeof raw === 'object') {
+          const spo2Val = Number(raw.spo2);
+          const hrVal = Number(raw.heartRate ?? raw.hr);
+          if (!Number.isNaN(spo2Val) && !Number.isNaN(hrVal)) {
+            value = { spo2: spo2Val, heartRate: hrVal };
+          }
+        }
+      }
+
       latestReading.set({
         sensor:    readSensor,
-        value:     msg.value as number | string,
+        value,
         timestamp: Date.now(),
       });
       // A successful reading confirms that sensor is alive
@@ -248,7 +264,14 @@ function handleMessage(msg: BridgeMessage): void {
       // Mark the offending sensor as errored
       if (msg.sensor) {
         const errSensor = msg.sensor as SensorKey;
-        sensorStatus.update((cur) => ({ ...cur, [errSensor]: 'error' }));
+        const errorMessage = String(msg.message ?? '');
+        const transientHrSpo2Error = errSensor === 'spo2'
+          && !/not found|not available|disconnected/i.test(errorMessage);
+
+        sensorStatus.update((cur) => ({
+          ...cur,
+          [errSensor]: transientHrSpo2Error ? 'connected' : 'error'
+        }));
         // Propagate fingerprint errors through the fingerprint event channel too
         if (errSensor === 'fingerprint') {
           fingerprintEvent.set({ type: 'fp_error', message: msg.message as string });

@@ -22,10 +22,12 @@
     height: number;
     temp: number;
     spo2: number;
+    heartRate: number;
     bp: string;
   }
 
-  type Phase = keyof CheckupResults | 'review';
+  type SensorPhase = 'weight' | 'height' | 'temp' | 'spo2' | 'bp';
+  type Phase = SensorPhase | 'review';
 
   // --- LOGIC STATES ---
   let currentPhase: Phase = 'review'; 
@@ -45,7 +47,8 @@
     weight: 0, 
     height: 0, 
     temp: 0, 
-    spo2: 0, 
+    spo2: 0,
+    heartRate: 0,
     bp: "0/0" 
   };
 
@@ -61,13 +64,26 @@
 
   const unsubReading = latestReading.subscribe((reading) => {
     if (!reading) return;
-    const sensor = reading.sensor as keyof CheckupResults;
+    const sensor = reading.sensor as SensorKey;
     if (sensor !== currentPhase) return;
+
     if (sensor === 'bp') {
       results.bp = String(reading.value);
+    } else if (sensor === 'spo2') {
+      const raw = reading.value as Record<string, unknown>;
+      if (raw && typeof raw === 'object') {
+        const spo2Val = Number(raw.spo2);
+        const hrVal = Number(raw.heartRate ?? raw.hr);
+        if (!Number.isNaN(spo2Val)) results.spo2 = spo2Val;
+        if (!Number.isNaN(hrVal)) results.heartRate = hrVal;
+      } else {
+        const spo2Val = Number(reading.value);
+        if (!Number.isNaN(spo2Val)) results.spo2 = spo2Val;
+      }
     } else {
       (results as any)[sensor] = reading.value;
     }
+
     hasCaptured = true;
     isScanning = false;
     progress = 100;
@@ -93,7 +109,7 @@
     weight: { title: "Weight", desc: "Step onto the platform", icon: "⚖️", duration: 30, unit: "kg" },
     height: { title: "Height", desc: "Stand straight", icon: "📏", duration: 30, unit: "m" },
     temp: { title: "Temperature", desc: "Place forehead near sensor", icon: "🌡️", duration: 40, unit: "°C" },
-    spo2: { title: "SpO2", desc: "Place finger in clip", icon: "🫀", duration: 30, unit: "%" },
+    spo2: { title: "HR + SpO2", desc: "Place finger on MAX30102 clip", icon: "🫀", duration: 30, unit: "% / bpm" },
     bp: { title: "Blood Pressure", desc: "Remain very still", icon: "💓", duration: 50, unit: "mmHg" }
   } as const;
 
@@ -120,7 +136,7 @@
     // Only send to ESP32 when the bridge is live and sensor is confirmed connected.
     // If either is missing, abort and show an error — no mock data.
     const bridgeOnline    = $bridgeStatus === 'esp32Ready';
-    const sensorConnected = $sensorStatus[sensor] === 'connected';
+    const sensorConnected = $sensorStatus[sensor] !== 'disconnected';
 
     if (bridgeOnline && sensorConnected) {
       const sent = startMeasurement(sensor);
@@ -151,6 +167,7 @@
       user_id:        user?.id,
       temperature:    results.temp   > 0     ? results.temp   : null,
       spo2:           results.spo2   > 0     ? results.spo2   : null,
+      heart_rate:     results.heartRate > 0  ? results.heartRate : null,
       height:         results.height > 0     ? results.height : null,
       weight:         results.weight > 0     ? results.weight : null,
       bmi:            bmiVal,
@@ -163,14 +180,14 @@
     mode = 'idle';
     isRedoingSpecific = false;
     currentPhase = 'review';
-    results = { weight: 0, height: 0, temp: 0, spo2: 0, bp: "0/0" };
+    results = { weight: 0, height: 0, temp: 0, spo2: 0, heartRate: 0, bp: "0/0" };
     hasCaptured = false;
     progress = 0;
   }
 
   // Start a single-sensor measurement from the review screen.
   // On completion the user will be offered "Save as Reading" (not "Continue").
-  function measureSingle(phase: Phase) {
+  function measureSingle(phase: SensorPhase) {
     mode = 'single';
     isRedoingSpecific = false;
     currentPhase = phase;
@@ -189,13 +206,13 @@
       return;
     }
 
-    // Full checkup: advance through weight → height → temp → spo2 → bp → review
+    // Full checkup: advance through weight → height → temp → HR+SpO2 → bp → review
     const order: Phase[] = ['weight', 'height', 'temp', 'spo2', 'bp', 'review'];
     const currentIndex = order.indexOf(currentPhase);
     currentPhase = currentIndex < order.length - 1 ? order[currentIndex + 1] : 'review';
   }
 
-  function redoSpecific(phase: Phase) {
+  function redoSpecific(phase: SensorPhase) {
     // redoSpecific is only used during a full checkup (from review) to re-take one sensor
     isRedoingSpecific = true;
     currentPhase = phase;
@@ -219,9 +236,12 @@
     // Full checkup: record skip as null then advance
     if (currentPhase === 'bp') {
       results.bp = "0/0";
+    } else if (currentPhase === 'spo2') {
+      results.spo2 = 0;
+      results.heartRate = 0;
     } else if (currentPhase !== 'review') {
-      const key = currentPhase as keyof CheckupResults;
-      if (key !== 'bp') (results[key] as number) = 0;
+      const key = currentPhase as 'weight' | 'height' | 'temp';
+      results[key] = 0;
     }
     nextPhase();
   }
@@ -301,10 +321,23 @@
         <div in:scale class="flex flex-col items-center">
           <div class="w-40 h-40 bg-green-50 text-green-500 rounded-full flex items-center justify-center text-6xl mb-6 shadow-sm">✓</div>
           <h2 class="text-2xl font-black text-blue-900/40 uppercase tracking-widest mb-2">Result</h2>
-          <div class="text-7xl font-[1000] text-blue-950 mb-2">
-            {results[currentPhase as keyof CheckupResults]} 
-            <span class="text-2xl">{phases[currentPhase as keyof typeof phases].unit}</span>
-          </div>
+          {#if currentPhase === 'spo2'}
+            <div class="grid grid-cols-2 gap-4 mt-2">
+              <div class="px-5 py-4 rounded-3xl bg-blue-50 min-w-[11rem]">
+                <p class="text-[10px] font-black uppercase tracking-widest text-blue-400">SpO2</p>
+                <p class="text-3xl font-black text-blue-950">{results.spo2 > 0 ? `${results.spo2}%` : '--'}</p>
+              </div>
+              <div class="px-5 py-4 rounded-3xl bg-blue-50 min-w-[11rem]">
+                <p class="text-[10px] font-black uppercase tracking-widest text-blue-400">Heart Rate</p>
+                <p class="text-3xl font-black text-blue-950">{results.heartRate > 0 ? `${results.heartRate} bpm` : '--'}</p>
+              </div>
+            </div>
+          {:else}
+            <div class="text-7xl font-[1000] text-blue-950 mb-2">
+              {results[currentPhase as keyof CheckupResults]}
+              <span class="text-2xl">{phases[currentPhase as keyof typeof phases].unit}</span>
+            </div>
+          {/if}
           {#if currentPhase === 'temp' && typeof results.temp === 'number' && results.temp > 0}
             {@const t = results.temp}
             <div class="mt-3 px-5 py-2 rounded-2xl text-sm font-black uppercase tracking-widest
@@ -395,15 +428,23 @@
       
       <div class="grid grid-cols-1 gap-3 overflow-y-auto pr-2 custom-scrollbar">
         {#each Object.entries(phases) as [key, config]}
-          {@const k = key as keyof CheckupResults}
-          {@const hasResult = results[k] !== 0 && results[k] !== "0/0"}
+          {@const k = key as SensorPhase}
+          {@const hasResult = k === 'spo2'
+            ? (results.spo2 > 0 || results.heartRate > 0)
+            : (results[k] !== 0 && results[k] !== "0/0")}
           <div class="p-5 bg-white rounded-4xl border border-blue-50 flex justify-between items-center shadow-sm {!hasResult ? 'opacity-60' : ''}">
             <div class="flex flex-col">
               <span class="font-black text-blue-400 uppercase text-[10px] tracking-widest">{config.title}</span>
-              <span class="text-2xl font-black text-blue-950">
-                {hasResult ? results[k] : '--'}
-                <span class="text-sm text-blue-900/30 font-black">{config.unit}</span>
-              </span>
+              {#if k === 'spo2'}
+                <span class="text-xl font-black text-blue-950">
+                  {hasResult ? `${results.spo2 || '--'}% / ${results.heartRate || '--'} bpm` : '--'}
+                </span>
+              {:else}
+                <span class="text-2xl font-black text-blue-950">
+                  {hasResult ? results[k] : '--'}
+                  <span class="text-sm text-blue-900/30 font-black">{config.unit}</span>
+                </span>
+              {/if}
             </div>
 
             <div class="flex gap-2">
@@ -449,7 +490,7 @@
             Save & Exit
           </button>
           <button on:click={() => {
-            results = { weight: 0, height: 0, temp: 0, spo2: 0, bp: "0/0" };
+            results = { weight: 0, height: 0, temp: 0, spo2: 0, heartRate: 0, bp: "0/0" };
             mode = 'idle';
           }} class="w-full py-4 text-blue-900/20 font-black uppercase text-xs tracking-widest active:text-red-400">
             Clear All Data
