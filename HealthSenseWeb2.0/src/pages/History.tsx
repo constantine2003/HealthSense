@@ -1,6 +1,6 @@
 import React, { useState, useEffect, useMemo, useRef } from "react";
 import { useNavigate } from "react-router-dom";
-import { FaArrowLeft, FaSearch, FaFilter, FaTimes, FaCalendarAlt, FaSortAmountDown, FaSortAmountUp, FaChevronDown, FaDownload, FaShieldAlt, FaCheckCircle, FaExclamationTriangle } from "react-icons/fa";
+import { FaArrowLeft, FaSearch, FaFilter, FaTimes, FaCalendarAlt, FaSortAmountDown, FaSortAmountUp, FaChevronDown, FaDownload, FaShieldAlt, FaCheckCircle, FaExclamationTriangle, FaHeartbeat } from "react-icons/fa";
 import { FiActivity, FiThermometer, FiBarChart, FiHeart, FiInfo, FiAlertCircle } from "react-icons/fi";
 import { MdHeight, MdMonitorWeight } from "react-icons/md";
 import { supabase } from "../supabaseClient";
@@ -19,6 +19,7 @@ interface CheckupRecord {
   weight: string;
   bmi: string;
   bp: string;
+  heart_rate: string;
 }
 
 // ─── PDF LIBS ─────────────────────────────────────────────────────────────────
@@ -86,6 +87,20 @@ async function exportToPDF(record: CheckupRecord, language: "English" | "Tagalog
     else if (sys > 120 || dia > 80) { bpStatus = "Elevated"; bpColor = "#ea580c"; }
   } else { bpStatus = "No Data"; bpColor = "#f59e0b"; }
   vitals.push({ label: "Blood Pressure", value: record.bp, unit: "mmHg", status: bpStatus, color: bpColor });
+
+  // Heart Rate
+  const hrVal = Number(record.heart_rate);
+  let hrPdfStatus = "Normal", hrPdfColor = "#16a34a";
+  if (!record.heart_rate || record.heart_rate === "--" || isNaN(hrVal)) {
+    hrPdfStatus = "No Data"; hrPdfColor = "#f59e0b";
+  } else if (hrVal < 40 || hrVal > 150) {
+    hrPdfStatus = hrVal > 150 ? "Critical High" : "Critical Low"; hrPdfColor = "#dc2626";
+  } else if (hrVal < 60) {
+    hrPdfStatus = "Bradycardia"; hrPdfColor = "#ea580c";
+  } else if (hrVal > 100) {
+    hrPdfStatus = "Tachycardia"; hrPdfColor = hrVal > 120 ? "#dc2626" : "#ea580c";
+  }
+  vitals.push({ label: "Heart Rate", value: record.heart_rate, unit: "bpm", status: hrPdfStatus, color: hrPdfColor });
 
   const cellW = (COL - 6) / 2, cellH = 20;
   vitals.forEach((v, i) => {
@@ -172,7 +187,6 @@ const DetailModal: React.FC<{
 }> = ({ record, language, lang, onClose, getHealthData }) => {
   const [expandedCondition, setExpandedCondition] = useState<number | null>(null);
   const [exporting, setExporting] = useState(false);
-  // const units = language === "Tagalog" ? "metric" : "metric"; // passed via closure below
 
   const conditions = analyzeHealth(record);
   const highCount = conditions.filter(c => c.risk === "high").length;
@@ -389,7 +403,7 @@ const History: React.FC = () => {
       riskLabels: { low: "Low Risk", moderate: "Moderate", high: "High Risk" },
       relatedVitals: "Related Vitals",
       disclaimer: "For informational purposes only. Not a substitute for medical advice.",
-      vitals: { spo2: "SpO2", temp: "Temperature", height: "Height", weight: "Weight", bmi: "BMI", bp: "BP" },
+      vitals: { spo2: "SpO2", temp: "Temperature", height: "Height", weight: "Weight", bmi: "BMI", bp: "BP", hr: "Heart Rate" },
       status: { normal: "Normal", low: "Low", high: "High", fever: "Fever", highFever: "High Fever", hypo: "Hypothermia", ideal: "Ideal", elevated: "Elevated", average: "Average", belowAverage: "Below Average", under: "Underweight", over: "Overweight", obese: "Obese" }
     },
     Tagalog: {
@@ -408,7 +422,7 @@ const History: React.FC = () => {
       riskLabels: { low: "Mababang Panganib", moderate: "Katamtamang Panganib", high: "Mataas na Panganib" },
       relatedVitals: "Kaugnay na Vital Signs",
       disclaimer: "Para sa impormasyon lamang. Hindi kapalit ng medikal na payo.",
-      vitals: { spo2: "Oksiheno", temp: "Temperatura", height: "Tangkad", weight: "Timbang", bmi: "BMI", bp: "BP" },
+      vitals: { spo2: "Oksiheno", temp: "Temperatura", height: "Tangkad", weight: "Timbang", bmi: "BMI", bp: "BP", hr: "Heart Rate" },
       status: { normal: "Karaniwan", low: "Mababa", high: "Mataas", fever: "May Lagnat", highFever: "Mataas na Lagnat", hypo: "Hypothermia", ideal: "Tamang Presyon", elevated: "Tumataas", average: "Average", belowAverage: "Mababa sa Average", under: "Payat", over: "Mabigat", obese: "Obese" }
     }
   };
@@ -423,7 +437,7 @@ const History: React.FC = () => {
         if (profile?.language) setLanguage(profile.language as "English" | "Tagalog");
         if (profile?.units) setUnits(profile.units.toLowerCase() as "metric" | "imperial");
         const { data, error } = await supabase
-          .from("health_checkups").select("spo2, temperature, height, weight, bmi, blood_pressure, created_at")
+          .from("health_checkups").select("spo2, temperature, height, weight, bmi, blood_pressure, heart_rate, created_at")
           .eq("user_id", user.id).order("created_at", { ascending: false });
         if (error) throw error;
         if (data) {
@@ -437,6 +451,7 @@ const History: React.FC = () => {
               oxygen: item.spo2?.toString() || "0", temp: item.temperature?.toString() || "0",
               height: item.height?.toString() || "0", weight: item.weight?.toString() || "0",
               bmi: item.bmi?.toString() || "0", bp: item.blood_pressure || "0/0",
+              heart_rate: item.heart_rate?.toString() || "--",
             };
           }));
         }
@@ -494,6 +509,21 @@ const History: React.FC = () => {
       else { bpStatus = l.status.high; bpType = "danger"; }
     }
     healthData.push({ title: l.vitals.bp, value: record.bp, unit: "mmHg", status: bpStatus, type: bpType, icon: <FiHeart /> });
+
+    // Heart Rate
+    const hrNum = Number(record.heart_rate);
+    let hrStatus = l.status.normal, hrType: StatusType = "success";
+    if (!record.heart_rate || record.heart_rate === "--" || isNaN(hrNum)) {
+      hrStatus = "No Data"; hrType = "warning";
+    } else if (hrNum < 40 || hrNum > 150) {
+      hrStatus = hrNum > 150 ? l.status.high : l.status.low; hrType = "danger";
+    } else if (hrNum < 60) {
+      hrStatus = l.status.low; hrType = "warning";
+    } else if (hrNum > 100) {
+      hrStatus = l.status.high; hrType = "warning";
+    }
+    healthData.push({ title: l.vitals.hr, value: record.heart_rate, unit: "bpm", status: hrStatus, type: hrType, icon: <FaHeartbeat /> });
+
     return healthData;
   };
 

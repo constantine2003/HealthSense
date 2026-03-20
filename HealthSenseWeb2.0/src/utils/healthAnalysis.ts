@@ -7,12 +7,13 @@
 export type RiskLevel = "low" | "moderate" | "high";
 
 export interface HealthInput {
-  oxygen: string;   // SpO2 %
-  temp: string;     // body temperature in °C
-  height: string;   // height in cm
-  weight: string;   // weight in kg
-  bmi: string;      // pre-calculated BMI
-  bp: string;       // "systolic/diastolic" mmHg
+  oxygen: string;      // SpO2 %
+  temp: string;        // body temperature in °C
+  height: string;      // height in cm
+  weight: string;      // weight in kg
+  bmi: string;         // pre-calculated BMI
+  bp: string;          // "systolic/diastolic" mmHg
+  heart_rate?: string; // heart rate in bpm (optional for backward compat)
 }
 
 export interface Condition {
@@ -57,6 +58,10 @@ export function analyzeHealth(record: HealthInput): Condition[] {
 
   // ─── Pulse Pressure (systolic - diastolic) ────────────────────────────────
   const pulsePressure = validBP ? systolic - diastolic : 0;
+
+  // ─── Heart Rate ───────────────────────────────────────────────────────────
+  const hr       = Number(record.heart_rate);
+  const validHR  = !isNaN(hr) && hr > 0;
 
 
 
@@ -385,7 +390,117 @@ export function analyzeHealth(record: HealthInput): Condition[] {
   }
 
   // ═══════════════════════════════════════════════════════════════════════════
-  // 6. COMBINATION RULES — multi-vital patterns
+  // 6. HEART RATE
+  // ═══════════════════════════════════════════════════════════════════════════
+  if (validHR) {
+    if (hr < 40) {
+      conditions.push({
+        name: "Severe Bradycardia",
+        nameTagalog: "Matinding Mabagal na Tibok ng Puso",
+        explanation: `Heart rate of ${hr} bpm is critically low (below 40 bpm) — a medical emergency. The heart is failing to pump enough blood to meet the body's demands. Possible causes include complete heart block, severe hypothyroidism, sick sinus syndrome, or drug toxicity (beta-blockers, calcium channel blockers, digoxin). Pacemaker intervention may be required. Seek emergency care immediately.`,
+        explanationTagalog: `Ang heart rate na ${hr} bpm ay kritikal na mababa (mas mababa sa 40 bpm) — isang medikal na emerhensya. Ang puso ay hindi sapat na nagpu-pump ng dugo. Posibleng sanhi: complete heart block, matinding hypothyroidism, sick sinus syndrome, o drug toxicity. Maaaring kailangang mag-pacemaker. Humingi ng emergency care agad.`,
+        risk: "high",
+        relatedVitals: ["Heart Rate"],
+        category: "cardiovascular",
+      });
+    } else if (hr < 60) {
+      conditions.push({
+        name: "Bradycardia",
+        nameTagalog: "Mabagal na Tibok ng Puso (Bradycardia)",
+        explanation: `Heart rate of ${hr} bpm is below the normal range of 60–100 bpm. Mild bradycardia can be normal in well-trained athletes, but in most people it may cause dizziness, fatigue, or syncope. Pathological causes include hypothyroidism, electrolyte imbalances, SA node dysfunction, and certain medications. Evaluation is recommended if symptomatic.`,
+        explanationTagalog: `Ang heart rate na ${hr} bpm ay mas mababa sa normal na 60–100 bpm. Ang banayad na bradycardia ay maaaring normal sa mga atleta, ngunit sa karamihan ay maaaring magdulot ng pagkahilo, pagod, o pagkamatay-matay. Posibleng sanhi: hypothyroidism, electrolyte imbalances, o ilang gamot. Inirerekomenda ang pagsusuri kung may sintomas.`,
+        risk: hr < 50 ? "moderate" : "low",
+        relatedVitals: ["Heart Rate"],
+        category: "cardiovascular",
+      });
+    } else if (hr > 100 && hr <= 120) {
+      conditions.push({
+        name: "Tachycardia",
+        nameTagalog: "Mabilis na Tibok ng Puso (Tachycardia)",
+        explanation: `Heart rate of ${hr} bpm is above the normal resting range of 60–100 bpm. Common causes include fever, dehydration, anemia, anxiety, caffeine, hyperthyroidism, or early-stage infection. Persistent resting tachycardia warrants evaluation to rule out underlying cardiac or metabolic causes.`,
+        explanationTagalog: `Ang heart rate na ${hr} bpm ay mas mataas sa normal na 60–100 bpm. Karaniwang sanhi: lagnat, dehydration, anemia, pagkabalisa, hyperthyroidism, o impeksyon. Ang patuloy na tachycardia ay nangangailangan ng pagsusuri para maalis ang posibleng cardiac o metabolic na dahilan.`,
+        risk: "low",
+        relatedVitals: ["Heart Rate"],
+        category: "cardiovascular",
+      });
+    } else if (hr > 120 && hr <= 150) {
+      conditions.push({
+        name: "Significant Tachycardia",
+        nameTagalog: "Malaking Pagtaas ng Tibok ng Puso",
+        explanation: `Heart rate of ${hr} bpm is significantly elevated. At this level the heart's efficiency decreases as chambers don't have time to fully fill. This level can indicate supraventricular tachycardia (SVT), atrial flutter, severe infection or sepsis, significant dehydration, pulmonary embolism, or stimulant use. Medical evaluation is advised promptly.`,
+        explanationTagalog: `Ang heart rate na ${hr} bpm ay malaki ang pagtaas. Sa antas na ito, bumababa ang kahusayan ng puso dahil hindi masyadong napupuno ang mga silid. Maaaring magpakita ng SVT, atrial flutter, matinding impeksyon o sepsis, pulmonary embolism, o paggamit ng stimulants. Inirerekomenda ang agarang medikal na pagsusuri.`,
+        risk: "moderate",
+        relatedVitals: ["Heart Rate"],
+        category: "cardiovascular",
+      });
+    } else if (hr > 150) {
+      conditions.push({
+        name: "Severe Tachycardia",
+        nameTagalog: "Matinding Mabilis na Tibok ng Puso",
+        explanation: `Heart rate of ${hr} bpm is severely elevated — a medical concern requiring urgent evaluation. At this rate, cardiac output can paradoxically decrease as ventricles cannot fill adequately. Causes include ventricular tachycardia, atrial fibrillation with rapid ventricular response, severe sepsis, thyroid storm, or extreme stimulant toxicity. Seek immediate medical attention.`,
+        explanationTagalog: `Ang heart rate na ${hr} bpm ay matinding mataas — nangangailangan ng agarang medikal na pagsusuri. Sa antas na ito, maaaring bumaba ang cardiac output dahil hindi masyadong napupuno ang mga ventricle. Posibleng sanhi: ventricular tachycardia, atrial fibrillation, matinding sepsis, thyroid storm, o stimulant toxicity. Humingi ng agarang medikal na tulong.`,
+        risk: "high",
+        relatedVitals: ["Heart Rate"],
+        category: "cardiovascular",
+      });
+    }
+  }
+
+  // ── HR Combinations ───────────────────────────────────────────────────────
+  // High HR + Fever → Active Infection / SIRS
+  if (validHR && validTemp && hr > 100 && temp > 38.0) {
+    conditions.push({
+      name: "Possible Systemic Infection (SIRS)",
+      nameTagalog: "Posibleng Systemic Infection (SIRS)",
+      explanation: `Elevated heart rate (${hr} bpm) combined with fever (${temp.toFixed(1)}°C) satisfies two of the four SIRS (Systemic Inflammatory Response Syndrome) criteria. This pattern strongly suggests an active systemic infection or early sepsis. Common sources include respiratory tract, urinary tract, abdominal, and skin infections. Medical evaluation and blood cultures are recommended urgently.`,
+      explanationTagalog: `Ang mataas na heart rate (${hr} bpm) kasama ang lagnat (${temp.toFixed(1)}°C) ay nakakatugon sa dalawa sa apat na SIRS criteria. Ang pattern na ito ay malakas na nagpapakita ng aktibong systemic infection o early sepsis. Inirerekomenda ang agarang medikal na pagsusuri at blood cultures.`,
+      risk: hr > 120 || temp > 39 ? "high" : "moderate",
+      relatedVitals: ["Heart Rate", "Temperature"],
+      category: "combination",
+    });
+  }
+
+  // High HR + Low BP → Compensated Shock
+  if (validHR && validBP && hr > 100 && systolic < 100) {
+    conditions.push({
+      name: "Possible Compensated Shock",
+      nameTagalog: "Posibleng Compensated Shock",
+      explanation: `A fast heart rate (${hr} bpm) with low blood pressure (${record.bp} mmHg) is a classic sign of compensated shock — the body is raising the heart rate to maintain perfusion as blood pressure drops. This pattern is seen in hypovolemic, septic, or cardiogenic shock. It requires immediate emergency evaluation.`,
+      explanationTagalog: `Ang mabilis na heart rate (${hr} bpm) kasama ang mababang presyon ng dugo (${record.bp} mmHg) ay isang klasikong senyales ng compensated shock — itinatangkilik ng katawan ang pagtaas ng heart rate upang mapanatili ang perfusion habang bumababa ang presyon. Nakikita ito sa hypovolemic, septic, o cardiogenic shock. Kailangan ng agarang emergency evaluation.`,
+      risk: "high",
+      relatedVitals: ["Heart Rate", "Blood Pressure"],
+      category: "combination",
+    });
+  }
+
+  // Low HR + Low BP → Circulatory Failure
+  if (validHR && validBP && hr < 60 && systolic < 90) {
+    conditions.push({
+      name: "Possible Circulatory Failure",
+      nameTagalog: "Posibleng Circulatory Failure",
+      explanation: `Both heart rate (${hr} bpm) and blood pressure (${record.bp} mmHg) are critically low, suggesting circulatory failure. This combination can indicate cardiogenic shock, severe vagal response, complete heart block, hypothermia-induced cardiac depression, or drug toxicity. This is a life-threatening pattern requiring emergency intervention.`,
+      explanationTagalog: `Parehong mababa ang heart rate (${hr} bpm) at presyon ng dugo (${record.bp} mmHg), na nagpapakita ng circulatory failure. Maaaring sanhi: cardiogenic shock, matinding vagal response, complete heart block, hypothermia, o drug toxicity. Ito ay isang buhay na mapanganib na pattern na nangangailangan ng emergency intervention.`,
+      risk: "high",
+      relatedVitals: ["Heart Rate", "Blood Pressure"],
+      category: "combination",
+    });
+  }
+
+  // High HR + Low SpO2 → Cardiopulmonary Distress
+  if (validHR && validSpo2 && hr > 100 && spo2 < 95) {
+    conditions.push({
+      name: "Cardiopulmonary Distress",
+      nameTagalog: "Cardiopulmonary Distress",
+      explanation: `Elevated heart rate (${hr} bpm) with reduced oxygen saturation (${spo2}%) indicates cardiopulmonary distress — the heart is compensating for poor oxygenation by beating faster. This pattern is associated with acute asthma exacerbation, pneumonia, pulmonary embolism, heart failure, or COPD exacerbation. Urgent evaluation is required.`,
+      explanationTagalog: `Ang mataas na heart rate (${hr} bpm) kasama ang mababang oxygen saturation (${spo2}%) ay nagpapakita ng cardiopulmonary distress — ang puso ay nagko-compensate para sa mahinang oxygenation sa pamamagitan ng mas mabilis na pagtibok. Nauugnay ito sa acute asthma, pneumonia, pulmonary embolism, o heart failure. Kailangan ng agarang pagsusuri.`,
+      risk: spo2 < 92 ? "high" : "moderate",
+      relatedVitals: ["Heart Rate", "SpO2"],
+      category: "combination",
+    });
+  }
+
+  // ═══════════════════════════════════════════════════════════════════════════
+  // 7. COMBINATION RULES — multi-vital patterns
   // ═══════════════════════════════════════════════════════════════════════════
 
   // (a) Low SpO2 + Fever → Respiratory Infection / Pneumonia
