@@ -1,6 +1,6 @@
 import React, { useState, useEffect } from "react";
 import { useNavigate } from "react-router-dom";
-import { FaArrowLeft, FaDownload, FaCalendarCheck, FaPrint, FaShieldAlt, FaExclamationTriangle, FaCheckCircle, FaChevronDown } from "react-icons/fa";
+import { FaArrowLeft, FaDownload, FaCalendarCheck, FaPrint, FaShieldAlt, FaExclamationTriangle, FaCheckCircle, FaChevronDown, FaHeartbeat } from "react-icons/fa";
 import { FiActivity, FiThermometer, FiBarChart, FiHeart, FiInfo, FiAlertCircle } from "react-icons/fi";
 import { MdHeight, MdMonitorWeight } from "react-icons/md";
 import { supabase } from "../supabaseClient";
@@ -17,6 +17,7 @@ interface HealthRecord {
   weight: string;
   bmi: string;
   bp: string;
+  heart_rate: string;
 }
 
 // ─── PRINT STYLES ─────────────────────────────────────────────────────────────
@@ -201,6 +202,20 @@ async function exportToPDF(record: HealthRecord, language: "English" | "Tagalog"
   } else { bpStatus = "No Data"; bpColor = "#f59e0b"; }
   vitals.push({ label: "Blood Pressure", value: record.bp, unit: "mmHg", status: bpStatus, color: bpColor });
 
+  // Heart Rate
+  const hrVal = Number(record.heart_rate);
+  let hrPdfStatus = "Normal", hrPdfColor = "#16a34a";
+  if (!record.heart_rate || record.heart_rate === "--" || isNaN(hrVal)) {
+    hrPdfStatus = "No Data"; hrPdfColor = "#f59e0b";
+  } else if (hrVal < 40 || hrVal > 150) {
+    hrPdfStatus = hrVal > 150 ? "Critical High" : "Critical Low"; hrPdfColor = "#dc2626";
+  } else if (hrVal < 60) {
+    hrPdfStatus = "Bradycardia"; hrPdfColor = "#ea580c";
+  } else if (hrVal > 100) {
+    hrPdfStatus = "Tachycardia"; hrPdfColor = hrVal > 120 ? "#dc2626" : "#ea580c";
+  }
+  vitals.push({ label: "Heart Rate", value: record.heart_rate, unit: "bpm", status: hrPdfStatus, color: hrPdfColor });
+
   // Draw 2-column grid
   const cellW = (COL - 6) / 2;
   const cellH = 20;
@@ -379,7 +394,7 @@ const Result: React.FC = () => {
       riskLabels: { low: "Low Risk", moderate: "Moderate", high: "High Risk" },
       relatedVitals: "Related Vitals",
       disclaimer: "This analysis is for informational purposes only and does not constitute medical advice. Consult a qualified healthcare professional for diagnosis and treatment.",
-      vitals: { spo2: "SpO2", temp: "Temperature", height: "Height", weight: "Weight", bmi: "BMI", bp: "Blood Pressure" },
+      vitals: { spo2: "SpO2", temp: "Temperature", height: "Height", weight: "Weight", bmi: "BMI", bp: "Blood Pressure", hr: "Heart Rate" },
       status: { normal: "Normal", low: "Low", high: "High", fever: "Fever", highFever: "High Fever", ideal: "Ideal", elevated: "Elevated", under: "Underweight", over: "Overweight", obese: "Obese", noData: "No Data" }
     },
     Tagalog: {
@@ -394,7 +409,7 @@ const Result: React.FC = () => {
       riskLabels: { low: "Mababang Panganib", moderate: "Katamtamang Panganib", high: "Mataas na Panganib" },
       relatedVitals: "Kaugnay na Vital Signs",
       disclaimer: "Ang pagsusuring ito ay para lamang sa impormasyon at hindi kapalit ng medikal na payo. Kumonsulta sa kwalipikadong doktor para sa diagnosis at lunas.",
-      vitals: { spo2: "Oksiheno", temp: "Temperatura", height: "Tangkad", weight: "Timbang", bmi: "BMI", bp: "Presyon ng Dugo" },
+      vitals: { spo2: "Oksiheno", temp: "Temperatura", height: "Tangkad", weight: "Timbang", bmi: "BMI", bp: "Presyon ng Dugo", hr: "Heart Rate" },
       status: { normal: "Normal", low: "Mababa", high: "Mataas", fever: "May Lagnat", highFever: "Mataas na Lagnat", ideal: "Tamang Presyon", elevated: "Tumataas", under: "Payat", over: "Mabigat", obese: "Obese", noData: "Walang Data" }
     }
   };
@@ -409,7 +424,7 @@ const Result: React.FC = () => {
         if (profile?.language) setLanguage(profile.language as "English" | "Tagalog");
         if (profile?.units) setUnits(profile.units.toLowerCase() as "metric" | "imperial");
         const { data, error } = await supabase
-          .from("health_checkups").select("spo2, temperature, height, weight, bmi, blood_pressure, created_at")
+          .from("health_checkups").select("spo2, temperature, height, weight, bmi, blood_pressure, heart_rate, created_at")
           .eq("user_id", user.id).order("created_at", { ascending: false }).limit(1).single();
         if (error) throw error;
         if (data) {
@@ -419,7 +434,8 @@ const Result: React.FC = () => {
             time: timestamp.toLocaleTimeString([], { hour: "2-digit", minute: "2-digit" }),
             oxygen: data.spo2?.toString() || "--", temp: data.temperature?.toString() || "--",
             height: data.height?.toString() || "--", weight: data.weight?.toString() || "--",
-            bmi: data.bmi?.toString() || "--", bp: data.blood_pressure || "--/--"
+            bmi: data.bmi?.toString() || "--", bp: data.blood_pressure || "--/--",
+            heart_rate: data.heart_rate?.toString() || "--"
           });
         }
       } catch (err) { console.error("Error fetching data:", err); }
@@ -479,6 +495,21 @@ const Result: React.FC = () => {
       else if (sys > 120 || dia > 80) { bpStatus = lang.status.elevated; bpType = "warning"; }
     } else { bpStatus = lang.status.noData; bpType = "warning"; }
     healthData.push({ title: lang.vitals.bp, value: bp, unit: "mmHg", status: bpStatus, type: bpType, icon: <FiHeart /> });
+
+    // Heart Rate
+    const hr = Number(record.heart_rate);
+    let hrStatus = lang.status.normal, hrType: StatusType = "success";
+    if (!record.heart_rate || record.heart_rate === "--" || isNaN(hr)) {
+      hrStatus = lang.status.noData; hrType = "warning";
+    } else if (hr < 40 || hr > 150) {
+      hrStatus = hr > 150 ? lang.status.high : lang.status.low; hrType = "danger";
+    } else if (hr < 60) {
+      hrStatus = lang.status.low; hrType = "warning";
+    } else if (hr > 100) {
+      hrStatus = lang.status.high; hrType = "warning";
+    }
+    healthData.push({ title: lang.vitals.hr, value: record.heart_rate, unit: "bpm", status: hrStatus, type: hrType, icon: <FaHeartbeat /> });
+
     return healthData;
   };
 
