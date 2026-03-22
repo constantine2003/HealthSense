@@ -570,7 +570,7 @@ const Result: React.FC = () => {
               {language === "Tagalog" ? "Naitala noong " : "Recorded at "}{latestRecord.time} {lang.subHeader}
             </p>
           </div>
-          <div className={`${isHealthy ? "bg-green-500 shadow-green-200" : "bg-orange-500 shadow-orange-200"} text-white px-6 py-3 md:px-8 md:py-4 rounded-2xl md:rounded-3xl font-bold text-center shadow-xl w-full md:min-w-48 md:w-auto`}>
+          <div className={`${isHealthy ? "bg-green-500 shadow-green-200" : "bg-green-500 shadow-green-200"} text-white px-6 py-3 md:px-8 md:py-4 rounded-2xl md:rounded-3xl font-bold text-center shadow-xl w-full md:min-w-48 md:w-auto`}>
             <p className="text-[9px] md:text-[10px] uppercase opacity-80 mb-0.5">{lang.condition}</p>
             <p className="text-xl md:text-2xl">{isHealthy ? lang.excellent : lang.stable}</p>
           </div>
@@ -592,9 +592,9 @@ const Result: React.FC = () => {
         </div>
 
         {/* VITALS GRID */}
-        <div className="hs-grid grid grid-cols-2 lg:grid-cols-3 gap-3 md:gap-4 lg:gap-5">
-          {getHealthData(latestRecord).map((data, index) => (
-            <ResultCard key={index} {...data} />
+        <div className="hs-grid grid grid-cols-3 gap-3 md:gap-4 lg:gap-5">
+          {getHealthData(latestRecord).map((data, index, arr) => (
+            <ResultCard key={index} {...data} isLast={index === arr.length - 1 && arr.length % 3 !== 0} />
           ))}
         </div>
 
@@ -688,8 +688,8 @@ const Result: React.FC = () => {
   );
 };
 
-const ResultCard = ({ icon, title, value, unit, status, type }: {
-  icon: React.ReactNode; title: string; value: string; unit: string; status: string; type: StatusType;
+const ResultCard = ({ icon, title, value, unit, status, type, isLast }: {
+  icon: React.ReactNode; title: string; value: string; unit: string; status: string; type: StatusType; isLast?: boolean;
 }) => {
   const typeColors = {
     success: "bg-green-500/10 text-green-600 border-green-200",
@@ -697,7 +697,7 @@ const ResultCard = ({ icon, title, value, unit, status, type }: {
     danger:  "bg-red-500/10 text-red-600 border-red-200"
   };
   return (
-    <div className="hs-card bg-white/80 backdrop-blur-md border border-white p-4 md:p-5 lg:p-6 rounded-2xl md:rounded-3xl shadow-lg group hover:bg-white transition-all hover:-translate-y-1">
+    <div className={`hs-card bg-white/80 backdrop-blur-md border border-white p-4 md:p-5 lg:p-6 rounded-2xl md:rounded-3xl shadow-lg group hover:bg-white transition-all hover:-translate-y-1${isLast ? " col-start-2" : ""}`}>
       <div className="flex justify-between items-start mb-3 md:mb-4">
         <div className="w-9 h-9 md:w-11 md:h-11 lg:w-12 lg:h-12 bg-[#139dc7]/10 rounded-xl md:rounded-2xl flex items-center justify-center text-[#139dc7] text-lg md:text-2xl group-hover:bg-[#139dc7] group-hover:text-white transition-all duration-300 shrink-0">
           {icon}

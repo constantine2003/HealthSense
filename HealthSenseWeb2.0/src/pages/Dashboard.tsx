@@ -1,260 +1,271 @@
 import React, { useState, useEffect } from "react";
 import { useNavigate } from "react-router-dom";
-import { FaFileMedical, FaHistory, FaChevronRight } from "react-icons/fa";
-import { supabase } from "../supabaseClient"; 
+import { FaFileMedical, FaHistory, FaChevronRight, FaSignOutAlt } from "react-icons/fa";
+import { supabase } from "../supabaseClient";
 
 const Dashboard: React.FC = () => {
   const navigate = useNavigate();
 
-  // State for user data
   const [userData, setUserData] = useState<{
     first_name: string;
     middle_name?: string;
     last_name: string;
     language?: "English" | "Tagalog";
+    units?: string;
+    large_text?: boolean;
   } | null>(null);
   const [loading, setLoading] = useState(true);
   const [language, setLanguage] = useState<"English" | "Tagalog">("English");
-  // const [hasFetched, setHasFetched] = useState(false); // Add this
-  // Translation Object
+  const [hovered, setHovered] = useState<"results" | "history" | null>(null);
+
   const content = {
     English: {
-      sync: "Syncing Dashboard",
-      auth: "Authenticating HealthSense Infrastructure...",
-      profile: "Profile",
-      logout: "Logout",
-      welcome: "Welcome,",
-      subWelcome: "Everything is saved. You can look at your results now.",
-      viewLatestTop: "View Latest",
-      viewLatestBottom: "Results",
-      viewLatestDesc: "Instantly access your most recent diagnostic and laboratory data.",
-      accessNow: "Access Now",
-      historyTop: "Checkup",
-      historyBottom: "History",
-      historyDesc: "Review previous consultations, medical trends, and archived files.",
-      browse: "Browse Archive",
-      footer: "HealthSense Operations v2.0"
+      profile: "Profile", logout: "Logout",
+      welcome: "Welcome back,", sub: "Your health data is ready to review.",
+      resultsLabel: "Latest Results", resultsDesc: "View your most recent checkup diagnostics and vitals report.",
+      resultsAction: "Open Report",
+      historyLabel: "Checkup History", historyDesc: "Browse your past checkups, trends, and archived records.",
+      historyAction: "View Archive",
+      footer: "HealthSense Operations v2.0",
+      tagline: "Patient Portal",
     },
     Tagalog: {
-      sync: "Sini-sync ang Dashboard",
-      auth: "Sinisigurado ang Infrastructure ng HealthSense...",
-      profile: "Profile",
-      logout: "Mag-logout",
-      welcome: "Maligayang pagdating,",
-      subWelcome: "Naka-save ang lahat. Maaari mo nang tingnan ang iyong mga resulta.",
-      viewLatestTop: "Pinakabagong",
-      viewLatestBottom: "na Resulta",
-      viewLatestDesc: "Agad na i-access ang iyong pinakabagong diagnostic at laboratory data.",
-      accessNow: "I-access Ngayon",
-      historyTop: "Kasaysayan",
-      historyBottom: "ng Checkup",
-      historyDesc: "Suriin ang mga nakaraang konsultasyon at mga naka-archive na file.",
-      browse: "I-browse ang Archive",
-      footer: "HealthSense Operations v2.0"
+      profile: "Profile", logout: "Mag-logout",
+      welcome: "Maligayang pagdating,", sub: "Handa na ang iyong mga health data para suriin.",
+      resultsLabel: "Pinakabagong Resulta", resultsDesc: "Tingnan ang iyong pinakabagong diagnostic at vital signs.",
+      resultsAction: "Buksan ang Ulat",
+      historyLabel: "Kasaysayan ng Checkup", historyDesc: "I-browse ang mga nakaraang checkup at archived records.",
+      historyAction: "Tingnan ang Archive",
+      footer: "HealthSense Operations v2.0",
+      tagline: "Patient Portal",
     }
   };
 
   useEffect(() => {
     const fetchProfile = async () => {
-      // 1. Start a timer immediately
       const timer = new Promise((resolve) => setTimeout(resolve, 800));
-
       try {
-        // 2. Start the Supabase fetch
         const { data: { session } } = await supabase.auth.getSession();
-
-        if (!session?.user) {
-          navigate("/");
-          return;
-        }
-
-        const { data, error: profileError } = await supabase
-          .from("profiles")
-          .select("first_name, middle_name, last_name, language")
-          .eq("id", session.user.id)
-          .single();
-
-        if (profileError) console.error("Profile Error:", profileError.message);
-
+        if (!session?.user) { navigate("/"); return; }
+        const { data, error } = await supabase
+          .from("profiles").select("first_name, middle_name, last_name, language, units, large_text")
+          .eq("id", session.user.id).single();
+        if (error) console.error(error.message);
         if (data) {
           setUserData(data);
           if (data.language) setLanguage(data.language as "English" | "Tagalog");
         }
-      } catch (err) {
-        console.error("System Error:", err);
-      } finally {
-        // 3. WAIT for the 1.5s timer to finish before hiding the loading screen
-        // This ensures the eye-friendly delay happens even if the data is instant
-        await timer;
-        setLoading(false);
-      }
+      } catch (err) { console.error(err); }
+      finally { await timer; setLoading(false); }
     };
-
     fetchProfile();
   }, [navigate]);
 
-  // LOGOUT LOGIC
   const handleLogout = async () => {
-    try {
-      const { error } = await supabase.auth.signOut();
-      if (error) throw error;
-      navigate("/"); 
-    } catch (error: any) {
-      console.error("Error logging out:", error.message);
-      navigate("/"); 
-    }
+    try { await supabase.auth.signOut(); } catch {}
+    navigate("/");
   };
 
-  // Helper function to format the name
-  const formatDisplayName = () => {
+  const formatName = () => {
     if (!userData) return "Patient";
-    const middleInitial = userData.middle_name 
-      ? ` ${userData.middle_name.charAt(0)}.` 
-      : "";
-    return `${userData.first_name}${middleInitial} ${userData.last_name}`;
+    const mi = userData.middle_name ? ` ${userData.middle_name.charAt(0)}.` : "";
+    return `${userData.first_name}${mi} ${userData.last_name}`;
   };
 
-  // Helper for the initials
   const getInitials = () => {
     if (!userData) return "??";
     return `${userData.first_name.charAt(0)}${userData.last_name.charAt(0)}`;
   };
 
-  // FULL SCREEN LOADING STATE
+  const lang = content[language];
+
   if (loading) {
     return (
       <div className="min-h-screen flex items-center justify-center bg-[#eaf4ff] font-['Lexend']">
-        <div className="text-center animate-in fade-in duration-500">
-          {/* Spinner Group - Always visible immediately */}
-          <div className="relative w-24 h-24 mx-auto mb-8">
-            <div className="absolute inset-0 border-4 border-[#139dc7]/20 rounded-full"></div>
-            <div className="absolute inset-0 border-4 border-[#139dc7] border-t-transparent rounded-full animate-spin"></div>
+        <div className="text-center">
+          <div className="relative w-20 h-20 mx-auto mb-6">
+            <div className="absolute inset-0 border-4 border-[#139dc7]/20 rounded-full" />
+            <div className="absolute inset-0 border-4 border-[#139dc7] border-t-transparent rounded-full animate-spin" />
           </div>
-          
-          {/* Static Neutral Text - No more language flipping */}
-          <h2 className="text-2xl font-black text-[#139dc7] tracking-tight mb-2">
-            Loading Dashboard
-          </h2>
-          {/* <p className="text-[#139dc7]/60 font-bold uppercase tracking-widest text-[10px] animate-pulse">
-            Authenticating HealthSense Infrastructure...
-          </p> */}
+          <h2 className="text-xl font-black text-[#139dc7] tracking-tight">Loading Dashboard</h2>
         </div>
       </div>
     );
   }
 
   return (
-    <div className="min-h-screen w-full flex flex-col bg-[linear-gradient(120deg,#eaf4ff_0%,#cbe5ff_40%,#b0d0ff_70%,#9fc5f8_100%)] font-['Lexend'] overflow-x-hidden relative animate-in fade-in duration-700">
-      
+    <div className="min-h-screen w-full flex flex-col bg-[linear-gradient(135deg,#eaf4ff_0%,#cbe5ff_50%,#b0d0ff_100%)] font-['Lexend'] overflow-x-hidden">
+
+      {/* Decorative blobs */}
+      <div className="pointer-events-none fixed inset-0 overflow-hidden">
+        <div className="absolute -top-32 -right-32 w-125 h-125 rounded-full bg-[#139dc7]/10 blur-3xl" />
+        <div className="absolute -bottom-40 -left-20 w-100 h-100 rounded-full bg-[#34A0A4]/10 blur-3xl" />
+          <div className="absolute top-1/2 left-1/2 -translate-x-1/2 -translate-y-1/2 w-150 h-75 rounded-full bg-[#9fc5f8]/20 blur-3xl" />
+      </div>
+
       {/* HEADER */}
-      <header className="w-full px-6 lg:px-16 py-6 flex justify-between items-center z-50 shrink-0">
-        {/* LOGO SECTION - Now scales down on smaller screens */}
-        <div className="flex flex-col shrink-0">
-          <span className="text-lg sm:text-2xl font-black text-[#139dc7] tracking-tighter uppercase transition-all">
-            HealthSense
-          </span>
-          <span className="text-[8px] sm:text-[10px] font-bold text-[#34A0A4] uppercase tracking-[0.2em] -mt-1 transition-all">
-            Patient Portal
-          </span>
+      <header className="relative z-10 w-full px-6 lg:px-16 pt-7 pb-4 flex justify-between items-center">
+        {/* Logo */}
+        <div className="flex items-center gap-3">
+          <div className="w-9 h-9 rounded-xl bg-[#139dc7] flex items-center justify-center shadow-lg shadow-[#139dc7]/30">
+            <div className="w-4 h-4 rounded-sm bg-white/90" style={{ clipPath: "polygon(50% 0%, 100% 50%, 50% 100%, 0% 50%)" }} />
+          </div>
+          <div>
+            <div className="text-[15px] font-black text-[#139dc7] tracking-tight leading-none uppercase">HealthSense</div>
+            <div className="text-[8px] font-bold text-[#34A0A4] uppercase tracking-[0.25em] leading-none mt-0.5">{lang.tagline}</div>
+          </div>
         </div>
-        
-        <div className="flex items-center gap-1.5 sm:gap-3">
-          {/* Profile Button - Responsive padding and font */}
-          <button 
-            onClick={() => navigate('/profile')} 
-            className="flex items-center gap-1.5 sm:gap-2 px-2.5 py-1.5 sm:px-4 sm:py-2 bg-white/20 backdrop-blur-md border border-[#139dc7]/30 rounded-lg sm:rounded-xl text-[#139dc7] hover:bg-[#139dc7] hover:text-white transition-all active:scale-95 group"
-          >
-            <div className="w-4 h-4 sm:w-5 sm:h-5 rounded-full bg-[#139dc7] group-hover:bg-white flex items-center justify-center text-[8px] sm:text-[10px] text-white group-hover:text-[#139dc7] font-bold border border-white/50 transition-colors shrink-0">
+
+        {/* Nav actions */}
+        <div className="flex items-center gap-2">
+          <button onClick={() => navigate("/profile")}
+            className="flex items-center gap-2 px-3 py-2 bg-white/50 backdrop-blur-md border border-white/70 rounded-2xl text-[#139dc7] hover:bg-white hover:shadow-md transition-all active:scale-95 group">
+            <div className="w-6 h-6 rounded-full bg-[#139dc7] flex items-center justify-center text-[9px] text-white font-black shrink-0">
               {getInitials()}
             </div>
-            <span className="text-[10px] sm:text-xs font-black uppercase tracking-tight sm:tracking-widest">
-              {content[language].profile}
-            </span>
+            <span className="text-[10px] font-black uppercase tracking-widest hidden sm:block">{lang.profile}</span>
           </button>
-
-          {/* Logout Button - Responsive padding and font */}
-          <button 
-            onClick={handleLogout} 
-            className="px-2.5 py-1.5 sm:px-4 sm:py-2 bg-white/20 backdrop-blur-md border border-[#139dc7]/30 rounded-lg sm:rounded-xl text-[#139dc7] text-[10px] sm:text-xs font-black uppercase tracking-tight sm:tracking-widest hover:bg-[#139dc7] hover:text-white transition-all active:scale-95"
-          >
-            {content[language].logout}
+          <button onClick={handleLogout}
+            className="flex items-center gap-1.5 px-3 py-2 bg-white/50 backdrop-blur-md border border-white/70 rounded-2xl text-[#139dc7] hover:bg-white hover:shadow-md transition-all active:scale-95 text-[10px] font-black uppercase tracking-widest">
+            <FaSignOutAlt size={11} />
+            <span className="hidden sm:block">{lang.logout}</span>
           </button>
         </div>
       </header>
 
-      {/* MAIN CONTENT */}
-      <main className="flex-1 w-full max-w-360 mx-auto px-6 lg:px-16 py-8">
-        
-        {/* WELCOME AREA */}
-        <section className="mb-10 text-center lg:text-left">
-          <h1 className="text-[clamp(32px,5vw,56px)] font-bold text-[#139dc7] m-0 leading-tight">
-            {content[language].welcome}{" "}
-            <span className="inline-block italic text-transparent bg-clip-text bg-linear-to-r from-[#139dc7] to-[#34A0A4] pr-[0.3em] -mr-[0.3em]">
-              {formatDisplayName()}
-            </span>
-          </h1>
-          <p className="text-[#139dc7] opacity-70 text-lg">
-            {content[language].subWelcome}
-          </p>
-        </section>
+      {/* MAIN */}
+      <main className="relative z-10 flex-1 w-full max-w-5xl mx-auto px-6 lg:px-8 pt-10 pb-16 flex flex-col">
 
-        {/* PRIMARY ACTIONS */}
-        <div className="grid grid-cols-2 gap-4 sm:gap-8 mb-10">
-          {/* VIEW LATEST */}
-          <button 
-            onClick={() => navigate('/results')} 
-            className="group relative bg-white/70 backdrop-blur-xl p-6 sm:p-10 rounded-[30px] sm:rounded-[40px] border border-white shadow-[0_20px_50_rgba(0,0,0,0.05)] transition-all hover:-translate-y-2 hover:bg-white/90 flex flex-col items-start text-left overflow-hidden min-h-62.5 sm:min-h-80 active:scale-95"
+        {/* Welcome block */}
+        <div className="mb-12">
+          <p className="text-[11px] font-black text-[#139dc7]/50 uppercase tracking-[0.3em] mb-2">{lang.welcome}</p>
+          <h1 className="text-[clamp(28px,5vw,52px)] font-black text-[#0a4d61] leading-tight tracking-tight">
+            {formatName()}
+          </h1>
+          <p className="text-[#139dc7]/60 font-medium mt-2 text-sm sm:text-base">{lang.sub}</p>
+
+          {/* Thin decorative line */}
+          <div className="mt-6 flex items-center gap-3">
+            <div className="h-px flex-1 bg-linear-to-r from-[#139dc7]/30 to-transparent" />
+            <div className="w-1.5 h-1.5 rounded-full bg-[#139dc7]/40" />
+          </div>
+        </div>
+
+        {/* Cards */}
+        <div className="grid grid-cols-2 gap-5">
+
+          {/* ── Results Card ── */}
+          <button
+            onClick={() => navigate("/results")}
+            onMouseEnter={() => setHovered("results")}
+            onMouseLeave={() => setHovered(null)}
+            className="group relative bg-white/60 backdrop-blur-xl border border-white rounded-3xl sm:rounded-4xl p-5 sm:p-10 text-left overflow-hidden transition-all duration-300 hover:bg-white hover:shadow-2xl hover:shadow-[#139dc7]/15 hover:-translate-y-1 active:scale-[0.98] flex flex-col h-56 sm:h-80"
           >
-              <div className="absolute top-0 right-0 p-4 sm:p-8 opacity-5 group-hover:opacity-10 group-hover:scale-110 transition-all duration-500">
-                  <FaFileMedical className="text-[#139dc7] text-6xl sm:text-[120px]" />
+            {/* Background accent */}
+            <div className="absolute inset-0 bg-linear-to-br from-[#139dc7]/5 via-transparent to-transparent opacity-0 group-hover:opacity-100 transition-opacity duration-300 rounded-4xl" />
+                        <div className="absolute inset-0 bg-linear-to-br from-[#139dc7]/5 via-transparent to-transparent opacity-0 group-hover:opacity-100 transition-opacity duration-300 rounded-4xl" />
+            
+            {/* Large ghost icon */}
+            <div className="absolute -bottom-4 -right-4 text-[#139dc7]/5 group-hover:text-[#139dc7]/10 transition-all duration-500 group-hover:scale-110 group-hover:-rotate-6">
+              <FaFileMedical size={140} />
+            </div>
+
+            {/* Icon */}
+            <div className="w-10 h-10 sm:w-14 sm:h-14 rounded-xl sm:rounded-2xl bg-[#139dc7] flex items-center justify-center text-white shadow-xl shadow-[#139dc7]/30 mb-4 sm:mb-6 group-hover:shadow-[#139dc7]/50 transition-all duration-300 group-hover:scale-110">
+              <FaFileMedical className="text-base sm:text-xl" />
+            </div>
+
+            {/* Text */}
+            <div className="relative flex-1">
+              <div className="text-[9px] font-black text-[#139dc7]/40 uppercase tracking-[0.3em] mb-1.5">Quick Access</div>
+              <h2 className="text-lg sm:text-3xl font-black text-[#0a4d61] leading-tight mb-2 sm:mb-3">{lang.resultsLabel}</h2>
+              <p className="text-[#139dc7]/60 text-sm leading-relaxed font-medium max-w-xs hidden sm:block">{lang.resultsDesc}</p>
+            </div>
+
+            {/* CTA */}
+            <div className="relative mt-4 sm:mt-8 flex items-center gap-2 text-[#139dc7] font-black text-[9px] sm:text-xs uppercase tracking-widest group-hover:gap-4 transition-all duration-200">
+              {lang.resultsAction}
+              <div className="w-6 h-6 rounded-full bg-[#139dc7]/10 group-hover:bg-[#139dc7] flex items-center justify-center transition-all duration-200">
+                <FaChevronRight size={9} className="text-[#139dc7] group-hover:text-white transition-colors" />
               </div>
-              <div className="w-12 h-12 sm:w-16 sm:h-16 bg-[#139dc7] rounded-xl sm:rounded-2xl flex items-center justify-center text-white shadow-xl shadow-blue-200 mb-4 sm:mb-8 group-hover:rotate-6 transition-transform">
-                  <FaFileMedical className="text-xl sm:text-3xl" />
-              </div>
-              <h2 className="text-xl sm:text-4xl font-black text-[#0a4d61] mb-2 sm:mb-3 leading-tight">
-                {content[language].viewLatestTop} 
-                <br/> 
-                {content[language].viewLatestBottom}
-              </h2>
-              <p className="hidden md:block text-[#139dc7]/70 text-base lg:text-lg max-w-75 leading-relaxed font-medium">
-                {content[language].viewLatestDesc}
-              </p>
-              <div className="mt-auto flex items-center gap-2 font-black text-[#139dc7] uppercase text-[10px] sm:text-sm tracking-widest group-hover:gap-4 transition-all">
-                {content[language].accessNow} <FaChevronRight />
-              </div>
+            </div>
           </button>
 
-          {/* CHECKUP HISTORY */}
-          <button 
-            onClick={() => navigate('/history')}
-            className="group relative bg-linear-to-br from-[#139dc7] to-[#34A0A4] p-6 sm:p-10 rounded-[30px] sm:rounded-[40px] shadow-2xl shadow-[#139dc7]/30 transition-all hover:-translate-y-2 flex flex-col items-start text-left overflow-hidden min-h-62.5 sm:min-h-80 w-full active:scale-95"
+          {/* ── History Card ── */}
+          <button
+            onClick={() => navigate("/history")}
+            onMouseEnter={() => setHovered("history")}
+            onMouseLeave={() => setHovered(null)}
+            className="group relative overflow-hidden rounded-3xl sm:rounded-4xl p-5 sm:p-10 text-left transition-all duration-300 hover:-translate-y-1 active:scale-[0.98] flex flex-col h-56 sm:h-80"
+            style={{
+              background: "linear-gradient(135deg, #139dc7 0%, #0a7fa0 50%, #0a4d61 100%)",
+              boxShadow: hovered === "history" ? "0 25px 60px rgba(19,157,199,0.40)" : "0 10px 40px rgba(19,157,199,0.25)"
+            }}
           >
-            <div className="absolute top-0 right-0 p-4 sm:p-8 opacity-20 group-hover:scale-110 transition-transform">
-                <FaHistory className="text-white text-6xl sm:text-[120px]" />
+            {/* Geometric accent shapes */}
+            <div className="absolute top-0 right-0 w-48 h-48 rounded-full bg-white/5 -translate-y-16 translate-x-16 group-hover:scale-110 transition-transform duration-500" />
+            <div className="absolute bottom-0 left-0 w-32 h-32 rounded-full bg-white/5 translate-y-12 -translate-x-8 group-hover:scale-125 transition-transform duration-500" />
+
+            {/* Large ghost icon */}
+            <div className="absolute -bottom-4 -right-4 text-white/10 group-hover:text-white/15 transition-all duration-500 group-hover:scale-110 group-hover:rotate-6">
+              <FaHistory size={140} />
             </div>
-            <div className="w-12 h-12 sm:w-16 sm:h-16 bg-white/20 backdrop-blur-md rounded-xl sm:rounded-2xl flex items-center justify-center text-white shadow-lg mb-4 sm:mb-8 group-hover:-rotate-6 transition-transform border border-white/30">
-                <FaHistory className="text-xl sm:text-3xl" />
+
+            {/* Icon */}
+            <div className="relative w-10 h-10 sm:w-14 sm:h-14 rounded-xl sm:rounded-2xl bg-white/20 backdrop-blur-sm border border-white/30 flex items-center justify-center text-white shadow-lg mb-4 sm:mb-6 group-hover:bg-white/30 transition-all duration-300 group-hover:scale-110">
+              <FaHistory className="text-base sm:text-xl" />
             </div>
-            <h2 className="text-xl sm:text-4xl font-bold text-white mb-2 sm:mb-3 leading-tight">
-              {content[language].historyTop} 
-              <br/> 
-              {content[language].historyBottom}
-            </h2>
-            <p className="hidden md:block text-white/80 text-base lg:text-lg max-w-75 leading-relaxed">
-              {content[language].historyDesc}
-            </p>
-            <div className="mt-auto flex items-center gap-2 font-bold text-white text-[10px] sm:text-sm group-hover:gap-4 transition-all uppercase tracking-widest">
-              {content[language].browse} <FaChevronRight />
+
+            {/* Text */}
+            <div className="relative flex-1">
+              <div className="text-[9px] font-black text-white/40 uppercase tracking-[0.3em] mb-1.5">Archive</div>
+              <h2 className="text-lg sm:text-3xl font-black text-white leading-tight mb-2 sm:mb-3">{lang.historyLabel}</h2>
+              <p className="text-white/60 text-sm leading-relaxed font-medium max-w-xs hidden sm:block">{lang.historyDesc}</p>
+            </div>
+
+            {/* CTA */}
+            <div className="relative mt-4 sm:mt-8 flex items-center gap-2 text-white font-black text-[9px] sm:text-xs uppercase tracking-widest group-hover:gap-4 transition-all duration-200">
+              {lang.historyAction}
+              <div className="w-6 h-6 rounded-full bg-white/20 group-hover:bg-white/30 flex items-center justify-center transition-all duration-200">
+                <FaChevronRight size={9} className="text-white" />
+              </div>
             </div>
           </button>
         </div>
 
+        {/* Stats strip */}
+        <div className="mt-6 grid grid-cols-3 gap-2 sm:gap-3">
+          {/* Language */}
+          <div className="bg-white/30 backdrop-blur-sm border border-white/50 rounded-2xl px-4 py-3 text-center">
+            <div className="text-[8px] font-black text-[#139dc7]/40 uppercase tracking-widest">Language</div>
+            <div className="text-sm font-black text-[#0a4d61] mt-0.5">{language === "English" ? "EN" : "TL"}</div>
+            <div className="text-[8px] text-[#139dc7]/50 font-medium mt-0.5">{language}</div>
+          </div>
+          {/* Units */}
+          <div className="bg-white/30 backdrop-blur-sm border border-white/50 rounded-2xl px-4 py-3 text-center">
+            <div className="text-[8px] font-black text-[#139dc7]/40 uppercase tracking-widest">Units</div>
+            <div className="text-sm font-black text-[#0a4d61] mt-0.5">
+              {userData?.units?.toLowerCase() === "imperial" ? "lb / in" : "kg / m"}
+            </div>
+            <div className="text-[8px] text-[#139dc7]/50 font-medium mt-0.5">
+              {userData?.units?.toLowerCase() === "imperial" ? "Imperial" : "Metric"}
+            </div>
+          </div>
+          {/* Large Text */}
+          <div className="bg-white/30 backdrop-blur-sm border border-white/50 rounded-2xl px-4 py-3 text-center">
+            <div className="text-[8px] font-black text-[#139dc7]/40 uppercase tracking-widest">Large Text</div>
+            <div className={`text-sm font-black mt-0.5 ${userData?.large_text ? "text-[#139dc7]" : "text-[#0a4d61]"}`}>
+              {userData?.large_text ? "ON" : "OFF"}
+            </div>
+            <div className="text-[8px] text-[#139dc7]/50 font-medium mt-0.5">Accessibility</div>
+          </div>
+        </div>
       </main>
 
       {/* FOOTER */}
-      <footer className="w-full py-8 text-center mt-auto">
-        <span className="text-[10px] font-black uppercase tracking-[0.5em] text-[#139dc7] opacity-40">
-          {content[language].footer}
+      <footer className="relative z-10 w-full py-6 text-center">
+        <span className="text-[9px] font-black uppercase tracking-[0.4em] text-[#139dc7]/30">
+          {lang.footer}
         </span>
       </footer>
     </div>

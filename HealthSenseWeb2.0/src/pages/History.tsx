@@ -86,7 +86,7 @@ async function exportToPDF(record: CheckupRecord, language: "English" | "Tagalog
     if (sys > 140 || dia > 90) { bpStatus = "High"; bpColor = "#dc2626"; }
     else if (sys > 120 || dia > 80) { bpStatus = "Elevated"; bpColor = "#ea580c"; }
   } else { bpStatus = "No Data"; bpColor = "#f59e0b"; }
-  vitals.push({ label: "Blood Pressure", value: record.bp, unit: "mmHg", status: bpStatus, color: bpColor });
+  vitals.push({ label: "Blood Pressure", value: record.bp, unit: ".", status: bpStatus, color: bpColor });
 
   // Heart Rate
   const hrVal = Number(record.heart_rate);
@@ -508,7 +508,7 @@ const History: React.FC = () => {
       else if (sys <= 139 || dia <= 89) { bpStatus = l.status.elevated; bpType = "warning"; }
       else { bpStatus = l.status.high; bpType = "danger"; }
     }
-    healthData.push({ title: l.vitals.bp, value: record.bp, unit: "mmHg", status: bpStatus, type: bpType, icon: <FiHeart /> });
+    healthData.push({ title: l.vitals.bp, value: record.bp, unit: ".", status: bpStatus, type: bpType, icon: <FiHeart /> });
 
     // Heart Rate
     const hrNum = Number(record.heart_rate);
@@ -677,9 +677,9 @@ const History: React.FC = () => {
                       </div>
                     </div>
                   </div>
-                  <div className="flex-1 grid grid-cols-3 md:grid-cols-6 gap-2 md:gap-3 w-full">
-                    {getHealthData(record).map((stat, i) => (
-                      <div key={i} className="bg-white/60 border border-white p-3 md:p-4 rounded-2xl group-hover:bg-white transition-colors">
+                  <div className="flex-1 grid grid-cols-3 md:grid-cols-4 gap-2 md:gap-3 w-full">
+                    {getHealthData(record).map((stat, i, arr) => (
+                      <div key={i} className={`bg-white/60 border border-white p-3 md:p-4 rounded-2xl group-hover:bg-white transition-colors${i === arr.length - 1 && arr.length % 3 !== 0 ? " col-start-2 md:col-start-auto" : ""}`}>
                         <p className="text-[8px] md:text-[9px] font-black text-[#139dc7] uppercase mb-1.5 tracking-tight opacity-50">{stat.title}</p>
                         <p className={`font-bold text-[#0a4d61] leading-none ${stat.title === lang.vitals.bp ? "text-xs md:text-sm" : "text-base md:text-lg"}`}>
                           {stat.value}{stat.unit && <span className="text-[8px] ml-0.5 opacity-50 font-medium">{stat.unit}</span>}
