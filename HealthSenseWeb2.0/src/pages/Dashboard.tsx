@@ -254,7 +254,7 @@ const Dashboard: React.FC = () => {
           {/* Large Text */}
           <div className="bg-white/30 backdrop-blur-sm border border-white/50 rounded-2xl px-4 py-3 text-center">
             <div className="text-[8px] font-black text-[#139dc7]/40 uppercase tracking-widest">Large Text</div>
-            <div className={`text-sm font-black mt-0.5 ${userData?.large_text ? "text-[#139dc7]" : "text-[#0a4d61]"}`}>
+            <div className={`text-sm font-black mt-0.5 ${userData?.large_text ? "text-[#0a4d61]" : "text-[#0a4d61]"}`}>
               {userData?.large_text ? "ON" : "OFF"}
             </div>
             <div className="text-[8px] text-[#139dc7]/50 font-medium mt-0.5">Accessibility</div>
