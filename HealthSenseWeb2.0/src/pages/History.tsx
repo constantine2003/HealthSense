@@ -53,7 +53,7 @@ async function exportToPDF(record: CheckupRecord, language: "English" | "Tagalog
   const rawH = Number(record.height), heightM = rawH/100, displayH = isMetric ? heightM : heightM*39.3701; vitals.push({ label: "Height", value: isNaN(rawH) ? "--" : (isMetric ? heightM.toFixed(2) : displayH.toFixed(1)), unit: isMetric ? "m" : "in", status: "Normal", color: "#16a34a" });
   let bpStatus = "Normal", bpColor = "#16a34a";
   if (record.bp?.includes("/") && !record.bp.includes("--")) { const [sys, dia] = record.bp.split("/").map(Number); if (sys > 140 || dia > 90) { bpStatus = "High"; bpColor = "#dc2626"; } else if (sys > 120 || dia > 80) { bpStatus = "Elevated"; bpColor = "#ea580c"; } } else { bpStatus = "No Data"; bpColor = "#f59e0b"; }
-  vitals.push({ label: "Blood Pressure", value: record.bp, unit: "mmHg", status: bpStatus, color: bpColor });
+  vitals.push({ label: "Blood Pressure", value: record.bp, unit: ".", status: bpStatus, color: bpColor });
   const hrVal = Number(record.heart_rate); let hrPdfStatus = "Normal", hrPdfColor = "#16a34a";
   if (!record.heart_rate || record.heart_rate === "--" || isNaN(hrVal)) { hrPdfStatus = "No Data"; hrPdfColor = "#f59e0b"; } else if (hrVal < 40 || hrVal > 150) { hrPdfStatus = hrVal > 150 ? "Critical High" : "Critical Low"; hrPdfColor = "#dc2626"; } else if (hrVal < 60) { hrPdfStatus = "Bradycardia"; hrPdfColor = "#ea580c"; } else if (hrVal > 100) { hrPdfStatus = "Tachycardia"; hrPdfColor = hrVal > 120 ? "#dc2626" : "#ea580c"; }
   vitals.push({ label: "Heart Rate", value: record.heart_rate, unit: "bpm", status: hrPdfStatus, color: hrPdfColor });
@@ -329,7 +329,7 @@ const History: React.FC = () => {
     healthData.push({ title: l.vitals.bmi, value: record.bmi, unit: "", status: bmiStatus, type: bmiType, icon: <FiBarChart /> });
     let bpStatus = l.status.ideal, bpType: StatusType = "success";
     if (record.bp.includes("/")) { const [sys, dia] = record.bp.split("/").map(Number); if (sys < 90 || dia < 60) { bpStatus = l.status.low; bpType = "warning"; } else if (sys <= 120 && dia <= 80) { bpStatus = l.status.ideal; } else if (sys <= 139 || dia <= 89) { bpStatus = l.status.elevated; bpType = "warning"; } else { bpStatus = l.status.high; bpType = "danger"; } }
-    healthData.push({ title: l.vitals.bp, value: record.bp, unit: "mmHg", status: bpStatus, type: bpType, icon: <FiHeart /> });
+    healthData.push({ title: l.vitals.bp, value: record.bp, unit: ".", status: bpStatus, type: bpType, icon: <FiHeart /> });
     const hrNum = Number(record.heart_rate); let hrStatus = l.status.normal, hrType: StatusType = "success";
     if (!record.heart_rate || record.heart_rate === "--" || isNaN(hrNum)) { hrStatus = "No Data"; hrType = "warning"; } else if (hrNum < 40 || hrNum > 150) { hrStatus = hrNum > 150 ? l.status.high : l.status.low; hrType = "danger"; } else if (hrNum < 60) { hrStatus = l.status.low; hrType = "warning"; } else if (hrNum > 100) { hrStatus = l.status.high; hrType = "warning"; }
     healthData.push({ title: l.vitals.hr, value: record.heart_rate, unit: "bpm", status: hrStatus, type: hrType, icon: <FaHeartbeat /> });
