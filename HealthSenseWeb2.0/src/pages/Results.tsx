@@ -275,7 +275,7 @@ const Result: React.FC = () => {
   if (!latestRecord) {
     return (
       <div className="min-h-screen flex items-center justify-center bg-[#eaf4ff] font-['Lexend']">
-        <div className="text-center p-10 bg-white/60 rounded-[32px] backdrop-blur-md border border-white shadow-xl">
+        <div className="text-center p-10 bg-white/60 rounded-4xl backdrop-blur-md border border-white shadow-xl">
           <h2 className="text-2xl font-black text-[#0a4d61] mb-4">{content[language].noRecord}</h2>
           <button onClick={() => navigate("/dashboard")} className="text-[#139dc7] font-bold flex items-center gap-2 mx-auto hover:gap-4 transition-all">
             <FaArrowLeft /> {content[language].returnBtn}
@@ -321,9 +321,9 @@ const Result: React.FC = () => {
       <main id="hs-print-region" className="max-w-5xl mx-auto px-4 sm:px-6 pb-16">
 
         {/* ── HERO ── */}
-        <div className="hs-hero bg-white/70 backdrop-blur-xl rounded-2xl sm:rounded-[32px] border border-white shadow-2xl shadow-[#0a4d61]/10 mb-5 overflow-hidden">
+        <div className="hs-hero bg-white/70 backdrop-blur-xl rounded-2xl sm:rounded-4xl border border-white shadow-2xl shadow-[#0a4d61]/10 mb-5 overflow-hidden">
           {/* Top accent bar */}
-          <div className={`h-1.5 w-full ${isHealthy ? "bg-gradient-to-r from-emerald-400 via-emerald-500 to-teal-500" : "bg-gradient-to-r from-amber-400 via-orange-500 to-red-500"}`} />
+          <div className={`h-1.5 w-full ${isHealthy ? "bg-linear-to-r from-emerald-400 via-emerald-500 to-teal-500" : "bg-linear-to-r from-amber-400 via-orange-500 to-red-500"}`} />
 
           <div className="p-5 sm:p-7 lg:p-10 flex flex-col sm:flex-row items-start sm:items-center justify-between gap-5">
             {/* Date + label */}
@@ -341,8 +341,8 @@ const Result: React.FC = () => {
             {/* Condition badge — fixed: uses correct color based on isHealthy */}
             <div className={`shrink-0 px-6 py-4 sm:px-8 sm:py-5 rounded-2xl sm:rounded-3xl font-black text-center shadow-xl w-full sm:w-auto sm:min-w-44
               ${isHealthy
-                ? "bg-gradient-to-br from-emerald-500 to-teal-600 shadow-emerald-200"
-                : "bg-gradient-to-br from-amber-500 to-orange-600 shadow-orange-200"}`}>
+                ? "bg-linear-to-br from-emerald-500 to-teal-600 shadow-emerald-200"
+                : "bg-linear-to-br from-amber-500 to-orange-600 shadow-orange-200"}`}>
               <p className="text-[9px] uppercase opacity-75 tracking-widest mb-1 text-white">{lang.condition}</p>
               <p className="text-xl sm:text-2xl text-white">{isHealthy ? lang.excellent : lang.stable}</p>
             </div>
