@@ -7,6 +7,7 @@ import { useRouter } from 'expo-router'
 import { supabase } from '../utils/supabaseClient'
 import { analyzeHealth } from '../utils/healthAnalysis'
 import AsyncStorage from '@react-native-async-storage/async-storage'
+import { Ionicons } from '@expo/vector-icons'
 
 const CACHE_KEY = 'hs_history_records'
 
@@ -181,15 +182,13 @@ export default function History() {
 
       {/* Header */}
       <View className="px-5 pt-14 pb-3">
-        <View className="flex-row items-center justify-between mb-3">
+        <View className="flex-row items-center mb-1">
           <TouchableOpacity onPress={() => router.back()}>
             <Text className="text-[#139dc7] font-bold text-sm">← {l.back}</Text>
           </TouchableOpacity>
-          <View className="items-end">
-            <Text className="text-xl font-black text-[#0a4d61]">{l.title}</Text>
-            <Text className="text-[9px] text-[#139dc7]/50 font-medium">{l.subtitle}</Text>
-          </View>
         </View>
+        <Text className="text-xl font-black text-[#0a4d61] mb-0.5">{l.title}</Text>
+        <Text className="text-[9px] text-[#139dc7]/50 font-medium mb-2">{l.subtitle}</Text>
 
         {/* Offline banner */}
         {offline && (
@@ -367,7 +366,10 @@ export default function History() {
 
                 {/* Analysis */}
                 <View className="flex-row items-center justify-between mb-3">
-                  <Text className="font-black text-[#0a4d61] text-sm">🛡 {l.insightsTitle}</Text>
+                  <View className="flex-row items-center gap-1">
+                    <Ionicons name="shield-checkmark" size={16} color="#0a4d61" style={{ marginRight: 2 }} />
+                    <Text className="font-black text-[#0a4d61] text-sm">{l.insightsTitle}</Text>
+                  </View>
                   <View className="flex-row gap-1">
                     {highCount > 0 && (
                       <View className="flex-row items-center gap-1 bg-red-100 border border-red-200 rounded-full px-2 py-0.5">

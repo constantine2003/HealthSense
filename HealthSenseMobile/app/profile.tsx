@@ -1,4 +1,5 @@
 import { useEffect, useState } from 'react'
+import { Ionicons } from '@expo/vector-icons'
 import {
   View, Text, TouchableOpacity, ActivityIndicator,
   ScrollView, Switch, Alert, TextInput, Modal
@@ -14,7 +15,6 @@ export default function Profile() {
   const [language, setLanguage] = useState<'English' | 'Tagalog'>('English')
   const [pendingLanguage, setPendingLanguage] = useState<'English' | 'Tagalog'>('English')
   const [units, setUnits] = useState<'metric' | 'imperial'>('metric')
-  const [largeText, setLargeText] = useState(false)
   const [profile, setProfile] = useState<{
     first_name: string; middle_name?: string; last_name: string
     birthday: string; sex: string; username: string
@@ -82,7 +82,6 @@ export default function Profile() {
         setProfile(data)
         setLanguage(data.language || 'English')
         setPendingLanguage(data.language || 'English')
-        setLargeText(!!data.large_text)
         setUnits(data.units ? data.units.toLowerCase() as 'metric' | 'imperial' : 'metric')
       }
       setLoading(false)
@@ -96,7 +95,7 @@ export default function Profile() {
       const { data: { user } } = await supabase.auth.getUser()
       if (!user) return
       const { error } = await supabase.from('profiles').update({
-        language: pendingLanguage, units, large_text: largeText
+        language: pendingLanguage, units
       }).eq('id', user.id)
       if (error) throw error
       setLanguage(pendingLanguage)
@@ -160,7 +159,7 @@ export default function Profile() {
         <View className="mx-5 bg-white/70 rounded-3xl border border-white shadow-sm p-5 mb-4">
           <View className="flex-row items-center gap-3 mb-4">
             <View className="w-9 h-9 bg-[#139dc7]/10 rounded-2xl items-center justify-center">
-              <Text className="text-lg">👤</Text>
+              <Ionicons name="person-outline" size={22} color="#139dc7" />
             </View>
             <Text className="text-base font-black text-[#0a4d61]">{lang.personal}</Text>
           </View>
@@ -198,7 +197,7 @@ export default function Profile() {
           </View>
 
           <View className="flex-row items-center gap-2 bg-[#139dc7]/5 border border-[#139dc7]/10 rounded-2xl px-3 py-2.5">
-            <View className="w-1.5 h-1.5 rounded-full bg-[#139dc7]" />
+            <Ionicons name="lock-closed-outline" size={14} color="#139dc7" />
             <Text className="text-[9px] text-[#139dc7]/60 font-bold italic flex-1">{lang.locked}</Text>
           </View>
         </View>
@@ -207,24 +206,11 @@ export default function Profile() {
         <View className="mx-5 bg-white/70 rounded-3xl border border-white shadow-sm p-5 mb-4">
           <View className="flex-row items-center gap-3 mb-4">
             <View className="w-9 h-9 bg-[#139dc7]/10 rounded-2xl items-center justify-center">
-              <Text className="text-lg">⚙️</Text>
+              <Ionicons name="settings-outline" size={22} color="#139dc7" />
             </View>
             <Text className="text-base font-black text-[#0a4d61]">{lang.preferences}</Text>
           </View>
 
-          {/* Large Text */}
-          <View className="flex-row items-center justify-between p-4 bg-white/50 rounded-2xl border border-white/70 mb-4">
-            <View className="flex-1 mr-4">
-              <Text className="text-xs font-black text-[#0a4d61] uppercase">{lang.largeDisplay}</Text>
-              <Text className="text-[8px] text-[#139dc7]/50 font-medium mt-0.5">{lang.largeDisplayDesc}</Text>
-            </View>
-            <Switch
-              value={largeText}
-              onValueChange={setLargeText}
-              trackColor={{ false: '#e2e8f0', true: '#139dc7' }}
-              thumbColor="#ffffff"
-            />
-          </View>
 
           {/* Units */}
           <View className="mb-4">
@@ -281,7 +267,7 @@ export default function Profile() {
             className="flex-row items-center justify-center gap-2 py-3 rounded-2xl border border-[#139dc7]/15"
             onPress={() => setShowPassModal(true)}
           >
-            <Text className="text-[#139dc7] font-black text-[10px] uppercase tracking-widest">🔒 {lang.updatePass}</Text>
+            <Text className="text-[#139dc7] font-black text-[10px] uppercase tracking-widest"><Ionicons name="lock-closed-outline" size={14} color="#139dc7" /> {lang.updatePass}</Text>
           </TouchableOpacity>
         </View>
 

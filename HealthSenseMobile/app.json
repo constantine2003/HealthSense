@@ -21,7 +21,8 @@
         "backgroundImage": "./assets/android-icon-background.png",
         "monochromeImage": "./assets/android-icon-monochrome.png"
       },
-      "predictiveBackGestureEnabled": false
+      "predictiveBackGestureEnabled": false,
+      "package": "com.anonymous.HealthSenseMobile"
     },
     "web": {
       "favicon": "./assets/favicon.png",
@@ -32,6 +33,13 @@
       "expo-router",
       "expo-font",
       "expo-sharing"
-    ]
+    ],
+    "extra": {
+      "router": {},
+      "eas": {
+        "projectId": "f05d4beb-5a28-4f95-b35f-40d97d780007"
+      }
+    },
+    "owner": "daniel.montesclaros"
   }
 }

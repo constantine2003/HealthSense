@@ -162,7 +162,7 @@ export default function DashboardScreen() {
       </View>
 
       {/* CARDS */}
-      <View className="px-6 flex-row gap-4 mt-2">
+      <View className="px-6 flex-row gap-4 mt-2 mb-7">
 
         {/* Results Card */}
         <TouchableOpacity
