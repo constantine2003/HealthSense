@@ -1,26 +1,26 @@
 module.exports = {
   expo: {
-    name: "HealthSenseMobile",
+    name: "HealthSense",
     slug: "HealthSenseMobile",
     version: "1.0.0",
     orientation: "portrait",
-    icon: "./assets/icon.png",
+    icon: "./assets/healthsense.png",
     userInterfaceStyle: "light",
     splash: {
-      image: "./assets/splash-icon.png",
+      image: "./assets/healthsense.png",
       resizeMode: "contain",
-      backgroundColor: "#ffffff",
+      backgroundColor: "#eaf4ff",
     },
     ios: { supportsTablet: true },
     android: {
       adaptiveIcon: {
-        foregroundImage: "./assets/android-icon-foreground.png",
+        foregroundImage: "./assets/healthsense.png",
         backgroundColor: "#E6F4FE",
       },
       predictiveBackGestureEnabled: false,
       package: "com.anonymous.healthsensemobile",
     },
-    web: { favicon: "./assets/favicon.png", bundler: "metro" },
+    web: { favicon: "./assets/healthsense.png", bundler: "metro" },
     scheme: "healthsense",
     plugins: ["expo-router"],
     extra: {
