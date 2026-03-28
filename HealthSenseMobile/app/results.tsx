@@ -31,7 +31,6 @@ export default function Results() {
       insightsTitle: 'AI Health Analysis', insightsSubtitle: 'Rule-based analysis of your vitals',
       allClear: 'All Vitals Normal', allClearDesc: 'Your readings are within healthy ranges.',
       riskLabels: { low: 'Low Risk', moderate: 'Moderate', high: 'High Risk' },
-      relatedVitals: 'Related Vitals',
       disclaimer: 'For informational purposes only. Not a substitute for medical advice.',
       noRecord: 'No records found.', offlineBanner: "Showing cached data — you're offline",
       vitalTitles: { spo2: 'SpO2', temp: 'Temperature', height: 'Height', weight: 'Weight', bmi: 'BMI', bp: 'Blood Pressure', hr: 'Heart Rate' },
@@ -44,7 +43,6 @@ export default function Results() {
       insightsTitle: 'AI Pagsusuri ng Kalusugan', insightsSubtitle: 'Pagsusuri batay sa iyong mga vital signs',
       allClear: 'Lahat ng Vital Signs ay Normal', allClearDesc: 'Ang iyong mga resulta ay nasa malusog na range.',
       riskLabels: { low: 'Mababang Panganib', moderate: 'Katamtamang Panganib', high: 'Mataas na Panganib' },
-      relatedVitals: 'Kaugnay na Vital Signs',
       disclaimer: 'Para sa impormasyon lamang. Hindi kapalit ng medikal na payo.',
       noRecord: 'Walang nahanap na record.', offlineBanner: 'Naka-cache na data — offline ka',
       vitalTitles: { spo2: 'SpO2', temp: 'Temperatura', height: 'Tangkad', weight: 'Timbang', bmi: 'BMI', bp: 'Presyon ng Dugo', hr: 'Heart Rate' },
@@ -55,11 +53,33 @@ export default function Results() {
   useEffect(() => {
     const fetchData = async () => {
       try {
-        const { data: { user } } = await supabase.auth.getUser()
-        if (!user) { router.replace('/'); return }
-        const { data: profile } = await supabase.from('profiles').select('language, units').eq('id', user.id).single()
-        if (profile?.language) setLanguage(profile.language as 'English' | 'Tagalog')
-        if (profile?.units) setUnits(profile.units.toLowerCase() as 'metric' | 'imperial')
+        // Offline-safe session check
+        const { data: { session } } = await supabase.auth.getSession()
+        if (!session?.user) {
+          const cachedProfile = await AsyncStorage.getItem('hs_profile')
+          if (!cachedProfile) { router.replace('/'); return }
+          const p = JSON.parse(cachedProfile)
+          if (p.language) setLanguage(p.language)
+          if (p.units) setUnits(p.units.toLowerCase())
+          throw new Error('offline')
+        }
+
+        const user = session.user
+
+        // Load profile from cache first, then try network
+        const cachedProfile = await AsyncStorage.getItem('hs_profile')
+        if (cachedProfile) {
+          const p = JSON.parse(cachedProfile)
+          if (p.language) setLanguage(p.language)
+          if (p.units) setUnits(p.units.toLowerCase())
+        }
+
+        try {
+          const { data: profile } = await supabase.from('profiles').select('language, units').eq('id', user.id).single()
+          if (profile?.language) setLanguage(profile.language as 'English' | 'Tagalog')
+          if (profile?.units) setUnits(profile.units.toLowerCase() as 'metric' | 'imperial')
+        } catch {}
+
         const { data, error } = await supabase
           .from('health_checkups')
           .select('spo2, temperature, height, weight, bmi, blood_pressure, heart_rate, created_at')
@@ -181,7 +201,6 @@ export default function Results() {
     high: { bg: '#fef2f2', border: '#fca5a5', text: '#dc2626', dot: '#f87171' },
   }
 
-  // Split vitals: first 6 in pairs, last 1 centered
   const pairedVitals = vitals.slice(0, 6)
   const lastVital = vitals[6]
 
@@ -207,7 +226,7 @@ export default function Results() {
 
         {/* Hero card */}
         <View className="mx-5 bg-white/70 rounded-3xl border border-white shadow-sm mb-4 overflow-hidden">
-          <View className={`h-1.5 w-full`} style={{ backgroundColor: isHealthy ? '#34d399' : '#fbbf24' }} />
+          <View style={{ height: 6, backgroundColor: isHealthy ? '#34d399' : '#fbbf24' }} />
           <View className="p-5">
             <View className="flex-row items-center gap-1.5 mb-1">
               <Ionicons name="calendar-outline" size={11} color="#139dc7" />
@@ -235,26 +254,40 @@ export default function Results() {
           <Text className="text-[9px] text-[#139dc7]/40 font-bold uppercase tracking-widest mt-0.5">{lang.latest}</Text>
         </View>
 
-        {/* Vitals grid — 2 columns, last centered */}
+        {/* Vitals grid — fixed height cards */}
         <View className="px-5 mb-5">
-          {/* Paired rows */}
           {[0, 1, 2].map(rowIndex => (
-            <View key={rowIndex} className="flex-row gap-3 mb-3">
+            <View key={rowIndex} style={{ flexDirection: 'row', gap: 12, marginBottom: 12 }}>
               {pairedVitals.slice(rowIndex * 2, rowIndex * 2 + 2).map((v, i) => (
-                <View key={i} className="flex-1 bg-white/80 rounded-2xl p-4 border border-white shadow-sm">
-                  <View className="flex-row items-center justify-between mb-2">
-                    <View className="w-7 h-7 rounded-xl items-center justify-center"
-                      style={{ backgroundColor: v.color + '20' }}>
+                <View
+                  key={i}
+                  style={{
+                    flex: 1,
+                    backgroundColor: 'rgba(255,255,255,0.85)',
+                    borderRadius: 18,
+                    padding: 14,
+                    borderWidth: 1,
+                    borderColor: 'rgba(255,255,255,0.9)',
+                    minHeight: 110,
+                  }}
+                >
+                  {/* Top row: icon + status badge */}
+                  <View style={{ flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between', marginBottom: 10 }}>
+                    <View style={{ width: 28, height: 28, borderRadius: 10, backgroundColor: v.color + '25', alignItems: 'center', justifyContent: 'center' }}>
                       <Ionicons name={v.icon as any} size={14} color={v.color} />
                     </View>
-                    <View className="px-2 py-0.5 rounded-full" style={{ backgroundColor: v.color + '20' }}>
-                      <Text style={{ color: v.color }} className="text-[7px] font-black uppercase">{v.status}</Text>
+                    <View style={{ backgroundColor: v.color + '20', paddingHorizontal: 8, paddingVertical: 3, borderRadius: 999 }}>
+                      <Text style={{ color: v.color, fontSize: 7, fontWeight: '900', textTransform: 'uppercase' }}>{v.status}</Text>
                     </View>
                   </View>
-                  <Text className="text-[8px] font-black text-[#139dc7]/50 uppercase tracking-widest mb-0.5">{v.title}</Text>
-                  <Text className="text-2xl font-black text-[#0a4d61] leading-none">
+                  {/* Label */}
+                  <Text style={{ fontSize: 8, fontWeight: '900', color: 'rgba(19,157,199,0.5)', textTransform: 'uppercase', letterSpacing: 1, marginBottom: 4 }}>
+                    {v.title}
+                  </Text>
+                  {/* Value */}
+                  <Text style={{ fontSize: 22, fontWeight: '900', color: '#0a4d61', lineHeight: 26 }}>
                     {v.value}
-                    <Text className="text-xs text-[#139dc7]/60 font-bold"> {v.unit}</Text>
+                    <Text style={{ fontSize: 11, color: 'rgba(19,157,199,0.6)', fontWeight: '700' }}> {v.unit}</Text>
                   </Text>
                 </View>
               ))}
@@ -263,21 +296,30 @@ export default function Results() {
 
           {/* Last vital centered */}
           {lastVital && (
-            <View className="items-center">
-              <View className="bg-white/80 rounded-2xl p-4 border border-white shadow-sm" style={{ width: '48%' }}>
-                <View className="flex-row items-center justify-between mb-2">
-                  <View className="w-7 h-7 rounded-xl items-center justify-center"
-                    style={{ backgroundColor: lastVital.color + '20' }}>
+            <View style={{ alignItems: 'center' }}>
+              <View style={{
+                width: '48%',
+                backgroundColor: 'rgba(255,255,255,0.85)',
+                borderRadius: 18,
+                padding: 14,
+                borderWidth: 1,
+                borderColor: 'rgba(255,255,255,0.9)',
+                minHeight: 110,
+              }}>
+                <View style={{ flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between', marginBottom: 10 }}>
+                  <View style={{ width: 28, height: 28, borderRadius: 10, backgroundColor: lastVital.color + '25', alignItems: 'center', justifyContent: 'center' }}>
                     <Ionicons name={lastVital.icon as any} size={14} color={lastVital.color} />
                   </View>
-                  <View className="px-2 py-0.5 rounded-full" style={{ backgroundColor: lastVital.color + '20' }}>
-                    <Text style={{ color: lastVital.color }} className="text-[7px] font-black uppercase">{lastVital.status}</Text>
+                  <View style={{ backgroundColor: lastVital.color + '20', paddingHorizontal: 8, paddingVertical: 3, borderRadius: 999 }}>
+                    <Text style={{ color: lastVital.color, fontSize: 7, fontWeight: '900', textTransform: 'uppercase' }}>{lastVital.status}</Text>
                   </View>
                 </View>
-                <Text className="text-[8px] font-black text-[#139dc7]/50 uppercase tracking-widest mb-0.5">{lastVital.title}</Text>
-                <Text className="text-2xl font-black text-[#0a4d61] leading-none">
+                <Text style={{ fontSize: 8, fontWeight: '900', color: 'rgba(19,157,199,0.5)', textTransform: 'uppercase', letterSpacing: 1, marginBottom: 4 }}>
+                  {lastVital.title}
+                </Text>
+                <Text style={{ fontSize: 22, fontWeight: '900', color: '#0a4d61', lineHeight: 26 }}>
                   {lastVital.value}
-                  <Text className="text-xs text-[#139dc7]/60 font-bold"> {lastVital.unit}</Text>
+                  <Text style={{ fontSize: 11, color: 'rgba(19,157,199,0.6)', fontWeight: '700' }}> {lastVital.unit}</Text>
                 </Text>
               </View>
             </View>
@@ -369,7 +411,7 @@ export default function Results() {
             </View>
           )}
 
-          <View className="flex-row items-start gap-2 mt-4">
+          <View className="flex-row items-start gap-2 mt-4 mb-2">
             <Ionicons name="information-circle-outline" size={13} color="#139dc7" style={{ opacity: 0.4 }} />
             <Text className="text-[8px] text-[#139dc7]/40 font-medium leading-relaxed flex-1">{lang.disclaimer}</Text>
           </View>

@@ -8,6 +8,7 @@ import {
 } from "react-native";
 import { useRouter } from "expo-router";
 import { Ionicons } from "@expo/vector-icons";
+import AsyncStorage from '@react-native-async-storage/async-storage';
 import { supabase } from "../utils/supabaseClient";
 
 type UserData = {
@@ -51,26 +52,56 @@ export default function DashboardScreen() {
   useEffect(() => {
     const fetchProfile = async () => {
       try {
-        const { data: { session } } = await supabase.auth.getSession();
-        if (!session?.user) { router.replace("/"); return; }
-        const { data, error } = await supabase
-          .from("profiles")
-          .select("first_name, middle_name, last_name, language, units, large_text")
-          .eq("id", session.user.id)
-          .single();
-        if (error) console.error(error.message);
-        if (data) {
-          setUserData(data);
-          if (data.language) setLanguage(data.language as "English" | "Tagalog");
+        // Try online first
+        const { data: { session } } = await supabase.auth.getSession()
+        if (!session?.user) {
+          // Check cached session before logging out
+          const cached = await AsyncStorage.getItem('supabase.auth.token')
+          if (!cached) { router.replace("/"); return; }
         }
-      } catch (err) {
-        console.error(err);
+        
+        const user = session?.user
+        if (!user) return
+
+        try {
+          // Try to fetch fresh data
+          const { data, error } = await supabase
+            .from("profiles")
+            .select("first_name, middle_name, last_name, language, units, large_text")
+            .eq("id", user.id)
+            .single()
+          if (error) throw error
+          if (data) {
+            setUserData(data)
+            // Cache profile data
+            await AsyncStorage.setItem('hs_profile', JSON.stringify(data))
+            if (data.language) setLanguage(data.language as "English" | "Tagalog")
+          }
+        } catch {
+          // Load from cache when offline
+          const cached = await AsyncStorage.getItem('hs_profile')
+          if (cached) {
+            const data = JSON.parse(cached)
+            setUserData(data)
+            if (data.language) setLanguage(data.language as "English" | "Tagalog")
+          }
+        }
+      } catch {
+        // Network error — try loading from cache
+        const cached = await AsyncStorage.getItem('hs_profile')
+        if (cached) {
+          const data = JSON.parse(cached)
+          setUserData(data)
+          if (data.language) setLanguage(data.language as "English" | "Tagalog")
+        } else {
+          router.replace("/")
+        }
       } finally {
-        setLoading(false);
+        setLoading(false)
       }
-    };
-    fetchProfile();
-  }, []);
+    }
+    fetchProfile()
+  }, [])
 
   const handleLogout = async () => {
     try { await supabase.auth.signOut(); } catch {}

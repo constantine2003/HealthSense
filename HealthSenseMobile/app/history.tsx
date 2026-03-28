@@ -40,9 +40,8 @@ export default function History() {
       insightsTitle: 'AI Health Analysis', insightsSubtitle: 'Rule-based analysis of your vitals',
       allClear: 'All Vitals Normal', allClearDesc: 'Readings are within healthy ranges.',
       riskLabels: { low: 'Low Risk', moderate: 'Moderate', high: 'High Risk' },
-      relatedVitals: 'Related Vitals',
       disclaimer: 'For informational purposes only. Not a substitute for medical advice.',
-      offlineBanner: 'Showing cached data — you\'re offline',
+      offlineBanner: "Showing cached data — you're offline",
       vitalTitles: { spo2: 'SpO2', temp: 'Temp', height: 'Height', weight: 'Weight', bmi: 'BMI', bp: 'BP', hr: 'HR' },
     },
     Tagalog: {
@@ -54,7 +53,6 @@ export default function History() {
       insightsTitle: 'AI Pagsusuri ng Kalusugan', insightsSubtitle: 'Pagsusuri batay sa iyong mga vital signs',
       allClear: 'Lahat ng Vital Signs ay Normal', allClearDesc: 'Ang mga resulta ay nasa malusog na range.',
       riskLabels: { low: 'Mababang Panganib', moderate: 'Katamtamang Panganib', high: 'Mataas na Panganib' },
-      relatedVitals: 'Kaugnay na Vital Signs',
       disclaimer: 'Para sa impormasyon lamang. Hindi kapalit ng medikal na payo.',
       offlineBanner: 'Naka-cache na data — offline ka',
       vitalTitles: { spo2: 'SpO2', temp: 'Temp', height: 'Taas', weight: 'Timbang', bmi: 'BMI', bp: 'BP', hr: 'HR' },
@@ -67,11 +65,33 @@ export default function History() {
   useEffect(() => {
     const fetchData = async () => {
       try {
-        const { data: { user } } = await supabase.auth.getUser()
-        if (!user) { router.replace('/'); return }
-        const { data: profile } = await supabase.from('profiles').select('language, units').eq('id', user.id).single()
-        if (profile?.language) setLanguage(profile.language as 'English' | 'Tagalog')
-        if (profile?.units) setUnits(profile.units.toLowerCase() as 'metric' | 'imperial')
+        // Offline-safe session check
+        const { data: { session } } = await supabase.auth.getSession()
+        if (!session?.user) {
+          const cachedProfile = await AsyncStorage.getItem('hs_profile')
+          if (!cachedProfile) { router.replace('/'); return }
+          const p = JSON.parse(cachedProfile)
+          if (p.language) setLanguage(p.language)
+          if (p.units) setUnits(p.units.toLowerCase())
+          throw new Error('offline')
+        }
+
+        const user = session.user
+
+        // Load profile from cache first
+        const cachedProfile = await AsyncStorage.getItem('hs_profile')
+        if (cachedProfile) {
+          const p = JSON.parse(cachedProfile)
+          if (p.language) setLanguage(p.language)
+          if (p.units) setUnits(p.units.toLowerCase())
+        }
+
+        try {
+          const { data: profile } = await supabase.from('profiles').select('language, units').eq('id', user.id).single()
+          if (profile?.language) setLanguage(profile.language as 'English' | 'Tagalog')
+          if (profile?.units) setUnits(profile.units.toLowerCase() as 'metric' | 'imperial')
+        } catch {}
+
         const { data, error } = await supabase
           .from('health_checkups')
           .select('spo2, temperature, height, weight, bmi, blood_pressure, heart_rate, created_at')
@@ -138,9 +158,9 @@ export default function History() {
   }
 
   const getVitalsMini = (r: CheckupRecord) => {
-    const t = Number(r.temp), b = Number(r.bmi), w = Number(r.weight)
+    const t = Number(r.temp), w = Number(r.weight)
     const rawH = Number(r.height), heightM = rawH / 100
-    const displayTemp = isMetric ? t : (t * 9/5) + 32
+    const displayTemp = isMetric ? t : (t * 9 / 5) + 32
     const displayWeight = isMetric ? w : w * 2.20462
     const displayH = isMetric ? heightM : heightM * 39.3701
     return [
@@ -163,9 +183,9 @@ export default function History() {
   ] as const
 
   const riskColors = {
-    low:      { bg: '#f0f9ff', border: '#bae6fd', text: '#0369a1', dot: '#7dd3fc' },
+    low: { bg: '#f0f9ff', border: '#bae6fd', text: '#0369a1', dot: '#7dd3fc' },
     moderate: { bg: '#fffbeb', border: '#fcd34d', text: '#b45309', dot: '#fbbf24' },
-    high:     { bg: '#fef2f2', border: '#fca5a5', text: '#dc2626', dot: '#f87171' },
+    high: { bg: '#fef2f2', border: '#fca5a5', text: '#dc2626', dot: '#f87171' },
   }
 
   if (loading) {
@@ -183,8 +203,9 @@ export default function History() {
       {/* Header */}
       <View className="px-5 pt-14 pb-3">
         <View className="flex-row items-center mb-1">
-          <TouchableOpacity onPress={() => router.back()}>
-            <Text className="text-[#139dc7] font-bold text-sm">← {l.back}</Text>
+          <TouchableOpacity onPress={() => router.back()} className="flex-row items-center gap-1">
+            <Ionicons name="arrow-back" size={16} color="#139dc7" />
+            <Text className="text-[#139dc7] font-bold text-sm">{l.back}</Text>
           </TouchableOpacity>
         </View>
         <Text className="text-xl font-black text-[#0a4d61] mb-0.5">{l.title}</Text>
@@ -193,13 +214,25 @@ export default function History() {
         {/* Offline banner */}
         {offline && (
           <View className="bg-amber-50 border border-amber-200 rounded-2xl px-4 py-2 flex-row items-center gap-2 mb-2">
-            <Text className="text-amber-600 text-xs font-black">⚠ {l.offlineBanner}</Text>
+            <Ionicons name="warning-outline" size={13} color="#d97706" />
+            <Text className="text-amber-600 text-xs font-black">{l.offlineBanner}</Text>
           </View>
         )}
 
         {/* Search */}
         <TextInput
-          className="h-11 bg-white/70 border-2 border-white/70 rounded-2xl px-4 text-[#139dc7] font-bold text-sm mb-2"
+          style={{
+            height: 44,
+            backgroundColor: 'rgba(255,255,255,0.7)',
+            borderWidth: 2,
+            borderColor: 'rgba(255,255,255,0.7)',
+            borderRadius: 16,
+            paddingHorizontal: 16,
+            color: '#139dc7',
+            fontWeight: '700',
+            fontSize: 14,
+            marginBottom: 8,
+          }}
           placeholder={l.search}
           placeholderTextColor="#94a3b8"
           value={searchQuery}
@@ -207,37 +240,36 @@ export default function History() {
         />
 
         {/* Sort + Risk filters */}
-        <ScrollView horizontal showsHorizontalScrollIndicator={false} className="mb-1">
-          <View className="flex-row gap-2 pr-4">
-            {/* Sort */}
+        <ScrollView horizontal showsHorizontalScrollIndicator={false} style={{ marginBottom: 4 }}>
+          <View style={{ flexDirection: 'row', gap: 8, paddingRight: 16 }}>
             <TouchableOpacity
-              className="px-3 py-2 rounded-xl border-2 flex-row items-center gap-1"
-              style={{ backgroundColor: '#139dc7', borderColor: '#139dc7' }}
+              style={{ backgroundColor: '#139dc7', borderColor: '#139dc7', borderWidth: 2, paddingHorizontal: 12, paddingVertical: 8, borderRadius: 12, flexDirection: 'row', alignItems: 'center', gap: 4 }}
               onPress={() => setSortDir(d => d === 'newest' ? 'oldest' : 'newest')}
             >
-              <Text className="text-white font-black text-[10px] uppercase">
+              <Text style={{ color: 'white', fontWeight: '900', fontSize: 10, textTransform: 'uppercase' }}>
                 {sortDir === 'newest' ? `↓ ${l.newest}` : `↑ ${l.oldest}`}
               </Text>
             </TouchableOpacity>
-
-            {/* Risk filters */}
             {riskFilterOptions.map(opt => (
               <TouchableOpacity
                 key={opt.key}
-                className="px-3 py-2 rounded-xl border-2 flex-row items-center gap-1"
                 style={{
                   backgroundColor: riskFilter === opt.key ? opt.color : 'rgba(255,255,255,0.7)',
                   borderColor: riskFilter === opt.key ? opt.color : 'rgba(255,255,255,0.8)',
+                  borderWidth: 2,
+                  paddingHorizontal: 12,
+                  paddingVertical: 8,
+                  borderRadius: 12,
+                  flexDirection: 'row',
+                  alignItems: 'center',
+                  gap: 4,
                 }}
                 onPress={() => setRiskFilter(opt.key)}
               >
                 {opt.key !== 'all' && (
-                  <View className="w-2 h-2 rounded-full" style={{ backgroundColor: riskFilter === opt.key ? 'white' : opt.color }} />
+                  <View style={{ width: 8, height: 8, borderRadius: 4, backgroundColor: riskFilter === opt.key ? 'white' : opt.color }} />
                 )}
-                <Text
-                  className="font-black text-[10px] uppercase"
-                  style={{ color: riskFilter === opt.key ? 'white' : opt.color }}
-                >
+                <Text style={{ color: riskFilter === opt.key ? 'white' : opt.color, fontWeight: '900', fontSize: 10, textTransform: 'uppercase' }}>
                   {opt.label}
                 </Text>
               </TouchableOpacity>
@@ -245,7 +277,7 @@ export default function History() {
           </View>
         </ScrollView>
 
-        <Text className="text-[10px] font-black text-[#139dc7]/40 uppercase tracking-widest mt-1">
+        <Text style={{ fontSize: 10, fontWeight: '900', color: 'rgba(19,157,199,0.4)', textTransform: 'uppercase', letterSpacing: 1, marginTop: 4 }}>
           {filteredRecords.length} record{filteredRecords.length !== 1 ? 's' : ''}
           {searchQuery || riskFilter !== 'all' ? ` of ${records.length}` : ''}
         </Text>
@@ -254,7 +286,7 @@ export default function History() {
       {/* Records list */}
       {filteredRecords.length === 0 ? (
         <View className="flex-1 items-center justify-center px-6">
-          <Text className="text-4xl mb-4">🔍</Text>
+          <Ionicons name="search-outline" size={48} color="#139dc7" style={{ opacity: 0.3, marginBottom: 12 }} />
           <Text className="text-[#139dc7]/60 font-bold text-center">{l.noRecords}</Text>
         </View>
       ) : (
@@ -267,53 +299,59 @@ export default function History() {
             const vitals = getVitalsMini(record)
             const accentColor = allNormal ? '#10b981' : high > 0 ? '#ef4444' : mod > 0 ? '#f59e0b' : '#0ea5e9'
             return (
-              <View
-                className="bg-white/75 rounded-3xl border border-white overflow-hidden"
-                style={{ borderLeftWidth: 4, borderLeftColor: accentColor }}
-              >
+              <View style={{
+                backgroundColor: 'rgba(255,255,255,0.75)',
+                borderRadius: 24,
+                borderWidth: 1,
+                borderColor: 'rgba(255,255,255,0.9)',
+                borderLeftWidth: 4,
+                borderLeftColor: accentColor,
+                overflow: 'hidden',
+              }}>
                 {/* Top row */}
-                <View className="flex-row items-center px-4 pt-4 pb-3 border-b border-slate-100/80">
-                  <View className="flex-1">
-                    <Text className="font-black text-[#0a4d61] text-base leading-tight">{record.date}</Text>
-                    <Text className="text-[9px] text-[#139dc7]/50 font-bold uppercase tracking-widest mt-0.5">
+                <View style={{ flexDirection: 'row', alignItems: 'center', paddingHorizontal: 16, paddingTop: 14, paddingBottom: 12, borderBottomWidth: 1, borderBottomColor: 'rgba(241,245,249,0.8)' }}>
+                  <View style={{ flex: 1 }}>
+                    <Text style={{ fontWeight: '900', color: '#0a4d61', fontSize: 15, lineHeight: 20 }}>{record.date}</Text>
+                    <Text style={{ fontSize: 9, color: 'rgba(19,157,199,0.5)', fontWeight: '700', textTransform: 'uppercase', letterSpacing: 1, marginTop: 2 }}>
                       {l.checkedAt} {record.time}
                     </Text>
                   </View>
-                  <View className="flex-row items-center gap-1.5 mr-2">
+                  <View style={{ flexDirection: 'row', alignItems: 'center', gap: 6, marginRight: 8 }}>
                     {allNormal && (
-                      <View className="flex-row items-center gap-1 bg-emerald-50 border border-emerald-200 rounded-lg px-2 py-1">
-                        <View className="w-1.5 h-1.5 rounded-full bg-emerald-400" />
-                        <Text className="text-[7px] font-black text-emerald-700 uppercase">Normal</Text>
+                      <View style={{ flexDirection: 'row', alignItems: 'center', gap: 4, backgroundColor: '#f0fdf4', borderWidth: 1, borderColor: '#bbf7d0', borderRadius: 8, paddingHorizontal: 8, paddingVertical: 4 }}>
+                        <View style={{ width: 6, height: 6, borderRadius: 3, backgroundColor: '#34d399' }} />
+                        <Text style={{ fontSize: 7, fontWeight: '900', color: '#15803d', textTransform: 'uppercase' }}>Normal</Text>
                       </View>
                     )}
                     {high > 0 && (
-                      <View className="flex-row items-center gap-1 bg-red-50 border border-red-200 rounded-lg px-2 py-1">
-                        <View className="w-1.5 h-1.5 rounded-full bg-red-500" />
-                        <Text className="text-[7px] font-black text-red-700 uppercase">{high} High</Text>
+                      <View style={{ flexDirection: 'row', alignItems: 'center', gap: 4, backgroundColor: '#fef2f2', borderWidth: 1, borderColor: '#fecaca', borderRadius: 8, paddingHorizontal: 8, paddingVertical: 4 }}>
+                        <View style={{ width: 6, height: 6, borderRadius: 3, backgroundColor: '#ef4444' }} />
+                        <Text style={{ fontSize: 7, fontWeight: '900', color: '#dc2626', textTransform: 'uppercase' }}>{high} High</Text>
                       </View>
                     )}
                     {mod > 0 && (
-                      <View className="flex-row items-center gap-1 bg-amber-50 border border-amber-200 rounded-lg px-2 py-1">
-                        <View className="w-1.5 h-1.5 rounded-full bg-amber-400" />
-                        <Text className="text-[7px] font-black text-amber-700 uppercase">{mod} Mod</Text>
+                      <View style={{ flexDirection: 'row', alignItems: 'center', gap: 4, backgroundColor: '#fffbeb', borderWidth: 1, borderColor: '#fde68a', borderRadius: 8, paddingHorizontal: 8, paddingVertical: 4 }}>
+                        <View style={{ width: 6, height: 6, borderRadius: 3, backgroundColor: '#fbbf24' }} />
+                        <Text style={{ fontSize: 7, fontWeight: '900', color: '#b45309', textTransform: 'uppercase' }}>{mod} Mod</Text>
                       </View>
                     )}
                   </View>
                   <TouchableOpacity
-                    className="px-3 py-2 bg-[#139dc7] rounded-xl"
+                    style={{ paddingHorizontal: 12, paddingVertical: 8, backgroundColor: '#139dc7', borderRadius: 12 }}
                     onPress={() => { setSelectedRecord(record); setExpandedCondition(null) }}
                   >
-                    <Text className="text-white font-black text-[10px] uppercase">›</Text>
+                    <Ionicons name="chevron-forward" size={14} color="white" />
                   </TouchableOpacity>
                 </View>
 
-                {/* Vitals mini */}
-                <View className="flex-row flex-wrap px-3 py-2.5 gap-1.5">
+                {/* Vitals mini — fixed size chips */}
+                <View style={{ flexDirection: 'row', flexWrap: 'wrap', paddingHorizontal: 12, paddingVertical: 10, gap: 6 }}>
                   {vitals.map((v, i) => (
-                    <View key={i} className="bg-slate-50 rounded-xl px-2.5 py-1.5" style={{ minWidth: '13%' }}>
-                      <Text className="text-[7px] font-black text-[#139dc7]/50 uppercase">{v.title}</Text>
-                      <Text className="text-xs font-black text-[#0a4d61]">
-                        {v.value}<Text className="text-[7px] opacity-50"> {v.unit}</Text>
+                    <View key={i} style={{ backgroundColor: '#f8fafc', borderRadius: 10, paddingHorizontal: 10, paddingVertical: 6, minWidth: 60 }}>
+                      <Text style={{ fontSize: 7, fontWeight: '900', color: 'rgba(19,157,199,0.5)', textTransform: 'uppercase', marginBottom: 2 }}>{v.title}</Text>
+                      <Text style={{ fontSize: 12, fontWeight: '900', color: '#0a4d61', lineHeight: 16 }}>
+                        {v.value}
+                        <Text style={{ fontSize: 7, opacity: 0.5 }}> {v.unit}</Text>
                       </Text>
                     </View>
                   ))}
@@ -332,98 +370,103 @@ export default function History() {
           const modCount = conditions.filter(c => c.risk === 'moderate').length
           const vitals = getVitalsMini(selectedRecord)
           return (
-            <View className="flex-1 bg-white">
+            <View style={{ flex: 1, backgroundColor: 'white' }}>
               {/* Modal header */}
-              <View className="border-b border-slate-100">
-                <View className="h-1 bg-[#139dc7]" />
-                <View className="px-5 py-4 flex-row items-start justify-between">
+              <View style={{ borderBottomWidth: 1, borderBottomColor: '#f1f5f9' }}>
+                <View style={{ height: 4, backgroundColor: '#139dc7' }} />
+                <View style={{ paddingHorizontal: 20, paddingVertical: 16, flexDirection: 'row', alignItems: 'flex-start', justifyContent: 'space-between' }}>
                   <View>
-                    <Text className="text-[9px] font-black text-[#139dc7] uppercase tracking-widest">Diagnostic Summary</Text>
-                    <Text className="text-xl font-black text-[#0a4d61] mt-0.5">Checkup Report</Text>
-                    <Text className="text-sm text-[#139dc7] font-bold mt-0.5">{selectedRecord.date} · {selectedRecord.time}</Text>
+                    <Text style={{ fontSize: 9, fontWeight: '900', color: '#139dc7', textTransform: 'uppercase', letterSpacing: 2 }}>Diagnostic Summary</Text>
+                    <Text style={{ fontSize: 20, fontWeight: '900', color: '#0a4d61', marginTop: 2 }}>Checkup Report</Text>
+                    <Text style={{ fontSize: 13, color: '#139dc7', fontWeight: '700', marginTop: 2 }}>{selectedRecord.date} · {selectedRecord.time}</Text>
                   </View>
                   <TouchableOpacity
-                    className="w-8 h-8 bg-slate-100 rounded-xl items-center justify-center"
+                    style={{ width: 32, height: 32, backgroundColor: '#f1f5f9', borderRadius: 12, alignItems: 'center', justifyContent: 'center' }}
                     onPress={() => setSelectedRecord(null)}
                   >
-                    <Text className="text-slate-400 font-bold">✕</Text>
+                    <Ionicons name="close" size={16} color="#94a3b8" />
                   </TouchableOpacity>
                 </View>
               </View>
 
               <ScrollView contentContainerStyle={{ padding: 20, paddingBottom: 40 }}>
-                {/* Vitals 2-col */}
-                <View className="flex-row flex-wrap gap-2 mb-5">
+                {/* Vitals 2-col — fixed height */}
+                <View style={{ flexDirection: 'row', flexWrap: 'wrap', gap: 8, marginBottom: 20 }}>
                   {vitals.map((v, i) => (
-                    <View key={i} className="bg-slate-50 rounded-2xl p-3 border border-slate-100" style={{ width: '47.5%' }}>
-                      <Text className="text-[8px] font-black text-[#139dc7]/40 uppercase tracking-widest mb-0.5">{v.title}</Text>
-                      <Text className="text-xl font-black text-[#0a4d61] leading-none">
-                        {v.value}<Text className="text-[10px] text-[#139dc7]/50 font-bold"> {v.unit}</Text>
+                    <View key={i} style={{ width: '47.5%', backgroundColor: '#f8fafc', borderRadius: 16, padding: 14, borderWidth: 1, borderColor: '#f1f5f9', minHeight: 80 }}>
+                      <Text style={{ fontSize: 8, fontWeight: '900', color: 'rgba(19,157,199,0.4)', textTransform: 'uppercase', letterSpacing: 1, marginBottom: 6 }}>{v.title}</Text>
+                      <Text style={{ fontSize: 20, fontWeight: '900', color: '#0a4d61', lineHeight: 24 }}>
+                        {v.value}
+                        <Text style={{ fontSize: 10, color: 'rgba(19,157,199,0.5)', fontWeight: '700' }}> {v.unit}</Text>
                       </Text>
                     </View>
                   ))}
                 </View>
 
-                {/* Analysis */}
-                <View className="flex-row items-center justify-between mb-3">
-                  <View className="flex-row items-center gap-1">
-                    <Ionicons name="shield-checkmark" size={16} color="#0a4d61" style={{ marginRight: 2 }} />
-                    <Text className="font-black text-[#0a4d61] text-sm">{l.insightsTitle}</Text>
+                {/* Analysis header */}
+                <View style={{ flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between', marginBottom: 4 }}>
+                  <View style={{ flexDirection: 'row', alignItems: 'center', gap: 6 }}>
+                    <Ionicons name="shield-checkmark" size={16} color="#0a4d61" />
+                    <Text style={{ fontWeight: '900', color: '#0a4d61', fontSize: 14 }}>{l.insightsTitle}</Text>
                   </View>
-                  <View className="flex-row gap-1">
+                  <View style={{ flexDirection: 'row', gap: 4 }}>
                     {highCount > 0 && (
-                      <View className="flex-row items-center gap-1 bg-red-100 border border-red-200 rounded-full px-2 py-0.5">
-                        <Text className="text-[7px] font-black text-red-700 uppercase">{highCount} High</Text>
+                      <View style={{ flexDirection: 'row', alignItems: 'center', gap: 3, backgroundColor: '#fef2f2', borderWidth: 1, borderColor: '#fecaca', borderRadius: 999, paddingHorizontal: 8, paddingVertical: 3 }}>
+                        <Text style={{ fontSize: 7, fontWeight: '900', color: '#dc2626', textTransform: 'uppercase' }}>{highCount} High</Text>
                       </View>
                     )}
                     {modCount > 0 && (
-                      <View className="flex-row items-center gap-1 bg-amber-100 border border-amber-200 rounded-full px-2 py-0.5">
-                        <Text className="text-[7px] font-black text-amber-700 uppercase">{modCount} Mod</Text>
+                      <View style={{ flexDirection: 'row', alignItems: 'center', gap: 3, backgroundColor: '#fffbeb', borderWidth: 1, borderColor: '#fde68a', borderRadius: 999, paddingHorizontal: 8, paddingVertical: 3 }}>
+                        <Text style={{ fontSize: 7, fontWeight: '900', color: '#b45309', textTransform: 'uppercase' }}>{modCount} Mod</Text>
                       </View>
                     )}
                   </View>
                 </View>
+                <Text style={{ fontSize: 9, color: 'rgba(19,157,199,0.4)', fontWeight: '700', textTransform: 'uppercase', letterSpacing: 1, marginBottom: 12 }}>{l.insightsSubtitle}</Text>
 
                 {conditions.length === 0 ? (
-                  <View className="bg-emerald-50 border border-emerald-200 rounded-2xl p-4 flex-row items-center gap-3">
-                    <Text className="text-2xl">✓</Text>
+                  <View style={{ backgroundColor: '#f0fdf4', borderWidth: 1, borderColor: '#bbf7d0', borderRadius: 16, padding: 16, flexDirection: 'row', alignItems: 'center', gap: 12 }}>
+                    <Ionicons name="checkmark-circle-outline" size={24} color="#10b981" />
                     <View>
-                      <Text className="font-black text-emerald-700 text-sm">{l.allClear}</Text>
-                      <Text className="text-emerald-600/70 text-xs mt-0.5">{l.allClearDesc}</Text>
+                      <Text style={{ fontWeight: '900', color: '#15803d', fontSize: 13 }}>{l.allClear}</Text>
+                      <Text style={{ color: 'rgba(22,163,74,0.7)', fontSize: 11, marginTop: 2 }}>{l.allClearDesc}</Text>
                     </View>
                   </View>
                 ) : (
-                  <View className="gap-2">
+                  <View style={{ gap: 8 }}>
                     {conditions.map((cond, i) => {
                       const cfg = riskColors[cond.risk]
                       const isOpen = expandedCondition === i
                       const name = language === 'Tagalog' ? cond.nameTagalog : cond.name
                       const explanation = language === 'Tagalog' ? cond.explanationTagalog : cond.explanation
                       return (
-                        <View key={i} style={{ backgroundColor: cfg.bg, borderColor: cfg.border, borderWidth: 1 }} className="rounded-2xl overflow-hidden">
-                          <TouchableOpacity className="flex-row items-center gap-3 p-3.5" onPress={() => setExpandedCondition(isOpen ? null : i)}>
-                            <View className="w-7 h-7 rounded-lg items-center justify-center" style={{ backgroundColor: cfg.bg, borderColor: cfg.border, borderWidth: 1 }}>
-                              <View className="w-2.5 h-2.5 rounded-full" style={{ backgroundColor: cfg.dot }} />
+                        <View key={i} style={{ backgroundColor: cfg.bg, borderColor: cfg.border, borderWidth: 1, borderRadius: 16, overflow: 'hidden' }}>
+                          <TouchableOpacity
+                            style={{ flexDirection: 'row', alignItems: 'center', gap: 12, padding: 14 }}
+                            onPress={() => setExpandedCondition(isOpen ? null : i)}
+                          >
+                            <View style={{ width: 28, height: 28, borderRadius: 10, backgroundColor: cfg.dot + '30', borderWidth: 1, borderColor: cfg.border, alignItems: 'center', justifyContent: 'center' }}>
+                              <View style={{ width: 10, height: 10, borderRadius: 5, backgroundColor: cfg.dot }} />
                             </View>
-                            <View className="flex-1">
-                              <Text className="font-black text-[#0a4d61] text-xs leading-tight">{name}</Text>
-                              <View className="flex-row flex-wrap gap-1 mt-0.5">
+                            <View style={{ flex: 1 }}>
+                              <Text style={{ fontWeight: '900', color: '#0a4d61', fontSize: 12, lineHeight: 16 }}>{name}</Text>
+                              <View style={{ flexDirection: 'row', flexWrap: 'wrap', gap: 4, marginTop: 4 }}>
                                 {cond.relatedVitals.map(v => (
-                                  <View key={v} className="bg-white/70 rounded-full px-1.5 py-0.5 border border-[#139dc7]/20">
-                                    <Text className="text-[7px] font-black uppercase text-[#139dc7]">{v}</Text>
+                                  <View key={v} style={{ backgroundColor: 'rgba(255,255,255,0.7)', borderRadius: 999, paddingHorizontal: 6, paddingVertical: 2, borderWidth: 1, borderColor: 'rgba(19,157,199,0.2)' }}>
+                                    <Text style={{ fontSize: 7, fontWeight: '900', textTransform: 'uppercase', color: '#139dc7' }}>{v}</Text>
                                   </View>
                                 ))}
                               </View>
                             </View>
-                            <View className="px-2 py-0.5 rounded-full" style={{ backgroundColor: cfg.text + '20' }}>
-                              <Text style={{ color: cfg.text }} className="text-[7px] font-black uppercase">{l.riskLabels[cond.risk]}</Text>
+                            <View style={{ backgroundColor: cfg.text + '20', paddingHorizontal: 8, paddingVertical: 3, borderRadius: 999 }}>
+                              <Text style={{ color: cfg.text, fontSize: 7, fontWeight: '900', textTransform: 'uppercase' }}>{l.riskLabels[cond.risk]}</Text>
                             </View>
-                            <Text style={{ color: cfg.text }}>{isOpen ? '▲' : '▼'}</Text>
+                            <Ionicons name={isOpen ? 'chevron-up' : 'chevron-down'} size={14} color={cfg.text} />
                           </TouchableOpacity>
                           {isOpen && (
-                            <View className="px-4 pb-3">
-                              <View className="h-px bg-white/80 mb-2" />
-                              <Text className="text-xs text-[#0a4d61]/80 leading-relaxed font-medium">{explanation}</Text>
+                            <View style={{ paddingHorizontal: 16, paddingBottom: 14 }}>
+                              <View style={{ height: 1, backgroundColor: 'rgba(255,255,255,0.8)', marginBottom: 10 }} />
+                              <Text style={{ fontSize: 12, color: 'rgba(10,77,97,0.8)', lineHeight: 18, fontWeight: '500' }}>{explanation}</Text>
                             </View>
                           )}
                         </View>
@@ -432,9 +475,9 @@ export default function History() {
                   </View>
                 )}
 
-                <View className="flex-row items-start gap-2 mt-4">
-                  <Text className="text-[#139dc7]/30 text-xs">ℹ</Text>
-                  <Text className="text-[8px] text-[#139dc7]/40 font-medium leading-relaxed flex-1">{l.disclaimer}</Text>
+                <View style={{ flexDirection: 'row', alignItems: 'flex-start', gap: 8, marginTop: 16 }}>
+                  <Ionicons name="information-circle-outline" size={13} color="#139dc7" style={{ opacity: 0.4 }} />
+                  <Text style={{ fontSize: 8, color: 'rgba(19,157,199,0.4)', fontWeight: '500', lineHeight: 14, flex: 1 }}>{l.disclaimer}</Text>
                 </View>
               </ScrollView>
             </View>
