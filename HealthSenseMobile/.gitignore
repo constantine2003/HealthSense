@@ -31,7 +31,13 @@ yarn-error.*
 *.pem
 
 # local env files
+.env
+.env.*
 .env*.local
+.env.local
+.env.development
+.env.production
+.env.test
 
 # typescript
 *.tsbuildinfo
@@ -39,3 +45,31 @@ yarn-error.*
 # generated native folders
 /ios
 /android
+
+# EAS
+.easignore
+
+# secrets & keys
+*.secret
+*.secrets
+google-services.json
+GoogleService-Info.plist
+
+# logs
+logs/
+*.log
+
+# cache
+.cache/
+*.cache
+
+# VS Code
+.vscode/
+
+# build outputs
+build/
+out/
+
+# temp files
+tmp/
+temp/
