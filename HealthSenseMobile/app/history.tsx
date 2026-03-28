@@ -201,7 +201,7 @@ export default function History() {
     <View className="flex-1 bg-[#eaf4ff]">
 
       {/* Header */}
-      <View className="px-5 pt-14 pb-3">
+      <View className="px-5 pt-5 pb-3">
         <View className="flex-row items-center mb-1">
           <TouchableOpacity onPress={() => router.back()} className="flex-row items-center gap-1">
             <Ionicons name="arrow-back" size={16} color="#139dc7" />

@@ -1,14 +1,7 @@
 import { useState } from "react";
 import {
-  View,
-  Text,
-  TextInput,
-  TouchableOpacity,
-  ActivityIndicator,
-  Modal,
-  ScrollView,
-  KeyboardAvoidingView,
-  Platform,
+  View, Text, TextInput, TouchableOpacity, ActivityIndicator,
+  Modal, ScrollView, KeyboardAvoidingView, Platform,
 } from "react-native";
 import { useRouter } from "expo-router";
 import { supabase } from "../utils/supabaseClient";
@@ -89,6 +82,18 @@ export default function LoginScreen() {
     }
   };
 
+  // Shared input style — use fixed height via style prop, NOT className h-13
+  const inputStyle = {
+    height: 52,
+    backgroundColor: 'rgba(255,255,255,0.6)',
+    borderColor: 'rgba(255,255,255,0.8)',
+    borderWidth: 1,
+    borderRadius: 16,
+    paddingHorizontal: 20,
+    fontSize: 16,
+    color: '#111',
+  }
+
   return (
     <KeyboardAvoidingView
       behavior={Platform.OS === "ios" ? "padding" : "padding"}
@@ -102,7 +107,7 @@ export default function LoginScreen() {
         keyboardDismissMode="on-drag"
       >
         {/* HEADER */}
-        <View className="flex-row justify-between items-center px-6 pt-14 pb-3">
+        <View className="flex-row justify-between items-center px-6 pt-5 pb-3">
           <View>
             <Text className="text-xl font-black text-[#139dc7] uppercase tracking-tighter">
               HealthSense
@@ -133,10 +138,24 @@ export default function LoginScreen() {
         </View>
 
         {/* LOGIN CARD */}
-        <View className="mx-5 mt-5 mb-8 bg-white/30 rounded-[36px] border border-white/50 p-7 shadow-lg overflow-hidden">
-          
+        <View style={{
+          marginHorizontal: 20,
+          marginTop: 20,
+          marginBottom: 32,
+          backgroundColor: 'rgba(255,255,255,0.85)',
+          borderRadius: 36,
+          borderWidth: 1,
+          borderColor: 'rgba(255,255,255,0.5)',
+          padding: 28,
+          shadowColor: '#139dc7',
+          shadowOpacity: 0.12,
+          shadowRadius: 12,
+          elevation: 4,
+          overflow: 'hidden',
+        }}>
+
           {/* Card header */}
-          <View className="items-center mb-5">
+          <View style={{ alignItems: 'center', marginBottom: 20 }}>
             <Text className="text-4xl font-light text-[#139dc7] tracking-tight">Login</Text>
             <Text className="text-[9px] font-black text-[#139dc7]/40 uppercase tracking-[3px] mt-1">
               Secure Access
@@ -145,13 +164,13 @@ export default function LoginScreen() {
 
           {/* Error */}
           {loginError ? (
-            <View className="bg-red-500/10 border border-red-500/20 rounded-xl px-4 py-2 mb-4">
-              <Text className="text-red-600 text-xs font-bold text-center">{loginError}</Text>
+            <View style={{ backgroundColor: 'rgba(239,68,68,0.08)', borderWidth: 1, borderColor: 'rgba(239,68,68,0.2)', borderRadius: 16, paddingHorizontal: 16, paddingVertical: 8, marginBottom: 16 }}>
+              <Text style={{ color: '#dc2626', fontSize: 12, fontWeight: 'bold', textAlign: 'center' }}>{loginError}</Text>
             </View>
           ) : null}
 
           {/* Username */}
-          <Text className="text-[9px] font-black text-[#139dc7] uppercase tracking-widest ml-1 mb-1.5">
+          <Text style={{ fontSize: 9, fontWeight: '900', color: '#139dc7', textTransform: 'uppercase', letterSpacing: 2, marginLeft: 4, marginBottom: 6 }}>
             Patient ID / Username
           </Text>
           <TextInput
@@ -160,29 +179,49 @@ export default function LoginScreen() {
             value={emailInput}
             onChangeText={setEmailInput}
             autoCapitalize="none"
-            className="bg-white/60 border border-white/80 rounded-2xl px-5 h-13 text-[#111] text-base mb-4"
+            autoCorrect={false}
+            spellCheck={false}
+            keyboardType="email-address"
+            style={[
+              inputStyle,
+              {
+                marginBottom: 16,
+                backgroundColor: 'rgba(19,157,199,0.08)', // subtle blue tint
+                borderColor: '#139dc7',
+                borderWidth: 1.2,
+              },
+            ]}
           />
 
           {/* Password */}
-          <Text className="text-[9px] font-black text-[#139dc7] uppercase tracking-widest ml-1 mb-1.5">
+          <Text style={{ fontSize: 9, fontWeight: '900', color: '#139dc7', textTransform: 'uppercase', letterSpacing: 2, marginLeft: 4, marginBottom: 6 }}>
             Password
           </Text>
-          <View className="relative mb-2">
+          <View style={{ marginBottom: 8 }}>
             <TextInput
-                placeholder="••••••••"
-                placeholderTextColor="#9ca3af"
-                value={passwordInput}
-                onChangeText={setPasswordInput}
-                secureTextEntry={!showPassword}
-                autoCapitalize="none"
-                autoCorrect={false}
-                className="bg-white/60 border border-white/80 rounded-2xl px-5 h-13 text-[#111] text-base pr-16"
+              placeholder="••••••••"
+              placeholderTextColor="#9ca3af"
+              value={passwordInput}
+              onChangeText={setPasswordInput}
+              secureTextEntry={!showPassword}
+              autoCapitalize="none"
+              autoCorrect={false}
+              spellCheck={false}
+              style={[
+                inputStyle,
+                {
+                  paddingRight: 64,
+                  backgroundColor: 'rgba(19,157,199,0.08)',
+                  borderColor: '#139dc7',
+                  borderWidth: 1.2,
+                },
+              ]}
             />
             <TouchableOpacity
               onPress={() => setShowPassword(!showPassword)}
-              className="absolute right-4 top-3.5"
+              style={{ position: 'absolute', right: 16, top: '50%', transform: [{ translateY: -12 }], height: 24, justifyContent: 'center' }}
             >
-              <Text className="text-gray-400 text-[11px] font-black tracking-wider">
+              <Text style={{ color: '#9ca3af', fontSize: 11, fontWeight: '900', letterSpacing: 1 }}>
                 {showPassword ? "HIDE" : "SHOW"}
               </Text>
             </TouchableOpacity>
@@ -192,40 +231,51 @@ export default function LoginScreen() {
           <TouchableOpacity
             onPress={handleLogin}
             disabled={isLoading}
-            className={`h-14 rounded-[22px] items-center justify-center mt-5 shadow-lg ${
-              isLoading ? "bg-[#0a4d61] opacity-80" : "bg-[#139dc7]"
-            }`}
+            style={{
+              height: 56,
+              borderRadius: 22,
+              marginTop: 20,
+              marginBottom: 15,
+              alignItems: 'center',
+              justifyContent: 'center',
+              backgroundColor: isLoading ? '#0a4d61' : '#139dc7',
+              opacity: isLoading ? 0.8 : 1,
+              shadowColor: '#139dc7',
+              shadowOpacity: 0.18,
+              shadowRadius: 8,
+              elevation: 3,
+            }}
             activeOpacity={0.85}
           >
             {isLoading ? (
-              <View className="flex-row items-center gap-2">
+              <View style={{ flexDirection: 'row', alignItems: 'center' }}>
                 <ActivityIndicator color="white" size="small" />
-                <Text className="text-white font-black text-sm uppercase tracking-widest">
+                <Text style={{ color: 'white', fontWeight: '900', fontSize: 14, textTransform: 'uppercase', letterSpacing: 2, marginLeft: 8 }}>
                   Processing...
                 </Text>
               </View>
             ) : (
-              <Text className="text-white font-black text-sm uppercase tracking-widest">
+              <Text style={{ color: 'white', fontWeight: '900', fontSize: 14, textTransform: 'uppercase', letterSpacing: 2 }}>
                 Enter Portal
               </Text>
             )}
           </TouchableOpacity>
 
           {/* Bottom links */}
-          <View className="items-center mt-4 gap-2">
-            <TouchableOpacity onPress={() => setShowRecoverModal(true)}>
-              <Text className="text-sm font-bold text-[#139dc7]/60">Recover Account</Text>
+          <View style={{ alignItems: 'center', marginTop: 15 }}>
+            <TouchableOpacity onPress={() => setShowRecoverModal(true)} style={{ marginBottom: 10 }}>
+              <Text style={{ fontSize: 13, fontWeight: 'bold', color: '#139dc7', opacity: 0.6 }}>Recover Account</Text>
             </TouchableOpacity>
-            <Text className="text-[9px] text-gray-400">HealthSense Infrastructure v2.0</Text>
+            <Text style={{ fontSize: 9, color: '#9ca3af' }}>HealthSense Infrastructure v2.0</Text>
           </View>
         </View>
 
         {/* FOOTER */}
-        <View className="items-center pb-6">
+        {/* <View className="items-center pb-6">
           <Text className="text-[9px] font-black uppercase tracking-[4px] text-[#139dc7] opacity-40">
             HealthSense Operations v2.0
           </Text>
-        </View>
+        </View> */}
       </ScrollView>
 
       {/* RECOVERY MODAL */}
@@ -248,8 +298,19 @@ export default function LoginScreen() {
               value={recoveryEmailInput}
               onChangeText={setRecoveryEmailInput}
               keyboardType="email-address"
-              autoCapitalize="none"
-              className="border border-[#139dc7]/15 rounded-2xl px-5 h-13 text-[#0a4d61] mb-2"
+              autoCapitalize="none"        // ← fix
+              autoCorrect={false}
+              spellCheck={false}
+              style={{
+                height: 52,
+                borderColor: 'rgba(19,157,199,0.15)',
+                borderWidth: 1,
+                borderRadius: 16,
+                paddingHorizontal: 20,
+                fontSize: 16,
+                color: '#0a4d61',
+                marginBottom: 8,
+              }}
             />
 
             {recoveryMessage.text ? (
@@ -274,7 +335,8 @@ export default function LoginScreen() {
             <TouchableOpacity
               onPress={handleRecoverAccount}
               disabled={recoveryLoading}
-              className="h-14 bg-[#139dc7] rounded-2xl items-center justify-center mt-5 shadow-lg"
+              style={{ height: 56, borderRadius: 16, marginTop: 20 }}
+              className="bg-[#139dc7] items-center justify-center shadow-lg"
               activeOpacity={0.85}
             >
               {recoveryLoading ? (
@@ -292,7 +354,7 @@ export default function LoginScreen() {
                 setRecoveryMessage({ type: "", text: "" });
                 setRecoveryEmailInput("");
               }}
-              className="h-12 items-center justify-center mt-2"
+              style={{ height: 48, alignItems: 'center', justifyContent: 'center', marginTop: 8 }}
             >
               <Text className="text-xs font-bold text-[#139dc7]/40 uppercase tracking-widest">
                 Back to Login

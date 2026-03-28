@@ -235,7 +235,7 @@ export default function Profile() {
       <ScrollView contentContainerStyle={{ paddingBottom: 40 }}>
 
         {/* Header */}
-        <View style={{ paddingHorizontal: 20, paddingTop: 56, paddingBottom: 16, flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between' }}>
+        <View style={{ paddingHorizontal: 20, paddingTop: 20, paddingBottom: 16, flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between' }}>
           <TouchableOpacity onPress={() => router.back()} style={{ flexDirection: 'row', alignItems: 'center', gap: 4 }}>
             <Ionicons name="arrow-back" size={16} color="#139dc7" />
             <Text style={{ color: '#139dc7', fontWeight: '700', fontSize: 14 }}>{lang.back}</Text>
@@ -328,10 +328,20 @@ export default function Profile() {
 
           {/* Change password */}
           <TouchableOpacity
-            style={{ flexDirection: 'row', alignItems: 'center', justifyContent: 'center', gap: 8, paddingVertical: 12, borderRadius: 16, borderWidth: 1, borderColor: 'rgba(19,157,199,0.15)' }}
+            style={{
+              flexDirection: 'row',
+              alignItems: 'center',
+              justifyContent: 'center',
+              paddingVertical: 12,
+              borderRadius: 16,
+              borderWidth: 1,
+              borderColor: 'rgba(19,157,199,0.15)',
+              backgroundColor: 'rgba(255,255,255,0.95)',
+              marginTop: 8,
+            }}
             onPress={() => setShowPassModal(true)}
           >
-            <Ionicons name="lock-closed-outline" size={14} color="#139dc7" />
+            <Ionicons name="lock-closed-outline" size={14} color="#139dc7" style={{ marginRight: 8 }} />
             <Text style={{ color: '#139dc7', fontWeight: '900', fontSize: 10, textTransform: 'uppercase', letterSpacing: 2 }}>{lang.updatePass}</Text>
           </TouchableOpacity>
         </View>

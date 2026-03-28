@@ -28,7 +28,6 @@ const content = {
     resultsAction: "Open Report",
     historyLabel: "Checkup History", historyDesc: "Browse your past checkups, trends, and archived records.",
     historyAction: "View Archive",
-    footer: "HealthSense Operations v2.0",
     tagline: "Patient Portal",
   },
   Tagalog: {
@@ -38,7 +37,6 @@ const content = {
     resultsAction: "Buksan ang Ulat",
     historyLabel: "Kasaysayan ng Checkup", historyDesc: "I-browse ang mga nakaraang checkup at archived records.",
     historyAction: "Tingnan ang Archive",
-    footer: "HealthSense Operations v2.0",
     tagline: "Patient Portal",
   },
 };
@@ -139,7 +137,7 @@ export default function DashboardScreen() {
       showsVerticalScrollIndicator={false}
     >
       {/* HEADER */}
-      <View className="flex-row justify-between items-center px-5 pt-14 pb-4">
+      <View className="flex-row justify-between items-center px-5 pt-5 pb-4">
         {/* Logo */}
         <View className="flex-row items-center gap-2">
           <View className="w-8 h-8 rounded-xl bg-[#139dc7] items-center justify-center">
@@ -317,13 +315,6 @@ export default function DashboardScreen() {
           </Text>
           <Text className="text-[8px] text-[#139dc7]/50 font-medium mt-0.5">Accessibility</Text>
         </View>
-      </View>
-
-      {/* FOOTER */}
-      <View className="items-center mt-10">
-        <Text className="text-[9px] font-black uppercase tracking-widest text-[#139dc7]/30">
-          {lang.footer}
-        </Text>
       </View>
     </ScrollView>
   );
