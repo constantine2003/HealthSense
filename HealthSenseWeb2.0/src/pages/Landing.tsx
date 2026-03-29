@@ -5,7 +5,7 @@ import {
   FaChevronDown, FaArrowRight, FaQrcode, FaSignInAlt, FaChartLine,
 } from "react-icons/fa";
 
-const APK_URL = "/HealthSense_Apk.apk";
+const APK_URL = "https://expo.dev/accounts/daniel.montesclaros/projects/HealthSenseMobile/builds/bbccb6f7-d8b4-4d53-b561-f56f94798c58";
 
 export default function Landing() {
   const navigate = useNavigate();
@@ -73,7 +73,7 @@ export default function Landing() {
             HealthSense
           </span>
           <br />
-          <span className="text-[#0a4d61] font-black">Reimagined.</span>
+          {/* <span className="text-[#0a4d61] font-black">Reimagined.</span> */}
         </h1>
 
         {/* FIX: replaced text-[#139dc7]/80 opacity with solid readable color #1e7a96 */}
@@ -84,14 +84,14 @@ export default function Landing() {
         </p>
 
         <div className="flex flex-col sm:flex-row gap-5 items-center justify-center mb-24">
-          <a
-            href={APK_URL}
-            download="HealthSense.apk"
-            type="application/vnd.android.package-archive"
-            className="group flex items-center gap-3 px-10 py-5 bg-[#139dc7] text-white font-bold text-sm uppercase tracking-widest rounded-[20px] shadow-xl shadow-blue-300/35 hover:bg-[#0a4d61] hover:-translate-y-1.5 transition-all active:scale-95"
-          >
-            <FaAndroid size={20} />
-            Get Android App
+          <a         
+          href={APK_URL}
+          target="_blank"
+          rel="noopener noreferrer"
+          className="group flex items-center gap-3 px-10 py-5 bg-[#139dc7] text-white font-bold text-sm uppercase tracking-widest rounded-[20px] shadow-xl shadow-blue-300/35 hover:bg-[#0a4d61] hover:-translate-y-1.5 transition-all active:scale-95"
+        >
+          <FaAndroid size={20} />
+          Get Android App
           </a>
           <button
             onClick={() => navigate("/login")}

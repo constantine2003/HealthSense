@@ -365,7 +365,7 @@ const History: React.FC = () => {
   }
 
   return (
-    <div className="min-h-screen h-screen flex flex-col bg-[linear-gradient(120deg,#eaf4ff_0%,#cbe5ff_40%,#b0d0ff_70%,#9fc5f8_100%)] font-['Lexend'] overflow-hidden">
+    <div className="min-h-screen flex flex-col bg-[linear-gradient(120deg,#eaf4ff_0%,#cbe5ff_40%,#b0d0ff_70%,#9fc5f8_100%)] font-['Lexend']">
 
       {/* HEADER */}
       <header className="shrink-0 w-full px-4 sm:px-8 lg:px-16 py-5 flex justify-between items-center">
@@ -504,7 +504,7 @@ const History: React.FC = () => {
       </div>
 
       {/* TIMELINE LIST — centered, scrollable */}
-      <main className="flex-1 overflow-y-auto pb-10 [&::-webkit-scrollbar]:w-1.5 [&::-webkit-scrollbar-track]:bg-transparent [&::-webkit-scrollbar-thumb]:bg-[#139dc7]/20 [&::-webkit-scrollbar-thumb]:rounded-full">
+      <main className="flex-1 pb-10">
         <div className="w-full max-w-6xl mx-auto px-6 sm:px-10">
           {filteredData.length === 0 ? (
             <div className="bg-white/40 rounded-3xl p-16 text-center border border-white/40 flex flex-col items-center gap-4">
@@ -589,6 +589,34 @@ const History: React.FC = () => {
         <DetailModal record={selectedRecord} language={language} units={units} lang={lang}
           onClose={() => setSelectedRecord(null)} getHealthData={getHealthData} />
       )}
+
+      {/* FOOTER */}
+      <footer className="w-full py-12 mt-auto border-t border-[#139dc7]/10">
+        <div className="max-w-7xl mx-auto px-8 flex flex-col sm:flex-row items-center justify-between gap-6">
+          <div className="flex flex-col items-center sm:items-start gap-1">
+            <span className="text-sm font-black uppercase tracking-widest text-[#139dc7]">HealthSense</span>
+            <p className="text-[10px] text-[#1e7a96] uppercase tracking-widest font-normal">
+              © 2026 HealthSense Operations v2.0
+            </p>
+          </div>
+          <nav className="flex items-center gap-5 flex-wrap justify-center">
+            {[
+              { label: "Privacy Policy", href: "/privacy" },
+              { label: "Terms of Use", href: "/terms" },
+              { label: "Contact Support", href: "/support" },
+              { label: "Help Center", href: "/help" },
+            ].map((link) => (
+              <a
+                key={link.label}
+                href={link.href}
+                className="text-[11px] font-medium text-[#1e7a96] uppercase tracking-wider hover:text-[#139dc7] transition-colors"
+              >
+                {link.label}
+              </a>
+            ))}
+          </nav>
+        </div>
+      </footer>
     </div>
   );
 };

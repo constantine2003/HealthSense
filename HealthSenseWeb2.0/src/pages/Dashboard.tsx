@@ -263,10 +263,31 @@ const Dashboard: React.FC = () => {
       </main>
 
       {/* FOOTER */}
-      <footer className="relative z-10 w-full py-6 text-center">
-        <span className="text-[9px] font-black uppercase tracking-[0.4em] text-[#139dc7]/30">
-          {lang.footer}
-        </span>
+      <footer className="w-full py-12 mt-auto border-t border-[#139dc7]/10">
+        <div className="max-w-7xl mx-auto px-8 flex flex-col sm:flex-row items-center justify-between gap-6">
+          <div className="flex flex-col items-center sm:items-start gap-1">
+            <span className="text-sm font-black uppercase tracking-widest text-[#139dc7]">HealthSense</span>
+            <p className="text-[10px] text-[#1e7a96] uppercase tracking-widest font-normal">
+              © 2026 HealthSense Operations v2.0
+            </p>
+          </div>
+          <nav className="flex items-center gap-5 flex-wrap justify-center">
+            {[
+              { label: "Privacy Policy", href: "/privacy" },
+              { label: "Terms of Use", href: "/terms" },
+              { label: "Contact Support", href: "/support" },
+              { label: "Help Center", href: "/help" },
+            ].map((link) => (
+              <a
+                key={link.label}
+                href={link.href}
+                className="text-[11px] font-medium text-[#1e7a96] uppercase tracking-wider hover:text-[#139dc7] transition-colors"
+              >
+                {link.label}
+              </a>
+            ))}
+          </nav>
+        </div>
       </footer>
     </div>
   );
