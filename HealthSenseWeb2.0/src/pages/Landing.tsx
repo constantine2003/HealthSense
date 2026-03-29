@@ -86,7 +86,8 @@ export default function Landing() {
         <div className="flex flex-col sm:flex-row gap-5 items-center justify-center mb-24">
           <a
             href={APK_URL}
-            download
+            download="HealthSense.apk"
+            type="application/vnd.android.package-archive"
             className="group flex items-center gap-3 px-10 py-5 bg-[#139dc7] text-white font-bold text-sm uppercase tracking-widest rounded-[20px] shadow-xl shadow-blue-300/35 hover:bg-[#0a4d61] hover:-translate-y-1.5 transition-all active:scale-95"
           >
             <FaAndroid size={20} />
