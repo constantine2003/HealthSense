@@ -6,23 +6,28 @@ module.exports = {
     orientation: "portrait",
     icon: "./assets/healthsenselogo.png",
     userInterfaceStyle: "light",
-    splash: {
-      image: "./assets/healthsenselogo.png",
-      resizeMode: "contain",
-      backgroundColor: "#eaf4ff",
-    },
+    // splash removed — handled by animated JS splash in _layout.tsx
     ios: { supportsTablet: true },
     android: {
       adaptiveIcon: {
         foregroundImage: "./assets/healthsenselogo.png",
-        backgroundColor: "#E6F4FE",
+        backgroundColor: "#1a73e8",
       },
       predictiveBackGestureEnabled: false,
       package: "com.anonymous.healthsensemobile",
     },
     web: { favicon: "./assets/healthsenselogo.png", bundler: "metro" },
     scheme: "healthsense",
-    plugins: ["expo-router"],
+    plugins: [
+      "expo-router",
+      [
+        "expo-splash-screen",
+        {
+          "backgroundColor": "#1a73e8",
+          "imageWidth": 0
+        }
+      ]
+    ],
     extra: {
       router: {},
       eas: { projectId: "f05d4beb-5a28-4f95-b35f-40d97d780007" },

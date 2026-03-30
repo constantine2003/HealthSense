@@ -8,7 +8,7 @@ import { supabase } from '../utils/supabaseClient'
 import { analyzeHealth } from '../utils/healthAnalysis'
 import AsyncStorage from '@react-native-async-storage/async-storage'
 import { Ionicons } from '@expo/vector-icons'
-
+import BottomNav from "../components/BottomNav";
 const CACHE_KEY = 'hs_history_records'
 
 interface CheckupRecord {
@@ -58,7 +58,11 @@ export default function History() {
       vitalTitles: { spo2: 'SpO2', temp: 'Temp', height: 'Taas', weight: 'Timbang', bmi: 'BMI', bp: 'BP', hr: 'HR' },
     },
   }
-
+  
+  const handleLogout = async () => {
+    try { await supabase.auth.signOut(); } catch {}
+    router.replace("/");
+  };
   const l = lang[language]
   const isMetric = units === 'metric'
 
@@ -484,6 +488,7 @@ export default function History() {
           )
         })()}
       </Modal>
+      <BottomNav onLogout={handleLogout} />
     </View>
   )
 }

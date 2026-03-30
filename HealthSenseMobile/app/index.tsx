@@ -142,7 +142,7 @@ export default function LoginScreen() {
           marginHorizontal: 20,
           marginTop: 20,
           marginBottom: 32,
-          backgroundColor: 'rgba(255,255,255,0.85)',
+          backgroundColor: 'white',
           borderRadius: 36,
           borderWidth: 1,
           borderColor: 'rgba(255,255,255,0.5)',

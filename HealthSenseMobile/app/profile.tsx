@@ -7,6 +7,7 @@ import {
 import { useRouter } from 'expo-router'
 import { supabase } from '../utils/supabaseClient'
 import AsyncStorage from '@react-native-async-storage/async-storage'
+import BottomNav from "../components/BottomNav";
 
 export default function Profile() {
   const router = useRouter()
@@ -100,6 +101,11 @@ export default function Profile() {
     },
   ]
 
+  const handleLogout = async () => {
+    try { await supabase.auth.signOut(); } catch {}
+    router.replace("/");
+  };
+  
   const calculateAge = (birthday: string) => {
     if (!birthday) return 'N/A'
     const birth = new Date(birthday)
@@ -411,7 +417,7 @@ export default function Profile() {
         </View>
 
       </ScrollView>
-
+      <BottomNav onLogout={handleLogout} />    
       {/* Password Modal */}
       <Modal visible={showPassModal} animationType="slide" presentationStyle="pageSheet">
         <View style={{ flex: 1, backgroundColor: 'white', paddingHorizontal: 24, paddingTop: 40 }}>
