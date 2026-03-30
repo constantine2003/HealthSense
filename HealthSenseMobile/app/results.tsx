@@ -212,15 +212,15 @@ export default function Results() {
 
   return (
     <View className="flex-1 bg-[#eaf4ff]">
-      <ScrollView contentContainerStyle={{ paddingBottom: 40 }}>
+      <ScrollView contentContainerStyle={{ paddingBottom: 40 , paddingTop: 20}}>
 
         {/* Header */}
-        <View className="px-5 pt-5 pb-2 flex-row items-center">
+        {/* <View className="px-5 pt-5 pb-2 flex-row items-center">
           <TouchableOpacity onPress={() => router.back()} className="flex-row items-center gap-1">
             <Ionicons name="arrow-back" size={16} color="#139dc7" />
             <Text className="text-[#139dc7] font-bold text-sm">{lang.back}</Text>
           </TouchableOpacity>
-        </View>
+        </View> */}
 
         {/* Offline banner */}
         {offline && (

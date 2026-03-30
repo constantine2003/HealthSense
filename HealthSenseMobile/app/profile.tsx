@@ -105,7 +105,7 @@ export default function Profile() {
     try { await supabase.auth.signOut(); } catch {}
     router.replace("/");
   };
-  
+
   const calculateAge = (birthday: string) => {
     if (!birthday) return 'N/A'
     const birth = new Date(birthday)
@@ -241,12 +241,12 @@ export default function Profile() {
       <ScrollView contentContainerStyle={{ paddingBottom: 40 }}>
 
         {/* Header */}
-        <View style={{ paddingHorizontal: 20, paddingTop: 20, paddingBottom: 16, flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between' }}>
-          <TouchableOpacity onPress={() => router.back()} style={{ flexDirection: 'row', alignItems: 'center', gap: 4 }}>
+        <View style={{ paddingHorizontal: 20, paddingTop: 20, paddingBottom: 16 }}>
+          {/* <TouchableOpacity onPress={() => router.back()} style={{ flexDirection: 'row', alignItems: 'center', gap: 4 }}>
             <Ionicons name="arrow-back" size={16} color="#139dc7" />
             <Text style={{ color: '#139dc7', fontWeight: '700', fontSize: 14 }}>{lang.back}</Text>
-          </TouchableOpacity>
-          <View style={{ alignItems: 'flex-end' }}>
+          </TouchableOpacity> */}
+          <View style={{ alignItems: 'flex-start' }}>
             <Text style={{ fontSize: 20, fontWeight: '900', color: '#0a4d61', fontStyle: 'italic' }}>{lang.title}</Text>
             <Text style={{ fontSize: 9, color: 'rgba(19,157,199,0.4)', fontWeight: '700', textTransform: 'uppercase', letterSpacing: 2 }}>{lang.desc}</Text>
           </View>

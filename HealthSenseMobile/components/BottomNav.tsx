@@ -61,8 +61,8 @@ const NAV_ITEMS: NavItem[] = [
   {
     key: "center",
     route: "", // Placeholder, not used
-    icon: "",
-    iconActive: "",
+    icon: "ellipse-outline",
+    iconActive: "ellipse",
     label: "",
     center: true,
   },

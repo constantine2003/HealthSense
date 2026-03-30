@@ -136,7 +136,7 @@ export default function DashboardScreen() {
             </View>
           </View>
 
-          <TouchableOpacity
+          {/* <TouchableOpacity
             onPress={() => router.push("/profile")}
             className="flex-row items-center gap-1.5 px-2.5 py-2 bg-white/50 border border-white/70 rounded-2xl"
             activeOpacity={0.8}
@@ -145,7 +145,7 @@ export default function DashboardScreen() {
               <Text className="text-white text-[9px] font-black">{getInitials()}</Text>
             </View>
             <Ionicons name="person" size={11} color="#139dc7" />
-          </TouchableOpacity>
+          </TouchableOpacity> */}
         </View>
 
         {/* ── WELCOME BLOCK ── */}
