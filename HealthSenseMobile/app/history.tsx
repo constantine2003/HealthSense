@@ -8,7 +8,7 @@ import { supabase } from '../utils/supabaseClient'
 import { analyzeHealth } from '../utils/healthAnalysis'
 import AsyncStorage from '@react-native-async-storage/async-storage'
 import { Ionicons } from '@expo/vector-icons'
-
+import BottomNav from "../components/BottomNav";
 const CACHE_KEY = 'hs_history_records'
 
 interface CheckupRecord {
@@ -59,6 +59,10 @@ export default function History() {
     },
   }
 
+  const handleLogout = async () => {
+    try { await supabase.auth.signOut(); } catch {}
+    router.replace("/");
+  };
   const l = lang[language]
   const isMetric = units === 'metric'
 
@@ -202,12 +206,12 @@ export default function History() {
 
       {/* Header */}
       <View className="px-5 pt-5 pb-3">
-        <View className="flex-row items-center mb-1">
+        {/* <View className="flex-row items-center mb-1">
           <TouchableOpacity onPress={() => router.back()} className="flex-row items-center gap-1">
             <Ionicons name="arrow-back" size={16} color="#139dc7" />
             <Text className="text-[#139dc7] font-bold text-sm">{l.back}</Text>
           </TouchableOpacity>
-        </View>
+        </View> */}
         <Text className="text-xl font-black text-[#0a4d61] mb-0.5">{l.title}</Text>
         <Text className="text-[9px] text-[#139dc7]/50 font-medium mb-2">{l.subtitle}</Text>
 
@@ -484,6 +488,7 @@ export default function History() {
           )
         })()}
       </Modal>
+      <BottomNav onLogout={handleLogout} />
     </View>
   )
 }

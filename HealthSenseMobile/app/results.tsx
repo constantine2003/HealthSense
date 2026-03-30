@@ -5,6 +5,7 @@ import { Ionicons } from '@expo/vector-icons'
 import { supabase } from '../utils/supabaseClient'
 import { analyzeHealth } from '../utils/healthAnalysis'
 import AsyncStorage from '@react-native-async-storage/async-storage'
+import BottomNav from "../components/BottomNav";
 
 const CACHE_KEY = 'hs_latest_record'
 
@@ -49,6 +50,11 @@ export default function Results() {
       status: { normal: 'Normal', low: 'Mababa', high: 'Mataas', fever: 'Lagnat', highFever: 'Mataas na Lagnat', ideal: 'Ideal', elevated: 'Tumataas', under: 'Payat', over: 'Mabigat', obese: 'Obese', noData: 'Walang Data' },
     },
   }
+
+  const handleLogout = async () => {
+    try { await supabase.auth.signOut(); } catch {}
+    router.replace("/");
+  };
 
   useEffect(() => {
     const fetchData = async () => {
@@ -206,15 +212,15 @@ export default function Results() {
 
   return (
     <View className="flex-1 bg-[#eaf4ff]">
-      <ScrollView contentContainerStyle={{ paddingBottom: 40 }}>
+      <ScrollView contentContainerStyle={{ paddingBottom: 40 , paddingTop: 20}}>
 
         {/* Header */}
-        <View className="px-5 pt-5 pb-2 flex-row items-center">
+        {/* <View className="px-5 pt-5 pb-2 flex-row items-center">
           <TouchableOpacity onPress={() => router.back()} className="flex-row items-center gap-1">
             <Ionicons name="arrow-back" size={16} color="#139dc7" />
             <Text className="text-[#139dc7] font-bold text-sm">{lang.back}</Text>
           </TouchableOpacity>
-        </View>
+        </View> */}
 
         {/* Offline banner */}
         {offline && (
@@ -417,6 +423,7 @@ export default function Results() {
           </View>
         </View>
       </ScrollView>
+      <BottomNav onLogout={handleLogout} />
     </View>
   )
 }

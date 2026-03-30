@@ -8,7 +8,7 @@ module.exports = {
     userInterfaceStyle: "light",
     splash: {
       image: "./assets/healthsenselogo.png",
-      resizeMode: "contain",
+      resizeMode: "cover",
       backgroundColor: "#eaf4ff",
     },
     ios: { supportsTablet: true },

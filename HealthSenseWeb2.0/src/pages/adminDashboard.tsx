@@ -24,7 +24,7 @@ interface Toast {
 let toastId = 0;
 
 const ToastContainer = ({ toasts, onRemove }: { toasts: Toast[]; onRemove: (id: number) => void }) => (
-  <div className="fixed bottom-4 right-4 z-[200] flex flex-col gap-3 pointer-events-none max-w-[calc(100vw-2rem)]">
+  <div className="fixed bottom-4 right-4 z-200 flex flex-col gap-3 pointer-events-none max-w-[calc(100vw-2rem)]">
     {toasts.map(t => (
       <div
         key={t.id}
@@ -479,7 +479,7 @@ const AdminDashboard = () => {
                   { label: "Total Records",   val: stats.total,         icon: <FaFileMedical /> },
                   { label: "Active Patients", val: stats.patientsCount, icon: <FaUsers />       },
                 ].map((s, i) => (
-                  <div key={i} className="bg-white/60 backdrop-blur-xl p-6 lg:p-8 rounded-[32px] lg:rounded-[40px] border border-white shadow-sm flex items-center sm:flex-col sm:items-start gap-4 sm:gap-0">
+                  <div key={i} className="bg-white/60 backdrop-blur-xl p-6 lg:p-8 rounded-4xl lg:rounded-[40px] border border-white shadow-sm flex items-center sm:flex-col sm:items-start gap-4 sm:gap-0">
                     <div className="text-[#139dc7] opacity-50 text-2xl sm:mb-4">{s.icon}</div>
                     <div>
                       <p className="text-[10px] font-black uppercase tracking-widest text-[#139dc7]/60 sm:mb-1">{s.label}</p>
@@ -497,7 +497,7 @@ const AdminDashboard = () => {
                   { label: 'Low Risk', val: riskStats.low, color: 'bg-sky-500', light: 'bg-sky-50 border-sky-200', text: 'text-sky-700', dot: 'bg-sky-400' },
                   { label: 'Normal', val: riskStats.normal, color: 'bg-emerald-500', light: 'bg-emerald-50 border-emerald-200', text: 'text-emerald-700', dot: 'bg-emerald-400' },
                 ].map((r, i) => (
-                  <div key={i} className={`${r.light} border rounded-[24px] lg:rounded-[30px] p-4 lg:p-6 flex flex-col gap-2 lg:gap-3`}>
+                  <div key={i} className={`${r.light} border rounded-3xl lg:rounded-[30px] p-4 lg:p-6 flex flex-col gap-2 lg:gap-3`}>
                     <div className="flex items-center justify-between">
                       <span className={`text-[8px] lg:text-[9px] font-black uppercase tracking-widest ${r.text}`}>{r.label}</span>
                       <div className={`w-2 h-2 lg:w-2.5 lg:h-2.5 rounded-full ${r.dot} animate-pulse`} />
@@ -522,7 +522,7 @@ const AdminDashboard = () => {
               </div>
 
               {/* Average Vitals — 2 col mobile, 5 col desktop */}
-              <div className="bg-white/70 backdrop-blur-xl p-5 lg:p-8 rounded-[32px] lg:rounded-[40px] border border-white shadow-lg">
+              <div className="bg-white/70 backdrop-blur-xl p-5 lg:p-8 rounded-4xl lg:rounded-[40px] border border-white shadow-lg">
                 <div className="mb-4 lg:mb-6">
                   <h4 className="text-[#139dc7] text-[10px] font-black uppercase tracking-[0.2em]">Population Health</h4>
                   <p className="text-base lg:text-lg font-black text-[#0a4d61]">Average Vitals Across All Records</p>
@@ -548,7 +548,7 @@ const AdminDashboard = () => {
               </div>
 
               {/* Chart */}
-              <div className="bg-white/70 backdrop-blur-xl p-5 lg:p-10 rounded-[32px] lg:rounded-[40px] border border-white shadow-lg">
+              <div className="bg-white/70 backdrop-blur-xl p-5 lg:p-10 rounded-4xl lg:rounded-[40px] border border-white shadow-lg">
                 <div className="flex justify-between items-start lg:items-end mb-5 lg:mb-8 gap-2">
                   <div>
                     <h4 className="text-[#139dc7] text-[10px] font-black uppercase tracking-[0.2em]">Diagnostic Frequency</h4>
@@ -559,7 +559,7 @@ const AdminDashboard = () => {
                     <p className="text-xl lg:text-2xl font-black text-[#139dc7]">{stats.total}</p>
                   </div>
                 </div>
-                <div style={{ height: 250 }} className="lg:h-[350px]">
+                <div style={{ height: 250 }} className="lg:h-87.5">
                   <ResponsiveContainer width="100%" height="100%">
                     <AreaChart data={processedChartData}>
                       <defs>
@@ -579,7 +579,7 @@ const AdminDashboard = () => {
               </div>
 
               {/* Recent Checkups */}
-              <div className="bg-white/70 backdrop-blur-xl p-5 lg:p-8 rounded-[32px] lg:rounded-[40px] border border-white shadow-lg">
+              <div className="bg-white/70 backdrop-blur-xl p-5 lg:p-8 rounded-4xl lg:rounded-[40px] border border-white shadow-lg">
                 <div className="flex items-center justify-between mb-4 lg:mb-6">
                   <div>
                     <h4 className="text-[#139dc7] text-[10px] font-black uppercase tracking-[0.2em]">Recent Activity</h4>
@@ -637,7 +637,7 @@ const AdminDashboard = () => {
 
           {/* ── PATIENTS ── */}
           {activeView === 'patients' && (
-            <div className="bg-white/70 backdrop-blur-xl rounded-[32px] lg:rounded-[40px] border border-white shadow-lg overflow-hidden">
+            <div className="bg-white/70 backdrop-blur-xl rounded-4xl lg:rounded-[40px] border border-white shadow-lg overflow-hidden">
 
               {/* Search + controls */}
               <div className="p-4 lg:p-8 border-b border-white/50 flex flex-col gap-3">
@@ -789,7 +789,7 @@ const AdminDashboard = () => {
           {activeView === 'logs' && (
             <div className="space-y-3">
               {auditLogs.map((log, i) => (
-                <div key={i} className="bg-white/70 backdrop-blur-xl p-4 lg:p-6 rounded-[24px] lg:rounded-[30px] border border-white flex items-start lg:items-center justify-between gap-3 shadow-sm">
+                <div key={i} className="bg-white/70 backdrop-blur-xl p-4 lg:p-6 rounded-3xl lg:rounded-[30px] border border-white flex items-start lg:items-center justify-between gap-3 shadow-sm">
                   <div className="flex items-start gap-3">
                     <div className="mt-0.5 shrink-0">{getActionIcon(log)}</div>
                     <div>
@@ -819,7 +819,7 @@ const AdminDashboard = () => {
 
       {/* ── MODAL ── */}
       {selectedUser && (
-        <div className="fixed inset-0 z-[100] flex items-end sm:items-center justify-center bg-[#0a4d61]/60 backdrop-blur-md p-0 sm:p-6 overflow-y-auto">
+        <div className="fixed inset-0 z-100 flex items-end sm:items-center justify-center bg-[#0a4d61]/60 backdrop-blur-md p-0 sm:p-6 overflow-y-auto">
           <div className="bg-white/95 backdrop-blur-2xl w-full sm:max-w-4xl rounded-t-[40px] sm:rounded-[50px] shadow-2xl border border-white animate-in slide-in-from-bottom sm:zoom-in-95 duration-200 overflow-hidden max-h-[95vh] flex flex-col">
 
             {/* Header */}

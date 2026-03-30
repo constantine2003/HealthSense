@@ -7,6 +7,7 @@ import {
 import { useRouter } from 'expo-router'
 import { supabase } from '../utils/supabaseClient'
 import AsyncStorage from '@react-native-async-storage/async-storage'
+import BottomNav from "../components/BottomNav";
 
 export default function Profile() {
   const router = useRouter()
@@ -99,6 +100,11 @@ export default function Profile() {
         : 'Humingi ng AGARANG emergency care kung: SpO2 mas mababa sa 90%, temperatura higit sa 40°C, presyon ng dugo 180/120 mmHg o mas mataas, heart rate mas mababa sa 40 o higit sa 150 bpm, o may HIGH RISK condition na na-flag.\n\nMag-schedule ng visit kung may MODERATE risk na na-flag.\n\nAng system na ito ay screening tool — hindi diagnosis.',
     },
   ]
+
+  const handleLogout = async () => {
+    try { await supabase.auth.signOut(); } catch {}
+    router.replace("/");
+  };
 
   const calculateAge = (birthday: string) => {
     if (!birthday) return 'N/A'
@@ -235,12 +241,12 @@ export default function Profile() {
       <ScrollView contentContainerStyle={{ paddingBottom: 40 }}>
 
         {/* Header */}
-        <View style={{ paddingHorizontal: 20, paddingTop: 20, paddingBottom: 16, flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between' }}>
-          <TouchableOpacity onPress={() => router.back()} style={{ flexDirection: 'row', alignItems: 'center', gap: 4 }}>
+        <View style={{ paddingHorizontal: 20, paddingTop: 20, paddingBottom: 16 }}>
+          {/* <TouchableOpacity onPress={() => router.back()} style={{ flexDirection: 'row', alignItems: 'center', gap: 4 }}>
             <Ionicons name="arrow-back" size={16} color="#139dc7" />
             <Text style={{ color: '#139dc7', fontWeight: '700', fontSize: 14 }}>{lang.back}</Text>
-          </TouchableOpacity>
-          <View style={{ alignItems: 'flex-end' }}>
+          </TouchableOpacity> */}
+          <View style={{ alignItems: 'flex-start' }}>
             <Text style={{ fontSize: 20, fontWeight: '900', color: '#0a4d61', fontStyle: 'italic' }}>{lang.title}</Text>
             <Text style={{ fontSize: 9, color: 'rgba(19,157,199,0.4)', fontWeight: '700', textTransform: 'uppercase', letterSpacing: 2 }}>{lang.desc}</Text>
           </View>
@@ -411,7 +417,7 @@ export default function Profile() {
         </View>
 
       </ScrollView>
-
+      <BottomNav onLogout={handleLogout} />    
       {/* Password Modal */}
       <Modal visible={showPassModal} animationType="slide" presentationStyle="pageSheet">
         <View style={{ flex: 1, backgroundColor: 'white', paddingHorizontal: 24, paddingTop: 40 }}>
