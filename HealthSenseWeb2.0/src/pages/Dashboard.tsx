@@ -1,6 +1,10 @@
 import React, { useState, useEffect } from "react";
 import { useNavigate } from "react-router-dom";
 import { FaFileMedical, FaHistory, FaChevronRight, FaSignOutAlt } from "react-icons/fa";
+import {
+  LineChart, Line, BarChart, Bar, XAxis, YAxis, CartesianGrid,
+  Tooltip, ResponsiveContainer
+} from "recharts";
 import { supabase } from "../supabaseClient";
 
 const Dashboard: React.FC = () => {
@@ -17,6 +21,9 @@ const Dashboard: React.FC = () => {
   const [loading, setLoading] = useState(true);
   const [language, setLanguage] = useState<"English" | "Tagalog">("English");
   const [hovered, setHovered] = useState<"results" | "history" | null>(null);
+  const [chartData, setChartData] = useState<any[]>([]);
+  const [activeChart, setActiveChart] = useState<"line" | "bar">("line");
+  const [activeVital, setActiveVital] = useState<"spo2" | "temp" | "bmi" | "hr" | "bp_sys">("hr");
 
   const content = {
     English: {
@@ -28,6 +35,9 @@ const Dashboard: React.FC = () => {
       historyAction: "View Archive",
       footer: "HealthSense Operations v2.0",
       tagline: "Patient Portal",
+      trendsTitle: "Health Trends",
+      trendsSub: "Your vitals over time",
+      noData: "Not enough data to show trends yet.",
     },
     Tagalog: {
       profile: "Profile", logout: "Mag-logout",
@@ -38,8 +48,19 @@ const Dashboard: React.FC = () => {
       historyAction: "Tingnan ang Archive",
       footer: "HealthSense Operations v2.0",
       tagline: "Patient Portal",
+      trendsTitle: "Mga Trend sa Kalusugan",
+      trendsSub: "Ang iyong mga vital signs sa paglipas ng panahon",
+      noData: "Hindi pa sapat ang data para ipakita ang mga trend.",
     }
   };
+
+  const vitalTabs = [
+    { key: "hr", label: "Heart Rate", unit: "bpm", color: "#ef4444" },
+    { key: "spo2", label: "SpO2", unit: "%", color: "#139dc7" },
+    { key: "temp", label: "Temperature", unit: "°C", color: "#f59e0b" },
+    { key: "bmi", label: "BMI", unit: "", color: "#8b5cf6" },
+    { key: "bp_sys", label: "BP (Systolic)", unit: "mmHg", color: "#10b981" },
+  ] as const;
 
   useEffect(() => {
     const fetchProfile = async () => {
@@ -54,6 +75,32 @@ const Dashboard: React.FC = () => {
         if (data) {
           setUserData(data);
           if (data.language) setLanguage(data.language as "English" | "Tagalog");
+        }
+
+        // Fetch last 10 checkups for chart
+        const { data: checkups } = await supabase
+          .from("health_checkups")
+          .select("spo2, temperature, bmi, heart_rate, blood_pressure, created_at")
+          .eq("user_id", session.user.id)
+          .order("created_at", { ascending: true })
+          .limit(10);
+
+        if (checkups) {
+          const mapped = checkups.map((c) => {
+            const date = new Date(c.created_at);
+            const bpSys = c.blood_pressure?.includes("/")
+              ? Number(c.blood_pressure.split("/")[0])
+              : null;
+            return {
+              date: date.toLocaleDateString("en-US", { month: "short", day: "numeric" }),
+              spo2: c.spo2 ? Number(c.spo2) : null,
+              temp: c.temperature ? Number(c.temperature) : null,
+              bmi: c.bmi ? Number(c.bmi) : null,
+              hr: c.heart_rate ? Number(c.heart_rate) : null,
+              bp_sys: bpSys,
+            };
+          });
+          setChartData(mapped);
         }
       } catch (err) { console.error(err); }
       finally { await timer; setLoading(false); }
@@ -78,6 +125,7 @@ const Dashboard: React.FC = () => {
   };
 
   const lang = content[language];
+  const activeVitalInfo = vitalTabs.find(v => v.key === activeVital)!;
 
   if (loading) {
     return (
@@ -100,12 +148,11 @@ const Dashboard: React.FC = () => {
       <div className="pointer-events-none fixed inset-0 overflow-hidden">
         <div className="absolute -top-32 -right-32 w-125 h-125 rounded-full bg-[#139dc7]/10 blur-3xl" />
         <div className="absolute -bottom-40 -left-20 w-100 h-100 rounded-full bg-[#34A0A4]/10 blur-3xl" />
-          <div className="absolute top-1/2 left-1/2 -translate-x-1/2 -translate-y-1/2 w-150 h-75 rounded-full bg-[#9fc5f8]/20 blur-3xl" />
+        <div className="absolute top-1/2 left-1/2 -translate-x-1/2 -translate-y-1/2 w-150 h-75 rounded-full bg-[#9fc5f8]/20 blur-3xl" />
       </div>
 
       {/* HEADER */}
       <header className="relative z-10 w-full px-6 lg:px-16 pt-7 pb-4 flex justify-between items-center">
-        {/* Logo */}
         <div className="flex items-center gap-3">
           <div className="w-9 h-9 rounded-xl bg-[#139dc7] flex items-center justify-center shadow-lg shadow-[#139dc7]/30">
             <div className="w-4 h-4 rounded-sm bg-white/90" style={{ clipPath: "polygon(50% 0%, 100% 50%, 50% 100%, 0% 50%)" }} />
@@ -115,8 +162,6 @@ const Dashboard: React.FC = () => {
             <div className="text-[8px] font-bold text-[#34A0A4] uppercase tracking-[0.25em] leading-none mt-0.5">{lang.tagline}</div>
           </div>
         </div>
-
-        {/* Nav actions */}
         <div className="flex items-center gap-2">
           <button onClick={() => navigate("/profile")}
             className="flex items-center gap-2 px-3 py-2 bg-white/50 backdrop-blur-md border border-white/70 rounded-2xl text-[#139dc7] hover:bg-white hover:shadow-md transition-all active:scale-95 group">
@@ -143,8 +188,6 @@ const Dashboard: React.FC = () => {
             {formatName()}
           </h1>
           <p className="text-[#139dc7]/60 font-medium mt-2 text-sm sm:text-base">{lang.sub}</p>
-
-          {/* Thin decorative line */}
           <div className="mt-6 flex items-center gap-3">
             <div className="h-px flex-1 bg-linear-to-r from-[#139dc7]/30 to-transparent" />
             <div className="w-1.5 h-1.5 rounded-full bg-[#139dc7]/40" />
@@ -153,36 +196,25 @@ const Dashboard: React.FC = () => {
 
         {/* Cards */}
         <div className="grid grid-cols-2 gap-5">
-
-          {/* ── Results Card ── */}
+          {/* Results Card */}
           <button
             onClick={() => navigate("/results")}
             onMouseEnter={() => setHovered("results")}
             onMouseLeave={() => setHovered(null)}
             className="group relative bg-white/60 backdrop-blur-xl border border-white rounded-3xl sm:rounded-4xl p-5 sm:p-10 text-left overflow-hidden transition-all duration-300 hover:bg-white hover:shadow-2xl hover:shadow-[#139dc7]/15 hover:-translate-y-1 active:scale-[0.98] flex flex-col h-56 sm:h-80"
           >
-            {/* Background accent */}
             <div className="absolute inset-0 bg-linear-to-br from-[#139dc7]/5 via-transparent to-transparent opacity-0 group-hover:opacity-100 transition-opacity duration-300 rounded-4xl" />
-                        <div className="absolute inset-0 bg-linear-to-br from-[#139dc7]/5 via-transparent to-transparent opacity-0 group-hover:opacity-100 transition-opacity duration-300 rounded-4xl" />
-            
-            {/* Large ghost icon */}
             <div className="absolute -bottom-4 -right-4 text-[#139dc7]/5 group-hover:text-[#139dc7]/10 transition-all duration-500 group-hover:scale-110 group-hover:-rotate-6">
               <FaFileMedical size={140} />
             </div>
-
-            {/* Icon */}
             <div className="w-10 h-10 sm:w-14 sm:h-14 rounded-xl sm:rounded-2xl bg-[#139dc7] flex items-center justify-center text-white shadow-xl shadow-[#139dc7]/30 mb-4 sm:mb-6 group-hover:shadow-[#139dc7]/50 transition-all duration-300 group-hover:scale-110">
               <FaFileMedical className="text-base sm:text-xl" />
             </div>
-
-            {/* Text */}
             <div className="relative flex-1">
               <div className="text-[9px] font-black text-[#139dc7]/40 uppercase tracking-[0.3em] mb-1.5">Quick Access</div>
               <h2 className="text-lg sm:text-3xl font-black text-[#0a4d61] leading-tight mb-2 sm:mb-3">{lang.resultsLabel}</h2>
               <p className="text-[#139dc7]/60 text-sm leading-relaxed font-medium max-w-xs hidden sm:block">{lang.resultsDesc}</p>
             </div>
-
-            {/* CTA */}
             <div className="relative mt-4 sm:mt-8 flex items-center gap-2 text-[#139dc7] font-black text-[9px] sm:text-xs uppercase tracking-widest group-hover:gap-4 transition-all duration-200">
               {lang.resultsAction}
               <div className="w-6 h-6 rounded-full bg-[#139dc7]/10 group-hover:bg-[#139dc7] flex items-center justify-center transition-all duration-200">
@@ -191,7 +223,7 @@ const Dashboard: React.FC = () => {
             </div>
           </button>
 
-          {/* ── History Card ── */}
+          {/* History Card */}
           <button
             onClick={() => navigate("/history")}
             onMouseEnter={() => setHovered("history")}
@@ -202,28 +234,19 @@ const Dashboard: React.FC = () => {
               boxShadow: hovered === "history" ? "0 25px 60px rgba(19,157,199,0.40)" : "0 10px 40px rgba(19,157,199,0.25)"
             }}
           >
-            {/* Geometric accent shapes */}
             <div className="absolute top-0 right-0 w-48 h-48 rounded-full bg-white/5 -translate-y-16 translate-x-16 group-hover:scale-110 transition-transform duration-500" />
             <div className="absolute bottom-0 left-0 w-32 h-32 rounded-full bg-white/5 translate-y-12 -translate-x-8 group-hover:scale-125 transition-transform duration-500" />
-
-            {/* Large ghost icon */}
             <div className="absolute -bottom-4 -right-4 text-white/10 group-hover:text-white/15 transition-all duration-500 group-hover:scale-110 group-hover:rotate-6">
               <FaHistory size={140} />
             </div>
-
-            {/* Icon */}
             <div className="relative w-10 h-10 sm:w-14 sm:h-14 rounded-xl sm:rounded-2xl bg-white/20 backdrop-blur-sm border border-white/30 flex items-center justify-center text-white shadow-lg mb-4 sm:mb-6 group-hover:bg-white/30 transition-all duration-300 group-hover:scale-110">
               <FaHistory className="text-base sm:text-xl" />
             </div>
-
-            {/* Text */}
             <div className="relative flex-1">
               <div className="text-[9px] font-black text-white/40 uppercase tracking-[0.3em] mb-1.5">Archive</div>
               <h2 className="text-lg sm:text-3xl font-black text-white leading-tight mb-2 sm:mb-3">{lang.historyLabel}</h2>
               <p className="text-white/60 text-sm leading-relaxed font-medium max-w-xs hidden sm:block">{lang.historyDesc}</p>
             </div>
-
-            {/* CTA */}
             <div className="relative mt-4 sm:mt-8 flex items-center gap-2 text-white font-black text-[9px] sm:text-xs uppercase tracking-widest group-hover:gap-4 transition-all duration-200">
               {lang.historyAction}
               <div className="w-6 h-6 rounded-full bg-white/20 group-hover:bg-white/30 flex items-center justify-center transition-all duration-200">
@@ -235,13 +258,11 @@ const Dashboard: React.FC = () => {
 
         {/* Stats strip */}
         <div className="mt-6 grid grid-cols-3 gap-2 sm:gap-3">
-          {/* Language */}
           <div className="bg-white/30 backdrop-blur-sm border border-white/50 rounded-2xl px-4 py-3 text-center">
             <div className="text-[8px] font-black text-[#139dc7]/40 uppercase tracking-widest">Language</div>
             <div className="text-sm font-black text-[#0a4d61] mt-0.5">{language === "English" ? "EN" : "TL"}</div>
             <div className="text-[8px] text-[#139dc7]/50 font-medium mt-0.5">{language}</div>
           </div>
-          {/* Units */}
           <div className="bg-white/30 backdrop-blur-sm border border-white/50 rounded-2xl px-4 py-3 text-center">
             <div className="text-[8px] font-black text-[#139dc7]/40 uppercase tracking-widest">Units</div>
             <div className="text-sm font-black text-[#0a4d61] mt-0.5">
@@ -251,15 +272,123 @@ const Dashboard: React.FC = () => {
               {userData?.units?.toLowerCase() === "imperial" ? "Imperial" : "Metric"}
             </div>
           </div>
-          {/* Large Text */}
           <div className="bg-white/30 backdrop-blur-sm border border-white/50 rounded-2xl px-4 py-3 text-center">
             <div className="text-[8px] font-black text-[#139dc7]/40 uppercase tracking-widest">Large Text</div>
-            <div className={`text-sm font-black mt-0.5 ${userData?.large_text ? "text-[#0a4d61]" : "text-[#0a4d61]"}`}>
+            <div className="text-sm font-black text-[#0a4d61] mt-0.5">
               {userData?.large_text ? "ON" : "OFF"}
             </div>
             <div className="text-[8px] text-[#139dc7]/50 font-medium mt-0.5">Accessibility</div>
           </div>
         </div>
+
+        {/* ── TRENDS SECTION ── */}
+        <div className="mt-10">
+          {/* Section header */}
+          <div className="flex items-center justify-between mb-5">
+            <div>
+              <h2 className="text-xl sm:text-2xl font-black text-[#0a4d61] tracking-tight">{lang.trendsTitle}</h2>
+              <p className="text-[10px] font-black text-[#139dc7]/40 uppercase tracking-widest mt-0.5">{lang.trendsSub}</p>
+            </div>
+            {/* Line / Bar toggle */}
+            <div className="flex items-center gap-1 bg-white/50 border border-white/70 rounded-2xl p-1">
+              {(["line", "bar"] as const).map(type => (
+                <button
+                  key={type}
+                  onClick={() => setActiveChart(type)}
+                  className={`px-4 py-1.5 rounded-xl text-[10px] font-black uppercase tracking-widest transition-all ${
+                    activeChart === type
+                      ? "bg-[#139dc7] text-white shadow-md"
+                      : "text-[#139dc7]/50 hover:text-[#139dc7]"
+                  }`}
+                >
+                  {type}
+                </button>
+              ))}
+            </div>
+          </div>
+
+          {/* Vital selector tabs */}
+          <div className="flex gap-2 flex-wrap mb-5">
+            {vitalTabs.map(v => (
+              <button
+                key={v.key}
+                onClick={() => setActiveVital(v.key)}
+                className={`flex items-center gap-1.5 px-3 py-1.5 rounded-xl text-[10px] font-black uppercase tracking-wider transition-all border ${
+                  activeVital === v.key
+                    ? "text-white border-transparent shadow-md"
+                    : "bg-white/50 text-[#139dc7]/60 border-white/70 hover:bg-white"
+                }`}
+                style={activeVital === v.key ? { backgroundColor: v.color, borderColor: v.color } : {}}
+              >
+                <span
+                  className="w-2 h-2 rounded-full"
+                  style={{ backgroundColor: activeVital === v.key ? "rgba(255,255,255,0.7)" : v.color }}
+                />
+                {v.label}
+                {v.unit && <span className="opacity-60">{v.unit}</span>}
+              </button>
+            ))}
+          </div>
+
+          {/* Chart card */}
+          <div className="bg-white/60 backdrop-blur-xl border border-white rounded-3xl p-6 shadow-sm">
+            {chartData.length < 2 ? (
+              <div className="h-48 flex items-center justify-center">
+                <p className="text-[#139dc7]/40 font-bold text-sm">{lang.noData}</p>
+              </div>
+            ) : (
+              <ResponsiveContainer width="100%" height={280}>
+                {activeChart === "line" ? (
+                  <LineChart data={chartData} margin={{ top: 5, right: 10, left: -20, bottom: 5 }}>
+                    <CartesianGrid strokeDasharray="3 3" stroke="rgba(19,157,199,0.1)" />
+                    <XAxis dataKey="date" tick={{ fontSize: 10, fill: "#139dc7", fontWeight: 700 }} axisLine={false} tickLine={false} />
+                    <YAxis tick={{ fontSize: 10, fill: "#139dc7", fontWeight: 700 }} axisLine={false} tickLine={false} />
+                    <Tooltip
+                      contentStyle={{ background: "rgba(255,255,255,0.95)", border: "1px solid rgba(19,157,199,0.2)", borderRadius: 16, fontSize: 11, fontWeight: 700, fontFamily: "Lexend" }}
+                      labelStyle={{ color: "#0a4d61", fontWeight: 900 }}
+                    />
+                    <Line
+                      type="monotone"
+                      dataKey={activeVital}
+                      stroke={activeVitalInfo.color}
+                      strokeWidth={3}
+                      dot={{ fill: activeVitalInfo.color, r: 5, strokeWidth: 2, stroke: "white" }}
+                      activeDot={{ r: 7, fill: activeVitalInfo.color, stroke: "white", strokeWidth: 2 }}
+                      connectNulls
+                      name={activeVitalInfo.label}
+                    />
+                  </LineChart>
+                ) : (
+                  <BarChart data={chartData} margin={{ top: 5, right: 10, left: -20, bottom: 5 }}>
+                    <CartesianGrid strokeDasharray="3 3" stroke="rgba(19,157,199,0.1)" />
+                    <XAxis dataKey="date" tick={{ fontSize: 10, fill: "#139dc7", fontWeight: 700 }} axisLine={false} tickLine={false} />
+                    <YAxis tick={{ fontSize: 10, fill: "#139dc7", fontWeight: 700 }} axisLine={false} tickLine={false} />
+                    <Tooltip
+                      contentStyle={{ background: "rgba(255,255,255,0.95)", border: "1px solid rgba(19,157,199,0.2)", borderRadius: 16, fontSize: 11, fontWeight: 700, fontFamily: "Lexend" }}
+                      labelStyle={{ color: "#0a4d61", fontWeight: 900 }}
+                    />
+                    <Bar
+                      dataKey={activeVital}
+                      fill={activeVitalInfo.color}
+                      radius={[8, 8, 0, 0]}
+                      name={activeVitalInfo.label}
+                      fillOpacity={0.85}
+                    />
+                  </BarChart>
+                )}
+              </ResponsiveContainer>
+            )}
+
+            {/* Legend */}
+            <div className="flex items-center justify-center gap-2 mt-3">
+              <span className="w-3 h-3 rounded-full" style={{ backgroundColor: activeVitalInfo.color }} />
+              <span className="text-[10px] font-black text-[#0a4d61]/60 uppercase tracking-widest">
+                {activeVitalInfo.label} {activeVitalInfo.unit && `(${activeVitalInfo.unit})`} — Last {chartData.length} checkups
+              </span>
+            </div>
+          </div>
+        </div>
+
       </main>
 
       {/* FOOTER */}
@@ -289,6 +418,7 @@ const Dashboard: React.FC = () => {
           </nav>
         </div>
       </footer>
+
     </div>
   );
 };

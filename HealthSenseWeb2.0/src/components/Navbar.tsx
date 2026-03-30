@@ -6,7 +6,7 @@ export const Navbar = () => {
         <span className="text-xl font-bold tracking-tighter">HealthSense</span>
       </div>
       <div className="hidden md:flex gap-6 text-sm text-zinc-400 font-medium">
-        <a href="#" className="hover:text-white transition">Overview</a>
+        <a href="#" className="hover:text-white transition">Overviews</a>
         <a href="#" className="hover:text-white transition">Patient Data</a>
         <a href="#" className="hover:text-white transition">Analytics</a>
       </div>
