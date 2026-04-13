@@ -25,7 +25,11 @@ module.exports = {
           backgroundColor: "#FFFFFF",
           image: "./assets/favicon.png",
           imageWidth: 180,
-          resizeMode: "contain"
+          resizeMode: "contain",
+          dark: {
+            backgroundColor: "#FFFFFF",
+            image: "./assets/favicon.png"
+          }
         }
       ]
     ],
