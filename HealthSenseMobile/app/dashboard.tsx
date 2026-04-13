@@ -259,7 +259,7 @@ export default function DashboardScreen() {
               {userData?.units?.toLowerCase() === "imperial" ? "Imperial" : "Metric"}
             </Text>
           </View>
-          <View className="flex-1 bg-white/30 border border-white/50 rounded-2xl px-3 py-3 items-center">
+          {/* <View className="flex-1 bg-white/30 border border-white/50 rounded-2xl px-3 py-3 items-center">
             <Text className="text-[8px] font-black text-[#139dc7]/40 uppercase tracking-widest">
               Large Text
             </Text>
@@ -267,7 +267,7 @@ export default function DashboardScreen() {
               {userData?.large_text ? "ON" : "OFF"}
             </Text>
             <Text className="text-[8px] text-[#139dc7]/50 font-medium mt-0.5">Accessibility</Text>
-          </View>
+          </View> */}
         </View>
       </ScrollView>
 

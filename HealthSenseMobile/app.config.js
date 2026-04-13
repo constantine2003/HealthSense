@@ -4,25 +4,31 @@ module.exports = {
     slug: "HealthSenseMobile",
     version: "1.0.0",
     orientation: "portrait",
-    icon: "./assets/healthsenselogo.png",
+    icon: "./assets/favicon.png",
     userInterfaceStyle: "light",
-    splash: {
-      image: "./assets/healthsenselogo.png",
-      resizeMode: "cover",
-      backgroundColor: "#eaf4ff",
-    },
     ios: { supportsTablet: true },
     android: {
       adaptiveIcon: {
-        foregroundImage: "./assets/healthsenselogo.png",
-        backgroundColor: "#E6F4FE",
+        foregroundImage: "./assets/favicon.png",
+        backgroundColor: "#FFFFFF",
       },
       predictiveBackGestureEnabled: false,
       package: "com.anonymous.healthsensemobile",
     },
-    web: { favicon: "./assets/healthsenselogo.png", bundler: "metro" },
+    web: { favicon: "./assets/favicon.png", bundler: "metro" },
     scheme: "healthsense",
-    plugins: ["expo-router"],
+    plugins: [
+      "expo-router",
+      [
+        "expo-splash-screen",
+        {
+          backgroundColor: "#FFFFFF",
+          image: "./assets/favicon.png",
+          imageWidth: 180,
+          resizeMode: "contain"
+        }
+      ]
+    ],
     extra: {
       router: {},
       eas: { projectId: "f05d4beb-5a28-4f95-b35f-40d97d780007" },

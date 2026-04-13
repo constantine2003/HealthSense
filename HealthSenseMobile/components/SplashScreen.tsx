@@ -99,7 +99,7 @@ export default function SplashScreen({ onFinish }: Props) {
         ]}
       >
         <Image
-          source={require("../assets/healthsenselogo.png")}
+          source={require("../assets/favicon.png")}
           style={styles.logo}
           resizeMode="contain"
         />

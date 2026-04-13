@@ -20,6 +20,12 @@ export default function RootLayout() {
 
   // ✅ Startup check + auto refresh
   useEffect(() => {
+  /**
+   * Prepares the app by checking the current user session and redirecting to
+   * the dashboard if the user is already logged in.
+   * 
+   * @returns {Promise<void>}
+   */
     async function prepare() {
       try {
         const { data: { session } } = await supabase.auth.getSession();
