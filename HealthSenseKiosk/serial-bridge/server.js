@@ -38,7 +38,7 @@ const CONFIG = {
   // Serial port – overridable via env var.
   // On Raspberry Pi: '/dev/ttyUSB0' or '/dev/ttyACM0'
   // On Windows (dev): 'COM3', 'COM4', etc.
-  SERIAL_PORT: process.env.HS_SERIAL_PORT || 'COM3',
+  SERIAL_PORT: process.env.HS_SERIAL_PORT || '/dev/ttyUSB0',
   BAUD_RATE: parseInt(process.env.HS_BAUD_RATE || '115200', 10),
 
   // WebSocket server
