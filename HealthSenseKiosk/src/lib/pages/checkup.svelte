@@ -9,6 +9,8 @@
     latestReading,
     lastError,
     sensorStatus,
+    bpLiveReading,
+    bpDebugFrame,
     type SensorKey,
   } from '../stores/esp32Store';
 
@@ -25,6 +27,16 @@
     heartRate: number;
     bp: string;
   }
+
+  // BP manual entry fallback state
+  let bpManualEntry = false;
+  let bpManualSys = '';
+  let bpManualDia = '';
+
+  // Derived SYS/DIA from the stored bp string (e.g. "120/80")
+  $: bpParts = results.bp !== '0/0' ? results.bp.split('/') : ['0', '0'];
+  $: bpSys = parseInt(bpParts[0]) || 0;
+  $: bpDia = parseInt(bpParts[1]) || 0;
 
   type SensorPhase = 'weight' | 'height' | 'temp' | 'spo2' | 'bp';
   type Phase = SensorPhase | 'review';
@@ -94,6 +106,10 @@
       isScanning = false;
       isCountingDown = false;
       progress = 0;
+      // For BP, show manual entry instead of just stopping
+      if (currentPhase === 'bp') {
+        bpManualEntry = true;
+      }
     }
   });
 
@@ -110,12 +126,15 @@
     height: { title: "Height", desc: "Stand straight", icon: "📏", duration: 30, unit: "m" },
     temp: { title: "Temperature", desc: "Place forehead near sensor", icon: "🌡️", duration: 40, unit: "°C" },
     spo2: { title: "HR + SpO2", desc: "Place finger on MAX30102 clip", icon: "🫀", duration: 30, unit: "% / bpm" },
-    bp: { title: "Blood Pressure", desc: "Remain very still", icon: "💓", duration: 50, unit: "mmHg" }
+    bp: { title: "Blood Pressure", desc: "Turn on the monitor and wrap the cuff around your left arm", icon: "💓", duration: 90, unit: "mmHg" }
   } as const;
 
   function startSequence() {
     hasCaptured = false;
     progress = 0;
+    bpManualEntry = false;
+    bpManualSys = '';
+    bpManualDia = '';
     isCountingDown = true;
     countdown = 3;
     const timer = setInterval(() => {
@@ -212,6 +231,17 @@
     currentPhase = currentIndex < order.length - 1 ? order[currentIndex + 1] : 'review';
   }
 
+  function confirmManualBp() {
+    const sys = parseInt(bpManualSys);
+    const dia = parseInt(bpManualDia);
+    if (!sys || !dia || sys < 60 || sys > 250 || dia < 40 || dia > 150 || sys <= dia) return;
+    results.bp = `${sys}/${dia}`;
+    bpManualEntry = false;
+    hasCaptured = true;
+    progress = 100;
+    lastError.set(null);
+  }
+
   function redoSpecific(phase: SensorPhase) {
     // redoSpecific is only used during a full checkup (from review) to re-take one sensor
     isRedoingSpecific = true;
@@ -225,6 +255,7 @@
     isScanning = false;
     isCountingDown = false;
     hasCaptured = false;
+    bpManualEntry = false;
 
     if (mode === 'single') {
       // Cancel individual reading → go straight back to review
@@ -314,9 +345,97 @@
             <span class="text-6xl font-black text-blue-950">{progress}%</span>
           </div>
         </div>
-        <h2 class="text-3xl font-[1000] text-blue-600 animate-pulse uppercase tracking-tighter">
-          Capturing {phases[currentPhase as keyof typeof phases].title}
-        </h2>
+        {#if currentPhase === 'bp'}
+          <h2 class="text-3xl font-[1000] text-blue-600 animate-pulse uppercase tracking-tighter">
+            Keep Still &amp; Relax…
+          </h2>
+          <p class="text-sm text-blue-400 font-bold mt-2 uppercase tracking-widest">Reading BP monitor display</p>
+          {#if $bpLiveReading}
+            <div in:fade class="grid grid-cols-2 gap-4 mt-8">
+              <div class="px-5 py-4 rounded-3xl bg-blue-50 min-w-[9rem]">
+                <p class="text-[10px] font-black uppercase tracking-widest text-blue-400">Systolic</p>
+                <p class="text-4xl font-black text-blue-950 tabular-nums">{$bpLiveReading.sys ?? '--'}</p>
+                <p class="text-[10px] text-blue-400 font-bold mt-0.5">mmHg</p>
+              </div>
+              <div class="px-5 py-4 rounded-3xl bg-blue-50 min-w-[9rem]">
+                <p class="text-[10px] font-black uppercase tracking-widest text-blue-400">Diastolic</p>
+                <p class="text-4xl font-black text-blue-950 tabular-nums">{$bpLiveReading.dia ?? '--'}</p>
+                <p class="text-[10px] text-blue-400 font-bold mt-0.5">mmHg</p>
+              </div>
+            </div>
+            <p class="text-[10px] text-blue-300 font-bold uppercase tracking-widest mt-3">Waiting for reading to finish…</p>
+          {/if}
+
+          <!-- ── DEBUG panel: live annotated camera feed + per-band OCR readout ── -->
+          {#if $bpDebugFrame}
+            <div in:fade class="mt-6 w-full rounded-2xl border-2 border-orange-300 bg-orange-50 p-3 text-left">
+              <!-- Badge -->
+              <div class="flex items-center gap-2 mb-2">
+                <span class="rounded-full bg-orange-400 px-2 py-0.5 text-[10px] font-black uppercase tracking-widest text-white">⚙ Debug</span>
+                <span class="text-[10px] text-orange-500 font-bold uppercase tracking-widest">Camera OCR — live</span>
+              </div>
+
+              <!-- Error banner (shown when OCR fails) -->
+              {#if $bpDebugFrame.error}
+                <div class="mb-2 rounded-xl bg-red-100 border border-red-300 px-3 py-2 text-[11px] font-mono text-red-700 break-all">
+                  ⚠ {$bpDebugFrame.error}
+                </div>
+              {/if}
+
+              <!-- Annotated frame (hidden when no image data) -->
+              {#if $bpDebugFrame.imageData}
+                <img
+                  src="data:image/jpeg;base64,{$bpDebugFrame.imageData}"
+                  alt="BP camera debug"
+                  class="w-full rounded-xl border border-orange-200 object-contain"
+                />
+              {:else}
+                <div class="w-full h-24 rounded-xl border border-orange-200 bg-orange-100 flex items-center justify-center text-orange-400 text-xs font-bold uppercase tracking-widest">
+                  No camera image
+                </div>
+              {/if}
+
+              <!-- Per-band table -->
+              <table class="mt-3 w-full text-[11px] font-mono">
+                <thead>
+                  <tr class="text-orange-400 uppercase text-[9px] tracking-widest">
+                    <th class="text-left pb-1 font-black">Band</th>
+                    <th class="text-left pb-1 font-black">Raw OCR</th>
+                    <th class="text-left pb-1 font-black">Validated</th>
+                    <th class="text-left pb-1 font-black">OK?</th>
+                  </tr>
+                </thead>
+                <tbody class="text-orange-700">
+                  <tr>
+                    <td class="pr-3 font-black text-red-500">SYS</td>
+                    <td class="pr-3">"{$bpDebugFrame.bands.sys || '—'}"</td>
+                    <td class="pr-3">{$bpDebugFrame.validated.sys ?? '—'}</td>
+                    <td>{$bpDebugFrame.validated.sys !== null ? '✓' : '✗'}</td>
+                  </tr>
+                  <tr>
+                    <td class="pr-3 font-black text-green-600">DIA</td>
+                    <td class="pr-3">"{$bpDebugFrame.bands.dia || '—'}"</td>
+                    <td class="pr-3">{$bpDebugFrame.validated.dia ?? '—'}</td>
+                    <td>{$bpDebugFrame.validated.dia !== null ? '✓' : '✗'}</td>
+                  </tr>
+                  <tr>
+                    <td class="pr-3 font-black text-blue-500">PULSE</td>
+                    <td class="pr-3">"{$bpDebugFrame.bands.pulse || '—'}"</td>
+                    <td class="pr-3">{$bpDebugFrame.validated.pulse ?? '—'}</td>
+                    <td>{$bpDebugFrame.validated.pulse !== null ? '✓' : '✗'}</td>
+                  </tr>
+                </tbody>
+              </table>
+              <p class="mt-2 text-[9px] text-orange-400 font-bold uppercase tracking-widest">
+                Complete: {$bpDebugFrame.validated.complete ? '✓ all rows visible' : '… waiting'}
+              </p>
+            </div>
+          {/if}
+        {:else}
+          <h2 class="text-3xl font-[1000] text-blue-600 animate-pulse uppercase tracking-tighter">
+            Capturing {phases[currentPhase as keyof typeof phases].title}
+          </h2>
+        {/if}
       {:else if hasCaptured}
         <div in:scale class="flex flex-col items-center">
           <div class="w-40 h-40 bg-green-50 text-green-500 rounded-full flex items-center justify-center text-6xl mb-6 shadow-sm">✓</div>
@@ -332,6 +451,20 @@
                 <p class="text-3xl font-black text-blue-950">{results.heartRate > 0 ? `${results.heartRate} bpm` : '--'}</p>
               </div>
             </div>
+          {:else if currentPhase === 'bp'}
+            <div class="grid grid-cols-2 gap-4 mt-2">
+              <div class="px-5 py-4 rounded-3xl bg-blue-50 min-w-[11rem]">
+                <p class="text-[10px] font-black uppercase tracking-widest text-blue-400">Systolic</p>
+                <p class="text-3xl font-black text-blue-950">{bpSys > 0 ? bpSys : '--'}</p>
+                <p class="text-[10px] text-blue-400 font-bold mt-0.5">mmHg</p>
+              </div>
+              <div class="px-5 py-4 rounded-3xl bg-blue-50 min-w-[11rem]">
+                <p class="text-[10px] font-black uppercase tracking-widest text-blue-400">Diastolic</p>
+                <p class="text-3xl font-black text-blue-950">{bpDia > 0 ? bpDia : '--'}</p>
+                <p class="text-[10px] text-blue-400 font-bold mt-0.5">mmHg</p>
+              </div>
+            </div>
+            <p class="mt-4 text-xs text-blue-900/30 font-bold uppercase tracking-widest">Remove the cuff and set it aside</p>
           {:else}
             <div class="text-7xl font-[1000] text-blue-950 mb-2">
               {results[currentPhase as keyof CheckupResults]}
@@ -358,6 +491,55 @@
           <p class="text-sm text-slate-400 font-bold uppercase tracking-widest">
             Sensor not connected
           </p>
+        </div>
+      {:else if bpManualEntry && currentPhase === 'bp'}
+        <!-- BP OCR timed out — manual entry fallback -->
+        <div in:fade class="flex flex-col items-center w-full max-w-sm">
+          <div class="w-24 h-24 bg-amber-50 rounded-[2rem] flex items-center justify-center text-5xl mb-6">⚠️</div>
+          <h2 class="text-2xl font-[1000] text-blue-950 uppercase tracking-tighter mb-1">Manual Entry</h2>
+          <p class="text-sm text-blue-900/40 font-bold uppercase tracking-widest mb-8">OCR timed out — enter reading manually</p>
+          <div class="grid grid-cols-2 gap-4 w-full">
+            <div class="flex flex-col gap-2">
+              <label for="bp-sys" class="text-[10px] font-black uppercase tracking-widest text-blue-400">Systolic (SYS)</label>
+              <input
+                id="bp-sys"
+                type="number" min="60" max="250"
+                bind:value={bpManualSys}
+                placeholder="e.g. 120"
+                class="w-full px-4 py-4 text-2xl font-black text-center bg-blue-50 rounded-2xl border-2 border-blue-100 focus:border-blue-400 outline-none"
+              />
+            </div>
+            <div class="flex flex-col gap-2">
+              <label for="bp-dia" class="text-[10px] font-black uppercase tracking-widest text-blue-400">Diastolic (DIA)</label>
+              <input
+                id="bp-dia"
+                type="number" min="40" max="150"
+                bind:value={bpManualDia}
+                placeholder="e.g. 80"
+                class="w-full px-4 py-4 text-2xl font-black text-center bg-blue-50 rounded-2xl border-2 border-blue-100 focus:border-blue-400 outline-none"
+              />
+            </div>
+          </div>
+        </div>
+      {:else if currentPhase === 'bp'}
+        <!-- BP-specific instruction screen -->
+        <div in:fade class="flex flex-col items-center text-center">
+          <div class="w-48 h-48 bg-blue-50 rounded-[4rem] flex items-center justify-center text-8xl mb-10 shadow-inner">💓</div>
+          <h1 class="text-5xl font-[1000] text-blue-950 uppercase tracking-tighter mb-6">Blood Pressure</h1>
+          <div class="text-left space-y-3 w-full max-w-xs">
+            <div class="flex items-start gap-3">
+              <span class="w-6 h-6 bg-blue-600 text-white rounded-full flex items-center justify-center text-xs font-black flex-shrink-0 mt-0.5">1</span>
+              <p class="text-base text-blue-900/60 font-bold">Turn on the BP monitor</p>
+            </div>
+            <div class="flex items-start gap-3">
+              <span class="w-6 h-6 bg-blue-600 text-white rounded-full flex items-center justify-center text-xs font-black flex-shrink-0 mt-0.5">2</span>
+              <p class="text-base text-blue-900/60 font-bold">Wrap the cuff around your left arm</p>
+            </div>
+            <div class="flex items-start gap-3">
+              <span class="w-6 h-6 bg-blue-600 text-white rounded-full flex items-center justify-center text-xs font-black flex-shrink-0 mt-0.5">3</span>
+              <p class="text-base text-blue-900/60 font-bold">Sit still, then press Start</p>
+            </div>
+          </div>
         </div>
       {:else}
         <div in:fade class="flex flex-col items-center">
@@ -390,6 +572,23 @@
             Confirm & {isRedoingSpecific ? 'Back to Summary' : 'Continue'}
           </button>
         {/if}
+      {:else if bpManualEntry && currentPhase === 'bp'}
+        <!-- Manual BP entry confirmation -->
+        {@const sysNum = parseInt(bpManualSys)}
+        {@const diaNum = parseInt(bpManualDia)}
+        {@const manualValid = sysNum >= 60 && sysNum <= 250 && diaNum >= 40 && diaNum <= 150 && sysNum > diaNum}
+        <button on:click={confirmManualBp} disabled={!manualValid}
+          class="w-full py-8 bg-blue-600 text-white rounded-[2.5rem] text-2xl font-black uppercase shadow-xl active:scale-[0.98] transition-transform disabled:opacity-40 disabled:scale-100">
+          Confirm Reading
+        </button>
+        <div class="grid grid-cols-2 gap-4">
+          <button on:click={startSequence} class="py-6 bg-white border-2 border-blue-50 text-blue-900/40 rounded-4xl font-black uppercase text-xs tracking-widest active:bg-blue-50">
+            Retry Camera
+          </button>
+          <button on:click={skipPhase} class="py-6 bg-red-50 text-red-400 rounded-4xl font-black uppercase text-xs tracking-widest active:bg-red-100">
+            {mode === 'single' ? 'Cancel' : 'Skip Step'}
+          </button>
+        </div>
       {:else if !isScanning && !isCountingDown && currentSensorAvailable}
         <button on:click={startSequence} class="w-full py-8 bg-blue-600 text-white rounded-[2.5rem] text-2xl font-black uppercase shadow-xl active:scale-[0.98] transition-transform">
           Start Reading

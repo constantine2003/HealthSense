@@ -90,6 +90,18 @@ export const lastError = writable<string | null>(null);
 /** Fingerprint operation events (enroll steps, match result, no-match) */
 export const fingerprintEvent = writable<FingerprintEvent | null>(null);
 
+/** Live BP reading from camera OCR while measuring (updates every ~2s) */
+export const bpLiveReading = writable<{ sys: number; dia: number } | null>(null);
+
+/** Debug camera frame from BP OCR — annotated JPEG (base64) + per-band raw text */
+export interface BpDebugFrame {
+  imageData: string;                            // base64 JPEG of annotated display crop (empty on error)
+  bands:     { sys: string; dia: string; pulse: string };  // raw OCR text per band
+  validated: { sys: number | null; dia: number | null; pulse: number | null; complete: boolean };
+  error:     string | null;                     // set when OCR failed (shows reason in debug panel)
+}
+export const bpDebugFrame = writable<BpDebugFrame | null>(null);
+
 /** True when the webapp can issue sensor commands */
 export const isReady = derived(bridgeStatus, ($s) => $s === 'esp32Ready');
 
@@ -230,6 +242,21 @@ function handleMessage(msg: BridgeMessage): void {
       break;
     }
 
+    case 'bp_preview': {
+      bpLiveReading.set({ sys: msg.sys as number, dia: msg.dia as number });
+      break;
+    }
+
+    case 'bp_frame': {
+      bpDebugFrame.set({
+        imageData: msg.imageData as string,
+        bands:     msg.bands     as BpDebugFrame['bands'],
+        validated: msg.validated as BpDebugFrame['validated'],
+        error:     (msg.error as string | null) ?? null,
+      });
+      break;
+    }
+
     case 'reading': {
       measureProgress.set(100);
       const readSensor = msg.sensor as SensorKey;
@@ -360,6 +387,7 @@ export function startMeasurement(sensor: SensorKey): boolean {
   measureProgress.set(0);
   latestReading.set(null);
   lastError.set(null);
+  if (sensor === 'bp') { bpLiveReading.set(null); bpDebugFrame.set(null); }
   return send({ command: 'start', sensor });
 }
 

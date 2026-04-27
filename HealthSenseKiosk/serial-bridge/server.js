@@ -31,6 +31,11 @@ import { ReadlineParser } from '@serialport/parser-readline';
 import { WebSocketServer, WebSocket } from 'ws';
 import { createServer } from 'http';
 import { URL } from 'url';
+import { spawn } from 'child_process';
+import { resolve, dirname } from 'path';
+import { fileURLToPath } from 'url';
+
+const __dirname = dirname(fileURLToPath(import.meta.url));
 
 // ─── Configuration ────────────────────────────────────────────────────────────
 
@@ -53,6 +58,20 @@ const CONFIG = {
   SERIAL_RETRY_MS: 3000,
 };
 
+// ─── BP Camera OCR configuration ─────────────────────────────────────────────
+
+const BP_CONFIG = {
+  // Path to the Python OCR script (relative to this file's directory)
+  OCR_SCRIPT: process.env.BP_OCR_SCRIPT
+    || resolve(__dirname, '../bp-camera/bp_ocr.py'),
+  POLL_INTERVAL_MS: 100,    // reschedule almost immediately after each OCR result
+  TIMEOUT_MS: 90000,         // give up after 90 s
+  // Hard cap on how long a single OCR invocation may run. Camera capture
+  // (picamera2) can hang indefinitely if the sensor is misconfigured;
+  // this ensures the poll loop always continues regardless.
+  PROCESS_TIMEOUT_MS: 90000,  // 90s — accommodates EasyOCR first-run model download (~45MB)
+};
+
 // ─── Globals ──────────────────────────────────────────────────────────────────
 
 /** @type {SerialPort | null} */
@@ -65,6 +84,15 @@ let lastSensorStatus = null;
 
 /** @type {WebSocketServer} */
 let wss;
+
+// ─── BP OCR state ─────────────────────────────────────────────────────────────
+
+let bpActive        = false;
+let bpPollTimer     = null;
+let bpTimeoutTimer  = null;
+let bpStartedAt     = 0;
+/** @type {import('child_process').ChildProcess | null} */
+let bpOcrProcess    = null;
 
 // ─── Logging helpers ──────────────────────────────────────────────────────────
 
@@ -108,6 +136,145 @@ function broadcast(payload) {
   }
 }
 
+// ─── BP OCR helpers ───────────────────────────────────────────────────────────
+
+/** Inject bp=true into a sensorStatus message before broadcasting. */
+function injectBpAvailable(msg) {
+  if (msg && msg.type === 'sensorStatus' && msg.sensors) {
+    msg.sensors.bp = true;
+  }
+  return msg;
+}
+
+function startBpMeasurement() {
+  if (bpActive) return;
+  bpActive = true;
+  bpStartedAt = Date.now();
+
+  log(`BP: starting camera OCR loop (timeout ${BP_CONFIG.TIMEOUT_MS / 1000}s)`);
+  broadcast({ type: 'progress', sensor: 'bp', progress: 0 });
+
+  bpTimeoutTimer = setTimeout(() => {
+    stopBpMeasurement();
+    broadcast({ type: 'error', sensor: 'bp', message: 'BP reading timed out — please try again or enter manually' });
+  }, BP_CONFIG.TIMEOUT_MS);
+
+  scheduleBpPoll();
+}
+
+function stopBpMeasurement() {
+  bpActive = false;
+  clearTimeout(bpPollTimer);
+  clearTimeout(bpTimeoutTimer);
+  bpPollTimer = null;
+  bpTimeoutTimer = null;
+  if (bpOcrProcess) {
+    try { bpOcrProcess.kill(); } catch (_) {}
+    bpOcrProcess = null;
+  }
+}
+
+function scheduleBpPoll() {
+  if (!bpActive) return;
+  bpPollTimer = setTimeout(runBpOcr, BP_CONFIG.POLL_INTERVAL_MS);
+}
+
+function runBpOcr() {
+  if (!bpActive) return;
+
+  const elapsed = Date.now() - bpStartedAt;
+  const prog = Math.min(90, Math.floor((elapsed / BP_CONFIG.TIMEOUT_MS) * 90));
+  broadcast({ type: 'progress', sensor: 'bp', progress: prog });
+
+  const proc = spawn('python3', [BP_CONFIG.OCR_SCRIPT]);
+  bpOcrProcess = proc;
+  let stdout = '';
+
+  // ── Hard kill timeout — prevents a hanging camera capture from stalling the loop ──
+  const killTimer = setTimeout(() => {
+    if (bpOcrProcess === proc) {
+      warn('BP OCR process timed out — killing and rescheduling');
+      try { proc.kill(); } catch (_) {}
+      bpOcrProcess = null;
+      // Broadcast an error frame so the debug panel shows something
+      broadcastBpErrorFrame('Camera timeout — process killed after 15 s');
+      scheduleBpPoll();
+    }
+  }, BP_CONFIG.PROCESS_TIMEOUT_MS);
+
+  proc.stdout.on('data', (d) => { stdout += d.toString(); });
+  proc.stderr.on('data', (d) => { warn(`BP OCR stderr: ${d.toString().trim()}`); });
+
+  proc.on('close', () => {
+    clearTimeout(killTimer);
+    bpOcrProcess = null;
+    if (!bpActive) return;
+
+    let result = null;
+    try {
+      result = JSON.parse(stdout.trim());
+    } catch (e) {
+      warn(`BP OCR parse error: ${e.message} | stdout="${stdout.trim()}"`);
+      broadcastBpErrorFrame(`Parse error: ${stdout.trim().slice(0, 120) || '(no output)'}`);
+      scheduleBpPoll();
+      return;
+    }
+
+    // Always broadcast a debug frame (even when OCR fails — shows error reason in table)
+    broadcast({
+      type: 'bp_frame',
+      imageData: result.debug_image || '',
+      bands: {
+        sys:   result.raw_sys   ?? '',
+        dia:   result.raw_dia   ?? '',
+        pulse: result.raw_pulse ?? '',
+      },
+      validated: {
+        sys:      result.sys      ?? null,
+        dia:      result.dia      ?? null,
+        pulse:    result.pulse    ?? null,
+        complete: result.complete ?? false,
+      },
+      error: result.valid ? null : (result.reason ?? 'Unknown OCR error'),
+    });
+
+    if (result.valid) {
+      if (result.complete) {
+        log(`BP OCR complete: ${result.sys}/${result.dia} (pulse=${result.pulse})`);
+        stopBpMeasurement();
+        broadcast({ type: 'reading', sensor: 'bp', value: `${result.sys}/${result.dia}` });
+        return;
+      } else {
+        log(`BP OCR preview: sys=${result.sys} dia=${result.dia} (waiting for all rows…)`);
+        broadcast({ type: 'bp_preview', sys: result.sys, dia: result.dia });
+      }
+    } else {
+      log(`BP OCR: no valid reading — ${result.reason}`);
+    }
+
+    scheduleBpPoll();
+  });
+
+  proc.on('error', (e) => {
+    clearTimeout(killTimer);
+    warn(`BP OCR process error: ${e.message}`);
+    bpOcrProcess = null;
+    broadcastBpErrorFrame(`Process error: ${e.message}`);
+    scheduleBpPoll();
+  });
+}
+
+/** Broadcast a bp_frame with no image but an error message (keeps debug panel alive). */
+function broadcastBpErrorFrame(errorMsg) {
+  broadcast({
+    type: 'bp_frame',
+    imageData: '',
+    bands:     { sys: '', dia: '', pulse: '' },
+    validated: { sys: null, dia: null, pulse: null, complete: false },
+    error: errorMsg,
+  });
+}
+
 // ─── Serial connection ────────────────────────────────────────────────────────
 
 function connectSerial() {
@@ -147,8 +314,10 @@ function connectSerial() {
 
     try {
       const msg = JSON.parse(raw);
-      // Cache the latest sensorStatus so we can replay it to new WS clients
+      // Cache the latest sensorStatus so we can replay it to new WS clients.
+      // Always override bp=true (BP is handled via camera, not ESP32).
       if (msg.type === 'sensorStatus') {
+        injectBpAvailable(msg);
         lastSensorStatus = msg;
       }
       // Forward the validated JSON object directly to all WS clients
@@ -257,6 +426,17 @@ function startWebSocketServer() {
 
       // Webapp → ESP32 command relay
       if (msg.command) {
+        // ── BP is handled entirely on the Pi side (camera OCR) ──────────────
+        if (msg.command === 'start' && msg.sensor === 'bp') {
+          startBpMeasurement();
+          return;
+        }
+
+        // Cancel also stops any active BP OCR loop before forwarding to ESP32
+        if ((msg.command === 'cancel' || msg.command === 'fp_cancel') && bpActive) {
+          stopBpMeasurement();
+        }
+
         const sent = sendToESP32(msg);
         if (!sent) {
           ws.send(JSON.stringify({
@@ -301,6 +481,7 @@ function startWebSocketServer() {
 function shutdown(signal) {
   log(`Received ${signal}. Shutting down…`);
   clearTimeout(retryTimer);
+  stopBpMeasurement();
 
   if (wss) wss.close();
   if (serialPort && serialPort.isOpen) serialPort.close();
