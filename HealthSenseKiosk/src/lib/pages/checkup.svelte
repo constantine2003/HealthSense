@@ -12,6 +12,7 @@
     bpLiveReading,
     bpDebugFrame,
     bpTestResult,
+    bpSegmentsLoaded,
     send as wsSend,
     type SensorKey,
   } from '../stores/esp32Store';
@@ -106,11 +107,68 @@
   function openSegCalib() {
     segCalibMode = true;
     bpTestResult.set(null);
+    bpSegmentsLoaded.set(null);
+    _segConfigApplied = false;
     wsSend({ command: 'bp_calibrate_start' });
+    wsSend({ command: 'bp_load_segments' });
+  }
+
+  // Flag so we only apply loaded config once per calibration session
+  let _segConfigApplied = false;
+
+  function _applyLoadedConfig(cfg: any) {
+    if (_segConfigApplied) return;
+    if (!cfg?.digits || !Array.isArray(cfg.digits)) return;
+    const img = calibPreviewImg;
+    if (!img) return;  // DOM not rendered yet — reactive stmt will retry on next frame
+    const capW = $bpDebugFrame?.capW || 640;
+    const capH = $bpDebugFrame?.capH || 480;
+    const displayW = img.clientWidth;
+    const displayH = img.clientHeight;
+    if (displayW <= 0 || displayH <= 0) return;  // not rendered yet, wait
+    const sx = displayW / capW;
+    const sy = displayH / capH;
+
+    const loaded: AllSegs = { ...defaultSegPositions() };
+    for (const d of cfg.digits as any[]) {
+      if (!d.name || !d.segments) continue;
+      const segs: DigitSegs = {};
+      for (const s of SEG_NAMES) {
+        const r = d.segments[s];
+        if (!r) continue;
+        segs[s] = {
+          x: Math.round(r.x * sx),
+          y: Math.round(r.y * sy),
+          w: Math.max(4, Math.round(r.w * sx)),
+          h: Math.max(2, Math.round(r.h * sy)),
+        };
+      }
+      if (Object.keys(segs).length === SEG_NAMES.length) {
+        loaded[d.name] = segs;
+      }
+    }
+    allSegs = loaded;
+
+    if (cfg.threshold !== undefined) segThreshold = cfg.threshold;
+    if (cfg.camera) {
+      const cam = cfg.camera;
+      if (cam.brightness !== undefined) camBrightness = cam.brightness;
+      if (cam.contrast   !== undefined) camContrast   = cam.contrast;
+      if (cam.sharpness  !== undefined) camSharpness  = cam.sharpness;
+      if (cam.saturation !== undefined) camSaturation = cam.saturation;
+    }
+    _segConfigApplied = true;
+  }
+
+  // Re-try applying the loaded config each time a frame arrives (clientWidth valid after first render)
+  $: if ($bpSegmentsLoaded && segCalibMode && $bpDebugFrame) {
+    _applyLoadedConfig($bpSegmentsLoaded);
   }
 
   function closeSegCalib() {
     segCalibMode = false;
+    _segConfigApplied = false;
+    bpSegmentsLoaded.set(null);
     wsSend({ command: 'bp_calibrate_stop' });
   }
 
@@ -872,17 +930,21 @@
           {@const isActive = dname === activeDigit}
           {@const color = SEG_COLOR[dname]}
           {@const testDigit = $bpTestResult?.digits?.find(d => d.name === dname)}
+          {@const liveDigit = $bpDebugFrame?.segStatus?.find(d => d.name === dname)}
           {#each SEG_NAMES as sname}
             {@const r = allSegs[dname][sname]}
             {@const isSelectedSeg = activeSeg === `${dname}:${sname}`}
-            {@const segOn = testDigit?.segments?.[sname]}
+            {@const segOnTest = testDigit?.segments?.[sname]}
+            {@const segOnLive = liveDigit?.on?.[sname]}
+            {@const hasLiveData = !!liveDigit}
+            {@const segOn = testDigit ? segOnTest : (hasLiveData ? segOnLive : undefined)}
             <!-- svelte-ignore a11y-no-static-element-interactions -->
             <div
               class="absolute touch-none"
               style="
                 left:{r.x}px; top:{r.y}px; width:{r.w}px; height:{r.h}px;
-                border: 2px solid {isActive ? (testDigit ? (segOn ? '#22c55e' : '#ef4444') : color) : 'rgba(255,255,255,0.2)'};
-                background: {isActive ? (testDigit ? (segOn ? 'rgba(34,197,94,0.35)' : 'rgba(239,68,68,0.2)') : color + '33') : 'rgba(255,255,255,0.05)'};
+                border: 2px solid {isActive ? (segOn !== undefined ? (segOn ? '#22c55e' : '#ef4444') : color) : 'rgba(255,255,255,0.2)'};
+                background: {isActive ? (segOn !== undefined ? (segOn ? 'rgba(34,197,94,0.35)' : 'rgba(239,68,68,0.2)') : color + '33') : 'rgba(255,255,255,0.05)'};
                 cursor: {isActive ? 'move' : 'default'};
                 box-shadow: {isSelectedSeg ? '0 0 0 2px white' : 'none'};
                 z-index: {isActive ? 10 : 5};
@@ -925,6 +987,50 @@
         </div>
       {/if}
     </div>
+
+    <!-- Live segment status panel (shows ON/OFF per segment + decoded digits from streaming) -->
+    {#if $bpDebugFrame?.segStatus && $bpDebugFrame.segStatus.length > 0}
+      {@const ss = $bpDebugFrame.segStatus}
+      {@const sysDigits = ss.filter(d => d.name.startsWith('sys'))}
+      {@const diaDigits = ss.filter(d => d.name.startsWith('dia'))}
+      {@const sysReading = sysDigits.map(d => d.decoded ?? '').join('').replace(/^0+(?=\d)/, '') || '---'}
+      {@const diaReading = diaDigits.map(d => d.decoded ?? '').join('').replace(/^0+(?=\d)/, '') || '---'}
+      <div class="mx-4 mb-3 flex-shrink-0 bg-black/60 border border-white/10 rounded-xl p-2">
+        <!-- Live SYS / DIA reading summary -->
+        <div class="flex justify-around mb-2">
+          <div class="text-center">
+            <span class="text-[8px] font-black uppercase tracking-widest text-red-400 block">SYS</span>
+            <span class="text-lg font-black font-mono {sysReading === '---' ? 'text-white/30' : 'text-green-400'}">{sysReading}</span>
+          </div>
+          <div class="text-center">
+            <span class="text-[8px] font-black uppercase tracking-widest text-green-400 block">DIA</span>
+            <span class="text-lg font-black font-mono {diaReading === '---' ? 'text-white/30' : 'text-green-400'}">{diaReading}</span>
+          </div>
+        </div>
+        <!-- Per-digit per-segment grid -->
+        <div class="grid grid-cols-6 gap-1">
+          {#each ss as digSt}
+            {@const isSys = digSt.name.startsWith('sys')}
+            <div class="flex flex-col items-center gap-0.5">
+              <span class="text-[7px] font-black uppercase tracking-widest {isSys ? 'text-red-400' : 'text-green-400'} mb-0.5">
+                {digSt.name === 'sys0' ? 'S1' : digSt.name === 'sys1' ? 'S2' : digSt.name === 'sys2' ? 'S3' : digSt.name === 'dia0' ? 'D1' : digSt.name === 'dia1' ? 'D2' : 'D3'}
+              </span>
+              <!-- 7 segment dots (a–g) -->
+              {#each ['a','b','c','d','e','f','g'] as seg}
+                <div class="flex items-center gap-0.5 w-full justify-between px-0.5">
+                  <span class="text-[6px] text-white/30 font-mono">{seg}</span>
+                  <div class="w-3 h-1.5 rounded-sm {digSt.on[seg] ? 'bg-green-400' : 'bg-white/10'}"></div>
+                </div>
+              {/each}
+              <!-- decoded digit -->
+              <div class="mt-0.5 text-sm font-black font-mono {digSt.decoded !== null ? 'text-green-400' : 'text-white/20'}">
+                {digSt.decoded ?? '?'}
+              </div>
+            </div>
+          {/each}
+        </div>
+      </div>
+    {/if}
 
     <!-- Digit selector tabs -->
     <div class="flex gap-1.5 px-4 mb-3 flex-shrink-0">

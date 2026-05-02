@@ -94,6 +94,13 @@ export const fingerprintEvent = writable<FingerprintEvent | null>(null);
 export const bpLiveReading = writable<{ sys: number; dia: number } | null>(null);
 
 /** Debug camera frame from BP OCR — annotated JPEG (base64) + per-band raw text */
+export interface SegStatusEntry {
+  name:       string;
+  decoded:    string | null;
+  on:         Record<string, boolean>;
+  brightness: Record<string, number>;
+}
+
 export interface BpDebugFrame {
   imageData: string;                            // base64 JPEG of annotated display crop (empty on error)
   bands:     { sys: string; dia: string; pulse: string };  // raw OCR text per band
@@ -102,6 +109,7 @@ export interface BpDebugFrame {
   calibrate?: boolean;                          // true when this is a calibration preview (not OCR)
   capW?:     number;                            // original frame width  (present in calibrate mode)
   capH?:     number;                            // original frame height (present in calibrate mode)
+  segStatus?: SegStatusEntry[] | null;          // per-segment ON/OFF + decoded digit (calibration stream)
 }
 export const bpDebugFrame = writable<BpDebugFrame | null>(null);
 
@@ -115,6 +123,9 @@ export interface BpTestResult {
   error?: string;
 }
 export const bpTestResult = writable<BpTestResult | null>(null);
+
+/** Fired once when bp_segments_loaded is received — holds the saved seg config or null */
+export const bpSegmentsLoaded = writable<Record<string, unknown> | null>(null);
 
 /** True when the webapp can issue sensor commands */
 export const isReady = derived(bridgeStatus, ($s) => $s === 'esp32Ready');
@@ -270,6 +281,7 @@ function handleMessage(msg: BridgeMessage): void {
         calibrate: (msg.calibrate as boolean | undefined) ?? false,
         capW:      (msg.capW as number | undefined) ?? undefined,
         capH:      (msg.capH as number | undefined) ?? undefined,
+        segStatus: (msg.segStatus as SegStatusEntry[] | null | undefined) ?? null,
       });
       break;
     }
@@ -289,6 +301,11 @@ function handleMessage(msg: BridgeMessage): void {
           calibrate: true,
         });
       }
+      break;
+    }
+
+    case 'bp_segments_loaded': {
+      bpSegmentsLoaded.set((msg.config as Record<string, unknown>) ?? null);
       break;
     }
 

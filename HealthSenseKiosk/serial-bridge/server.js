@@ -197,18 +197,27 @@ function scheduleBpPoll() {
 function runBpOcr() {
   if (!bpActive) return;
 
-  const elapsed = Date.now() - bpStartedAt;
-  const prog = Math.min(90, Math.floor((elapsed / BP_CONFIG.TIMEOUT_MS) * 90));
-  broadcast({ type: 'progress', sensor: 'bp', progress: prog });
+  const emitProgress = () => {
+    if (!bpActive) return;
+    const elapsed = Date.now() - bpStartedAt;
+    const prog = Math.min(90, Math.floor((elapsed / BP_CONFIG.TIMEOUT_MS) * 90));
+    broadcast({ type: 'progress', sensor: 'bp', progress: prog });
+  };
+
+  emitProgress();
 
   const proc = spawn('python3', [BP_CONFIG.OCR_SCRIPT]);
   bpOcrProcess = proc;
   let stdout = '';
 
+  // Keep the progress bar moving while the Python process runs its internal loop
+  const progressTimer = setInterval(emitProgress, 1500);
+
   // ── Hard kill timeout — prevents a hanging camera capture from stalling the loop ──
   const killTimer = setTimeout(() => {
     if (bpOcrProcess === proc) {
       warn('BP OCR process timed out — killing and rescheduling');
+      clearInterval(progressTimer);
       try { proc.kill(); } catch (_) {}
       bpOcrProcess = null;
       // Broadcast an error frame so the debug panel shows something
@@ -245,6 +254,7 @@ function runBpOcr() {
 
   proc.on('close', () => {
     clearTimeout(killTimer);
+    clearInterval(progressTimer);
     bpOcrProcess = null;
     if (!bpActive) return;
 
@@ -295,6 +305,7 @@ function runBpOcr() {
 
   proc.on('error', (e) => {
     clearTimeout(killTimer);
+    clearInterval(progressTimer);
     warn(`BP OCR process error: ${e.message}`);
     bpOcrProcess = null;
     broadcastBpErrorFrame(`Process error: ${e.message}`);
@@ -353,6 +364,7 @@ function startBpCalibrate() {
       calibrate: true,
       capW:      result.cap_w || 0,
       capH:      result.cap_h || 0,
+      segStatus: result.seg_status || null,
       bands:     { sys: '', dia: '', pulse: '' },
       validated: { sys: null, dia: null, pulse: null, complete: false },
       error:     result.error || null,
@@ -743,6 +755,17 @@ function startWebSocketServer() {
         }
         if (msg.command === 'bp_calibrate_stop') {
           stopBpCalibrate();
+          return;
+        }
+
+        if (msg.command === 'bp_load_segments') {
+          const segConfigPath = resolve(__dirname, '../bp-camera/seg_config.json');
+          try {
+            const raw = JSON.parse(readFileSync(segConfigPath, 'utf8'));
+            ws.send(JSON.stringify({ type: 'bp_segments_loaded', config: raw }));
+          } catch (_) {
+            ws.send(JSON.stringify({ type: 'bp_segments_loaded', config: null }));
+          }
           return;
         }
 

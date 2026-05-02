@@ -1091,25 +1091,58 @@ def _capture_only_mode():
     w = int(os.environ.get("BP_CAP_W", 640))
     h = int(os.environ.get("BP_CAP_H", 480))
 
-    def _annotated_b64(frame_bgr):
-        """Draw any already-configured manual band boxes and return base64 JPEG."""
+    # Load seg_config once for live segment analysis
+    _seg_cfg = None
+    _seg_threshold = 120
+    _seg_names_order = ["a", "b", "c", "d", "e", "f", "g"]
+    seg_config_path = os.path.join(os.path.dirname(__file__), "seg_config.json")
+    if os.path.exists(seg_config_path):
+        try:
+            with open(seg_config_path) as _f:
+                _seg_cfg = json.load(_f)
+            _seg_threshold = _seg_cfg.get("threshold", 120)
+        except Exception as exc:
+            sys.stderr.write(f"[calib] Failed to load seg_config: {exc}\n")
+
+    def _annotated_b64_with_segs(frame_bgr):
+        """Draw segment rects (green=ON, dim-red=OFF) on preview and return base64 JPEG + seg_status."""
         vis = frame_bgr.copy()
-        for prefix, color in (("SYS", (0, 0, 220)), ("DIA", (0, 180, 0))):
-            try:
-                bx = int(os.environ[f'BP_{prefix}_X'])
-                by = int(os.environ[f'BP_{prefix}_Y'])
-                bw = int(os.environ[f'BP_{prefix}_W'])
-                bh = int(os.environ[f'BP_{prefix}_H'])
-                cv2.rectangle(vis, (bx, by), (bx + bw, by + bh), color, 2)
-                cv2.putText(vis, prefix, (bx + 4, by + 18),
-                            cv2.FONT_HERSHEY_SIMPLEX, 0.6, color, 2, cv2.LINE_AA)
-            except KeyError:
-                pass
+        seg_status = []
+
+        if _seg_cfg is not None:
+            gray = cv2.cvtColor(vis, cv2.COLOR_BGR2GRAY)
+            for dconf in _seg_cfg["digits"]:
+                dname = dconf["name"]
+                segs_rects = dconf["segments"]
+                seg_vals = [
+                    _seg_sample_rect(gray,
+                                     segs_rects[s]["x"], segs_rects[s]["y"],
+                                     segs_rects[s]["w"], segs_rects[s]["h"])
+                    for s in _seg_names_order
+                ]
+                decoded, on_flags = _decode_digit(seg_vals, _seg_threshold)
+
+                on_dict = {}
+                brightness_dict = {}
+                for i, s in enumerate(_seg_names_order):
+                    on_dict[s] = bool(on_flags[i])
+                    brightness_dict[s] = round(seg_vals[i], 1)
+                    r = segs_rects[s]
+                    # Green = ON (dark/black segment detected), dim red = OFF (background)
+                    color = (0, 200, 0) if on_flags[i] else (60, 60, 180)
+                    cv2.rectangle(vis, (r["x"], r["y"]), (r["x"]+r["w"], r["y"]+r["h"]), color, 1)
+
+                seg_status.append({
+                    "name": dname,
+                    "decoded": decoded,
+                    "on": on_dict,
+                    "brightness": brightness_dict,
+                })
+
         fh, fw = vis.shape[:2]
         ok, buf = cv2.imencode(".jpg", vis, [cv2.IMWRITE_JPEG_QUALITY, 80])
-        if not ok:
-            return ""
-        return base64.b64encode(buf.tobytes()).decode("ascii")
+        b64 = base64.b64encode(buf.tobytes()).decode("ascii") if ok else ""
+        return b64, seg_status
 
     if not stream_mode:
         # ── One-shot mode ────────────────────────────────────────────────────
@@ -1119,11 +1152,13 @@ def _capture_only_mode():
             print(json.dumps({"mode": "capture", "error": str(e)}))
             sys.exit(0)
         fh, fw = frame.shape[:2]
+        b64, seg_status = _annotated_b64_with_segs(frame)
         print(json.dumps({
-            "mode":      "capture",
-            "cap_w":     fw,
-            "cap_h":     fh,
-            "cap_image": _annotated_b64(frame),
+            "mode":       "capture",
+            "cap_w":      fw,
+            "cap_h":      fh,
+            "cap_image":  b64,
+            "seg_status": seg_status,
         }))
         sys.exit(0)
 
@@ -1164,11 +1199,13 @@ def _capture_only_mode():
                 time.sleep(0.5)
                 continue
             fh, fw = frame.shape[:2]
+            b64, seg_status = _annotated_b64_with_segs(frame)
             line = json.dumps({
-                "mode":      "capture",
-                "cap_w":     fw,
-                "cap_h":     fh,
-                "cap_image": _annotated_b64(frame),
+                "mode":       "capture",
+                "cap_w":      fw,
+                "cap_h":      fh,
+                "cap_image":  b64,
+                "seg_status": seg_status,
             })
             sys.stdout.write(line + "\n")
             sys.stdout.flush()
@@ -1180,6 +1217,7 @@ def _capture_only_mode():
             except Exception: pass
         if _persistent:
             _wireplumber_start()
+
 
 
 def _seg_sample_rect(gray, rx, ry, rw, rh):
@@ -1209,8 +1247,13 @@ _SEG_PATTERNS = {
 
 
 def _decode_digit(seg_vals, threshold):
-    """Given 7 brightness values [a,b,c,d,e,f,g], return (digit_char, on_flags)."""
-    on = tuple(1 if v >= threshold else 0 for v in seg_vals)
+    """Given 7 brightness values [a,b,c,d,e,f,g], return (digit_char, on_flags).
+
+    Convention: dark (low brightness) = segment ON (1). The display has a green
+    background (~130-180 brightness) with black digits (~0-40 brightness).
+    A segment is ON when its mean brightness is BELOW the threshold.
+    """
+    on = tuple(1 if v < threshold else 0 for v in seg_vals)
     d = _SEG_PATTERNS.get(on)
     return (str(d) if d is not None else None, on)
 
@@ -1368,6 +1411,11 @@ def _run_segment_detection(config):
 
             sys_val = digits_to_int(digits_decoded[0:3])
             dia_val = digits_to_int(digits_decoded[3:6])
+
+            # Debug log so bridge log shows what's being decoded each frame
+            dec_str = "".join(d if d is not None else "?" for d in digits_decoded)
+            sys.stderr.write(f"[seg] decoded={dec_str} sys={sys_val} dia={dia_val} stable={stable_count}/{STABILITY_NEEDED}\n")
+            sys.stderr.flush()
 
             # Always send a live preview frame to the bridge
             _send_preview(frame, sys_val, dia_val)
