@@ -11,6 +11,7 @@
     sensorStatus,
     bpLiveReading,
     bpDebugFrame,
+    bpTestResult,
     send as wsSend,
     type SensorKey,
   } from '../stores/esp32Store';
@@ -34,43 +35,86 @@
   let bpManualSys = '';
   let bpManualDia = '';
 
-  // ── BP Calibration state ────────────────────────────────────────────────────
-  let bpCalibrateMode = false;
+  // ── BP Segment Calibration state ──────────────────────────────────────────
+  type SegRect  = { x: number; y: number; w: number; h: number };
+  type DigitSegs = Record<string, SegRect>;           // keys: a b c d e f g
+  type AllSegs  = Record<string, DigitSegs>;          // keys: sys0..dia2
 
-  // Box positions in CSS pixels relative to the preview image element
-  let sysBoxCss = { x: 40, y: 20, w: 220, h: 70 };
-  let diaBoxCss = { x: 40, y: 110, w: 220, h: 70 };
+  const DIGIT_NAMES = ['sys0', 'sys1', 'sys2', 'dia0', 'dia1', 'dia2'] as const;
+  type DigitName = typeof DIGIT_NAMES[number];
+  const SEG_NAMES   = ['a', 'b', 'c', 'd', 'e', 'f', 'g'] as const;
+  const SEG_COLOR: Record<string, string> = {
+    sys0: '#ef4444', sys1: '#ef4444', sys2: '#ef4444',
+    dia0: '#22c55e', dia1: '#22c55e', dia2: '#22c55e',
+  };
 
-  // Camera settings (map to BP_BRIGHTNESS / BP_CONTRAST / BP_SHARPNESS / BP_SATURATION)
+  function makeDigitSegs(cx: number, cy: number): DigitSegs {
+    // Build a default 7-segment shape centered at (cx, cy) in CSS pixels.
+    //      aaa
+    //     f   b
+    //      ggg
+    //     e   c
+    //      ddd
+    const hw = 22, hh = 6;   // horiz segment: width, height
+    const vw = 6,  vh = 28;  // vert  segment: width, height
+    return {
+      a: { x: Math.round(cx - hw/2), y: Math.round(cy - 38),         w: hw, h: hh },
+      b: { x: Math.round(cx + 12),   y: Math.round(cy - 38 + hh + 1), w: vw, h: vh },
+      c: { x: Math.round(cx + 12),   y: Math.round(cy + 3),           w: vw, h: vh },
+      d: { x: Math.round(cx - hw/2), y: Math.round(cy + 32),          w: hw, h: hh },
+      e: { x: Math.round(cx - 18),   y: Math.round(cy + 3),           w: vw, h: vh },
+      f: { x: Math.round(cx - 18),   y: Math.round(cy - 38 + hh + 1), w: vw, h: vh },
+      g: { x: Math.round(cx - hw/2), y: Math.round(cy - hh/2),        w: hw, h: hh },
+    };
+  }
+
+  function defaultSegPositions(): AllSegs {
+    const sysY = 80, diaY = 220;
+    const xs = [65, 125, 185];
+    return {
+      sys0: makeDigitSegs(xs[0], sysY),
+      sys1: makeDigitSegs(xs[1], sysY),
+      sys2: makeDigitSegs(xs[2], sysY),
+      dia0: makeDigitSegs(xs[0], diaY),
+      dia1: makeDigitSegs(xs[1], diaY),
+      dia2: makeDigitSegs(xs[2], diaY),
+    };
+  }
+
+  let segCalibMode = false;
+  let activeDigit: DigitName = 'sys0';
+  let activeSeg: string | null = null;        // "sys0:a" format
+  let allSegs: AllSegs = defaultSegPositions();
+  let segThreshold = 120;
+  let isTesting = false;
+
+  // Camera settings (shared with segment calibration)
   let camBrightness = 0.10;
   let camContrast   = 1.50;
   let camSharpness  = 2.00;
   let camSaturation = 1.20;
 
-  // DOM refs for the calibration preview image
+  // DOM ref for the calibration preview image
   let calibPreviewImg: HTMLImageElement | null = null;
 
-  // Drag / resize state
-  interface DragState {
-    box: 'sys' | 'dia';
-    mode: 'move' | 'resize';
-    startX: number;
-    startY: number;
-    startBox: { x: number; y: number; w: number; h: number };
+  interface SegDragState {
+    digit: string; seg: string; mode: 'move' | 'resize';
+    startX: number; startY: number; startRect: SegRect;
   }
-  let dragState: DragState | null = null;
+  let segDragState: SegDragState | null = null;
 
-  function openCalibration() {
-    bpCalibrateMode = true;
+  function openSegCalib() {
+    segCalibMode = true;
+    bpTestResult.set(null);
     wsSend({ command: 'bp_calibrate_start' });
   }
 
-  function closeCalibration() {
-    bpCalibrateMode = false;
+  function closeSegCalib() {
+    segCalibMode = false;
     wsSend({ command: 'bp_calibrate_stop' });
   }
 
-  function saveCalibration() {
+  function saveSegCalib() {
     const img = calibPreviewImg;
     const capW = $bpDebugFrame?.capW || 640;
     const capH = $bpDebugFrame?.capH || 480;
@@ -79,56 +123,87 @@
     const sx = capW / displayW;
     const sy = capH / displayH;
 
-    wsSend({
-      command: 'bp_save_config',
-      sysBox: {
-        x: Math.round(sysBoxCss.x * sx),
-        y: Math.round(sysBoxCss.y * sy),
-        w: Math.round(sysBoxCss.w * sx),
-        h: Math.round(sysBoxCss.h * sy),
-      },
-      diaBox: {
-        x: Math.round(diaBoxCss.x * sx),
-        y: Math.round(diaBoxCss.y * sy),
-        w: Math.round(diaBoxCss.w * sx),
-        h: Math.round(diaBoxCss.h * sy),
-      },
-      camera: {
-        brightness: camBrightness,
-        contrast:   camContrast,
-        sharpness:  camSharpness,
-        saturation: camSaturation,
-      },
+    const scaledDigits = DIGIT_NAMES.map((name) => {
+      const segs: Record<string, { x: number; y: number; w: number; h: number }> = {};
+      for (const s of SEG_NAMES) {
+        const r = allSegs[name][s];
+        segs[s] = {
+          x: Math.max(0, Math.round(r.x * sx)),
+          y: Math.max(0, Math.round(r.y * sy)),
+          w: Math.max(4, Math.round(r.w * sx)),
+          h: Math.max(2, Math.round(r.h * sy)),
+        };
+      }
+      return { name, segments: segs };
     });
-    closeCalibration();
+
+    wsSend({
+      command: 'bp_save_segments',
+      digits: scaledDigits,
+      threshold: segThreshold,
+      camera: { brightness: camBrightness, contrast: camContrast, sharpness: camSharpness, saturation: camSaturation },
+    });
+    closeSegCalib();
   }
 
-  function startBoxDrag(e: PointerEvent, box: 'sys' | 'dia', mode: 'move' | 'resize') {
-    e.preventDefault();
+  function copyDigitToNext() {
+    const idx = (DIGIT_NAMES as readonly string[]).indexOf(activeDigit);
+    if (idx < 0 || idx >= DIGIT_NAMES.length - 1) return;
+    const nextName = DIGIT_NAMES[idx + 1] as DigitName;
+    const src = allSegs[activeDigit];
+    const allX = SEG_NAMES.flatMap((s) => [src[s].x, src[s].x + src[s].w]);
+    const digitW = Math.max(...allX) - Math.min(...allX);
+    const shiftX = Math.round(digitW * 1.25);
+    const newSegs: DigitSegs = {};
+    for (const s of SEG_NAMES) newSegs[s] = { ...src[s], x: src[s].x + shiftX };
+    allSegs = { ...allSegs, [nextName]: newSegs };
+    activeDigit = nextName;
+  }
+
+  function testSegments() {
+    const img = calibPreviewImg;
+    if (!img) return;
+    isTesting = true;
+    const capW = $bpDebugFrame?.capW || 640;
+    const capH = $bpDebugFrame?.capH || 480;
+    const displayW = img.clientWidth || capW;
+    const displayH = img.clientHeight || capH;
+    const sx = capW / displayW, sy = capH / displayH;
+
+    const scaledDigits = DIGIT_NAMES.map((name) => {
+      const segs: Record<string, { x: number; y: number; w: number; h: number }> = {};
+      for (const s of SEG_NAMES) {
+        const r = allSegs[name][s];
+        segs[s] = { x: Math.max(0,Math.round(r.x*sx)), y: Math.max(0,Math.round(r.y*sy)), w: Math.max(4,Math.round(r.w*sx)), h: Math.max(2,Math.round(r.h*sy)) };
+      }
+      return { name, segments: segs };
+    });
+
+    wsSend({ command: 'bp_test_segments', digits: scaledDigits, threshold: segThreshold });
+  }
+
+  // Stop spinner when test result arrives
+  $: if ($bpTestResult) isTesting = false;
+
+  function onSegPointerDown(e: PointerEvent, digit: string, seg: string, mode: 'move' | 'resize') {
+    e.preventDefault(); e.stopPropagation();
     (e.target as HTMLElement).setPointerCapture(e.pointerId);
-    const b = box === 'sys' ? { ...sysBoxCss } : { ...diaBoxCss };
-    dragState = { box, mode, startX: e.clientX, startY: e.clientY, startBox: b };
+    activeDigit = digit as DigitName;
+    activeSeg = `${digit}:${seg}`;
+    segDragState = { digit, seg, mode, startX: e.clientX, startY: e.clientY, startRect: { ...allSegs[digit][seg] } };
   }
 
-  function onCalibPointerMove(e: PointerEvent) {
-    if (!dragState) return;
-    const dx = e.clientX - dragState.startX;
-    const dy = e.clientY - dragState.startY;
-    const b = { ...dragState.startBox };
-    if (dragState.mode === 'move') {
-      b.x += dx;
-      b.y += dy;
-    } else {
-      b.w = Math.max(40, b.w + dx);
-      b.h = Math.max(20, b.h + dy);
-    }
-    if (dragState.box === 'sys') sysBoxCss = b;
-    else diaBoxCss = b;
+  function onSegPointerMove(e: PointerEvent) {
+    if (!segDragState) return;
+    const dx = e.clientX - segDragState.startX;
+    const dy = e.clientY - segDragState.startY;
+    const r = { ...segDragState.startRect };
+    if (segDragState.mode === 'move') { r.x = Math.round(r.x + dx); r.y = Math.round(r.y + dy); }
+    else { r.w = Math.max(6, Math.round(r.w + dx)); r.h = Math.max(4, Math.round(r.h + dy)); }
+    allSegs = { ...allSegs, [segDragState.digit]: { ...allSegs[segDragState.digit], [segDragState.seg]: r } };
   }
 
-  function onCalibPointerUp() {
-    dragState = null;
-  }
+  function onSegPointerUp() { segDragState = null; }
 
   // Derived SYS/DIA from the stored bp string (e.g. "120/80")
   $: bpParts = results.bp !== '0/0' ? results.bp.split('/') : ['0', '0'];
@@ -633,7 +708,7 @@
           </div>
           <!-- Calibrate shortcut -->
           <button
-            on:click={openCalibration}
+            on:click={openSegCalib}
             class="mt-8 px-5 py-2.5 rounded-2xl border-2 border-orange-300 bg-orange-50 text-orange-600 text-[11px] font-black uppercase tracking-widest active:scale-95 transition-transform"
           >
             🎯 Calibrate Camera
@@ -798,133 +873,179 @@
   {/if}
 </div>
 
-<!-- ── BP Camera Calibration Overlay ───────────────────────────────────────── -->
-{#if bpCalibrateMode}
+<!-- ── BP Segment Calibration Overlay ─────────────────────────────────────── -->
+{#if segCalibMode}
   <!-- svelte-ignore a11y-no-static-element-interactions -->
   <div
-    class="fixed inset-0 bg-black/90 z-50 flex flex-col p-4 overflow-y-auto"
+    class="fixed inset-0 bg-black/95 z-50 flex flex-col overflow-hidden"
     in:fade out:fade
-    on:pointermove={onCalibPointerMove}
-    on:pointerup={onCalibPointerUp}
+    on:pointermove={onSegPointerMove}
+    on:pointerup={onSegPointerUp}
   >
     <!-- Header -->
-    <div class="flex items-center justify-between mb-3 flex-shrink-0">
-      <div class="flex items-center gap-2">
-        <span class="rounded-full bg-orange-500 px-2.5 py-0.5 text-[10px] font-black uppercase tracking-widest text-white">🎯 Calibration</span>
-        <span class="text-white/60 text-[10px] font-bold uppercase tracking-widest">Drag boxes to SYS &amp; DIA digits</span>
+    <div class="flex items-center justify-between p-4 flex-shrink-0">
+      <div class="flex items-center gap-2 flex-wrap">
+        <span class="rounded-full bg-orange-500 px-2.5 py-0.5 text-[10px] font-black uppercase tracking-widest text-white">📐 Segment Calibration</span>
+        <span class="text-white/50 text-[10px] font-bold">Place each segment rect on its display segment</span>
       </div>
-      <button
-        on:click={closeCalibration}
-        class="text-white/50 font-black text-sm uppercase tracking-widest px-3 py-1 rounded-xl active:bg-white/10"
-      >
-        ✕
-      </button>
+      <button on:click={closeSegCalib} class="text-white/50 font-black text-sm uppercase tracking-widest px-3 py-1 rounded-xl active:bg-white/10">✕</button>
     </div>
 
-    <!-- Camera preview with draggable boxes -->
-    <div class="relative w-full flex-shrink-0 mb-4 touch-none select-none">
+    <!-- Camera preview with segment overlays -->
+    <div
+      class="relative flex-1 mx-4 mb-3 touch-none select-none overflow-hidden rounded-xl border border-white/10"
+      style="min-height:0"
+    >
       {#if $bpDebugFrame?.imageData}
         <img
           bind:this={calibPreviewImg}
           src="data:image/jpeg;base64,{$bpDebugFrame.imageData}"
           alt="BP camera preview"
-          class="w-full h-auto block rounded-xl border border-white/10"
+          class="w-full h-full object-contain block"
           draggable="false"
         />
 
-        <!-- SYS box (red) -->
-        <!-- svelte-ignore a11y-no-static-element-interactions -->
-        <div
-          class="absolute border-2 border-red-500 bg-red-500/10 touch-none"
-          style="left:{sysBoxCss.x}px; top:{sysBoxCss.y}px; width:{sysBoxCss.w}px; height:{sysBoxCss.h}px; cursor:move"
-          on:pointerdown={(e) => startBoxDrag(e, 'sys', 'move')}
-        >
-          <span class="absolute top-1 left-1.5 text-red-400 text-[10px] font-black uppercase pointer-events-none">SYS</span>
-          <!-- resize handle -->
-          <!-- svelte-ignore a11y-no-static-element-interactions -->
-          <div
-            class="absolute bottom-0 right-0 w-5 h-5 bg-red-500 rounded-tl-sm"
-            style="cursor:se-resize"
-            on:pointerdown|stopPropagation={(e) => startBoxDrag(e, 'sys', 'resize')}
-          />
-        </div>
+        <!-- Segment overlays for all 6 digits -->
+        {#each DIGIT_NAMES as dname}
+          {@const isActive = dname === activeDigit}
+          {@const color = SEG_COLOR[dname]}
+          {@const testDigit = $bpTestResult?.digits?.find(d => d.name === dname)}
+          {#each SEG_NAMES as sname}
+            {@const r = allSegs[dname][sname]}
+            {@const isSelectedSeg = activeSeg === `${dname}:${sname}`}
+            {@const segOn = testDigit?.segments?.[sname]}
+            <!-- svelte-ignore a11y-no-static-element-interactions -->
+            <div
+              class="absolute touch-none"
+              style="
+                left:{r.x}px; top:{r.y}px; width:{r.w}px; height:{r.h}px;
+                border: 2px solid {isActive ? (testDigit ? (segOn ? '#22c55e' : '#ef4444') : color) : 'rgba(255,255,255,0.2)'};
+                background: {isActive ? (testDigit ? (segOn ? 'rgba(34,197,94,0.35)' : 'rgba(239,68,68,0.2)') : color + '33') : 'rgba(255,255,255,0.05)'};
+                cursor: {isActive ? 'move' : 'default'};
+                box-shadow: {isSelectedSeg ? '0 0 0 2px white' : 'none'};
+                z-index: {isActive ? 10 : 5};
+              "
+              on:pointerdown={(e) => isActive && onSegPointerDown(e, dname, sname, 'move')}
+            >
+              {#if isActive}
+                <span class="absolute top-0 left-0.5 text-[8px] font-black leading-none pointer-events-none" style="color:{color}">{sname.toUpperCase()}</span>
+                <!-- resize handle -->
+                <div
+                  class="absolute bottom-0 right-0 w-3 h-3 touch-none"
+                  style="background:{color}; cursor:se-resize; opacity:0.9"
+                  on:pointerdown|stopPropagation={(e) => onSegPointerDown(e, dname, sname, 'resize')}
+                ></div>
+              {/if}
+            </div>
+          {/each}
+        {/each}
 
-        <!-- DIA box (green) -->
-        <!-- svelte-ignore a11y-no-static-element-interactions -->
-        <div
-          class="absolute border-2 border-green-400 bg-green-400/10 touch-none"
-          style="left:{diaBoxCss.x}px; top:{diaBoxCss.y}px; width:{diaBoxCss.w}px; height:{diaBoxCss.h}px; cursor:move"
-          on:pointerdown={(e) => startBoxDrag(e, 'dia', 'move')}
-        >
-          <span class="absolute top-1 left-1.5 text-green-400 text-[10px] font-black uppercase pointer-events-none">DIA</span>
-          <!-- resize handle -->
-          <!-- svelte-ignore a11y-no-static-element-interactions -->
-          <div
-            class="absolute bottom-0 right-0 w-5 h-5 bg-green-500 rounded-tl-sm"
-            style="cursor:se-resize"
-            on:pointerdown|stopPropagation={(e) => startBoxDrag(e, 'dia', 'resize')}
-          />
-        </div>
+        <!-- Test result decoded digit labels -->
+        {#if $bpTestResult}
+          {#each $bpTestResult.digits as dr}
+            {@const segs = allSegs[dr.name]}
+            {@const allX = Object.values(segs).flatMap(r => [r.x, r.x + r.w])}
+            {@const allY = Object.values(segs).flatMap(r => [r.y, r.y + r.h])}
+            {@const lx = Math.min(...allX)}
+            {@const ty = Math.min(...allY)}
+            <div
+              class="absolute pointer-events-none px-1.5 py-0.5 rounded text-[11px] font-black"
+              style="left:{lx}px; top:{Math.max(0, ty - 20)}px; background:rgba(0,0,0,0.7); color:{dr.decoded ? '#22c55e' : '#ef4444'}"
+            >
+              {dr.decoded ?? '?'}
+            </div>
+          {/each}
+        {/if}
+
       {:else}
-        <div class="w-full h-48 rounded-xl border border-white/10 bg-white/5 flex items-center justify-center text-white/30 text-xs font-bold uppercase tracking-widest">
+        <div class="w-full h-full flex items-center justify-center text-white/30 text-xs font-bold uppercase tracking-widest">
           {$bpDebugFrame?.error ? `⚠ ${$bpDebugFrame.error}` : 'Waiting for camera…'}
         </div>
       {/if}
     </div>
 
-    <!-- Camera settings sliders -->
-    <div class="grid grid-cols-2 gap-x-6 gap-y-4 mb-5 flex-shrink-0">
-      <div>
-        <div class="flex justify-between mb-1">
-          <label for="calib-brightness" class="text-[10px] font-black uppercase tracking-widest text-white/60">Brightness</label>
-          <span class="text-[10px] text-white/40 font-mono">{camBrightness.toFixed(2)}</span>
-        </div>
-        <input id="calib-brightness" type="range" min="-1" max="1" step="0.05" bind:value={camBrightness} class="w-full accent-blue-500" />
-      </div>
-      <div>
-        <div class="flex justify-between mb-1">
-          <label for="calib-contrast" class="text-[10px] font-black uppercase tracking-widest text-white/60">Contrast</label>
-          <span class="text-[10px] text-white/40 font-mono">{camContrast.toFixed(1)}</span>
-        </div>
-        <input id="calib-contrast" type="range" min="0" max="10" step="0.1" bind:value={camContrast} class="w-full accent-blue-500" />
-      </div>
-      <div>
-        <div class="flex justify-between mb-1">
-          <label for="calib-sharpness" class="text-[10px] font-black uppercase tracking-widest text-white/60">Sharpness</label>
-          <span class="text-[10px] text-white/40 font-mono">{camSharpness.toFixed(1)}</span>
-        </div>
-        <input id="calib-sharpness" type="range" min="0" max="16" step="0.5" bind:value={camSharpness} class="w-full accent-blue-500" />
-      </div>
-      <div>
-        <div class="flex justify-between mb-1">
-          <label for="calib-saturation" class="text-[10px] font-black uppercase tracking-widest text-white/60">Saturation</label>
-          <span class="text-[10px] text-white/40 font-mono">{camSaturation.toFixed(1)}</span>
-        </div>
-        <input id="calib-saturation" type="range" min="0" max="10" step="0.1" bind:value={camSaturation} class="w-full accent-blue-500" />
-      </div>
+    <!-- Digit selector tabs -->
+    <div class="flex gap-1.5 px-4 mb-3 flex-shrink-0">
+      {#each DIGIT_NAMES as dname}
+        {@const isSys = dname.startsWith('sys')}
+        <button
+          on:click={() => activeDigit = dname}
+          class="flex-1 py-2 rounded-xl text-[10px] font-black uppercase tracking-wider transition-all
+            {activeDigit === dname
+              ? (isSys ? 'bg-red-500 text-white' : 'bg-green-500 text-white')
+              : 'bg-white/10 text-white/50 active:bg-white/20'}"
+        >
+          {dname === 'sys0' ? 'S-1' : dname === 'sys1' ? 'S-2' : dname === 'sys2' ? 'S-3' : dname === 'dia0' ? 'D-1' : dname === 'dia1' ? 'D-2' : 'D-3'}
+        </button>
+      {/each}
+      <button
+        on:click={copyDigitToNext}
+        disabled={(DIGIT_NAMES as readonly string[]).indexOf(activeDigit) >= DIGIT_NAMES.length - 1}
+        class="px-3 py-2 rounded-xl bg-blue-600 text-white text-[10px] font-black uppercase tracking-wider disabled:opacity-30 active:bg-blue-700"
+        title="Copy current digit layout to next digit (shifted right)"
+      >
+        Copy→
+      </button>
     </div>
 
-    <p class="text-[10px] text-white/30 font-bold uppercase tracking-widest text-center mb-4 flex-shrink-0">
-      Drag boxes to cover the SYS (red) and DIA (green) digit areas. Corner handle to resize.
-    </p>
+    <!-- Camera sliders + threshold + actions -->
+    <div class="px-4 pb-4 flex-shrink-0 space-y-3">
+      <div class="grid grid-cols-2 gap-x-5 gap-y-2">
+        <div>
+          <div class="flex justify-between">
+            <span class="text-[9px] font-black uppercase tracking-widest text-white/50">Threshold</span>
+            <span class="text-[9px] text-white/40 font-mono">{segThreshold}</span>
+          </div>
+          <input type="range" min="30" max="220" step="5" bind:value={segThreshold} class="w-full accent-orange-400" />
+        </div>
+        <div>
+          <div class="flex justify-between">
+            <span class="text-[9px] font-black uppercase tracking-widest text-white/50">Brightness</span>
+            <span class="text-[9px] text-white/40 font-mono">{camBrightness.toFixed(2)}</span>
+          </div>
+          <input type="range" min="-1" max="1" step="0.05" bind:value={camBrightness} class="w-full accent-blue-500" />
+        </div>
+        <div>
+          <div class="flex justify-between">
+            <span class="text-[9px] font-black uppercase tracking-widest text-white/50">Contrast</span>
+            <span class="text-[9px] text-white/40 font-mono">{camContrast.toFixed(1)}</span>
+          </div>
+          <input type="range" min="0" max="10" step="0.1" bind:value={camContrast} class="w-full accent-blue-500" />
+        </div>
+        <div>
+          <div class="flex justify-between">
+            <span class="text-[9px] font-black uppercase tracking-widest text-white/50">Sharpness</span>
+            <span class="text-[9px] text-white/40 font-mono">{camSharpness.toFixed(1)}</span>
+          </div>
+          <input type="range" min="0" max="16" step="0.5" bind:value={camSharpness} class="w-full accent-blue-500" />
+        </div>
+      </div>
 
-    <!-- Action buttons -->
-    <div class="flex gap-3 flex-shrink-0">
-      <button
-        on:click={closeCalibration}
-        class="flex-1 py-4 rounded-2xl border-2 border-white/20 text-white/60 font-black uppercase text-xs tracking-widest active:scale-95 transition-transform"
-      >
-        Discard
-      </button>
-      <button
-        on:click={saveCalibration}
-        class="flex-1 py-4 rounded-2xl bg-blue-600 text-white font-black uppercase text-xs tracking-widest active:scale-95 transition-transform"
-      >
-        💾 Save &amp; Close
-      </button>
+      <div class="flex gap-2">
+        <button
+          on:click={testSegments}
+          disabled={isTesting}
+          class="flex-1 py-3 rounded-2xl border-2 border-yellow-400 text-yellow-300 font-black uppercase text-[10px] tracking-widest active:scale-95 transition-transform disabled:opacity-40"
+        >
+          {isTesting ? '⏳ Testing…' : '🔍 Test Segments'}
+        </button>
+        <button
+          on:click={closeSegCalib}
+          class="flex-1 py-3 rounded-2xl border-2 border-white/20 text-white/60 font-black uppercase text-[10px] tracking-widest active:scale-95 transition-transform"
+        >
+          Discard
+        </button>
+        <button
+          on:click={saveSegCalib}
+          class="flex-1 py-3 rounded-2xl bg-blue-600 text-white font-black uppercase text-[10px] tracking-widest active:scale-95 transition-transform"
+        >
+          💾 Save
+        </button>
+      </div>
     </div>
   </div>
 {/if}
+
 
 <style>
   .custom-scrollbar::-webkit-scrollbar {

@@ -34,7 +34,8 @@ import { URL } from 'url';
 import { spawn } from 'child_process';
 import { resolve, dirname } from 'path';
 import { fileURLToPath } from 'url';
-import { readFileSync, writeFileSync } from 'fs';
+import { readFileSync, writeFileSync, unlinkSync } from 'fs';
+import { tmpdir } from 'os';
 import bcrypt from 'bcryptjs';
 import { createClient } from '@supabase/supabase-js';
 import * as localDb from './local-db.js';
@@ -727,6 +728,59 @@ function startWebSocketServer() {
           stopBpCalibrate();
           return;
         }
+
+        if (msg.command === 'bp_save_segments') {
+          const segConfigPath = resolve(__dirname, '../bp-camera/seg_config.json');
+          const segConfig = {
+            digits: msg.digits,
+            threshold: msg.threshold ?? 120,
+            camera: msg.camera ?? {},
+          };
+          writeFileSync(segConfigPath, JSON.stringify(segConfig, null, 2));
+          // Also persist camera env vars
+          if (msg.camera) {
+            const cam = msg.camera;
+            const camUpdates = {};
+            if (cam.brightness !== undefined) camUpdates.BP_BRIGHTNESS = cam.brightness;
+            if (cam.contrast   !== undefined) camUpdates.BP_CONTRAST   = cam.contrast;
+            if (cam.sharpness  !== undefined) camUpdates.BP_SHARPNESS  = cam.sharpness;
+            if (cam.saturation !== undefined) camUpdates.BP_SATURATION = cam.saturation;
+            writeDotEnv(camUpdates);
+          }
+          ws.send(JSON.stringify({ type: 'bp_config_saved' }));
+          log(`Segment config saved to ${segConfigPath}`);
+          return;
+        }
+
+        if (msg.command === 'bp_test_segments') {
+          const tmpConfig = resolve(tmpdir(), `seg_test_${Date.now()}.json`);
+          const segConfig = {
+            digits: msg.digits,
+            threshold: msg.threshold ?? 120,
+            camera: msg.camera ?? {},
+          };
+          writeFileSync(tmpConfig, JSON.stringify(segConfig));
+          const testProc = spawn('python3', [BP_CONFIG.OCR_SCRIPT, '--test', '--config', tmpConfig]);
+          let testOut = '';
+          let testErr = '';
+          testProc.stdout.on('data', (d) => { testOut += d.toString(); });
+          testProc.stderr.on('data', (d) => { testErr += d.toString(); });
+          testProc.on('close', () => {
+            try {
+              const parsed = JSON.parse(testOut.trim());
+              ws.send(JSON.stringify({ type: 'bp_test_result', ...parsed }));
+              if (parsed.imageData) {
+                ws.send(JSON.stringify({ type: 'bp_frame', imageData: parsed.imageData, capW: parsed.capW, capH: parsed.capH }));
+              }
+            } catch {
+              warn(`bp_test_segments parse error: ${testErr.slice(0, 200)}`);
+              ws.send(JSON.stringify({ type: 'bp_test_result', error: 'parse error', stderr: testErr.slice(0, 200) }));
+            }
+            try { unlinkSync(tmpConfig); } catch {}
+          });
+          return;
+        }
+
         if (msg.command === 'bp_save_config') {
           const updates = {};
           if (msg.sysBox) {

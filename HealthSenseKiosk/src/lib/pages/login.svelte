@@ -1,5 +1,5 @@
 <script lang="ts">
-  import { fade, slide, scale } from 'svelte/transition';
+  import { fade, scale } from 'svelte/transition';
   import { onDestroy } from 'svelte';
   import {
     startFingerprintVerify,
@@ -15,13 +15,11 @@
   export let onLogin: (user: any) => void; // Pass the user data back
   export let onCreateAccount: () => void;
 
-  let username = ""; // User types: joy.arenas
+  let username = "";
   let password = "";
-  let focusedField: 'username' | 'password' | 'recoveryEmail' | null = null;
   let showFingerprintModal = false;
   let showPassword = false;
-  let isCaps = true;
-  let isSubmitting = false; 
+  let isSubmitting = false;
   let recoveryEmail = "";
 
   // --- FINGERPRINT STATE ---
@@ -49,28 +47,6 @@
     scanMessage = "";
     cancelFingerprint();
   }
-
-  const rows = {
-    numbers: ['1','2','3','4','5','6','7','8','9','0'],
-    letters: [
-      ['Q','W','E','R','T','Y','U','I','O','P'],
-      ['A','S','D','F','G','H','J','K','L'],
-      ['Z','X','C','V','B','N','M']
-    ]
-  };
-
-  function handleKeyPress(key: string) {
-    if (!focusedField) return;
-    const char = isCaps ? key.toUpperCase() : key.toLowerCase();
-    if (focusedField === 'username') username += char;
-    if (focusedField === 'password') password += char;
-  }
-
-  function backspace() {
-    if (focusedField === 'username') username = username.slice(0, -1);
-    if (focusedField === 'password') password = password.slice(0, -1);
-  }
-
 
   // --- FINGERPRINT VERIFY FLOW ---
   async function startScan() {
@@ -151,8 +127,7 @@
 </script>
 
 <div 
-  class="relative h-full w-full flex flex-col bg-linear-to-b from-[#f0f7ff] to-[#9fc5f8] select-none overflow-hidden"
-  on:click={() => focusedField = null}
+  class="relative h-full w-full flex flex-col bg-linear-to-b from-[#f0f7ff] to-[#9fc5f8] overflow-hidden"
   role="presentation"
 >
   <div class="flex-1 flex flex-col items-center justify-center max-w-lg mx-auto w-full px-6" on:click|stopPropagation role="presentation">
@@ -180,56 +155,30 @@
       <div class="space-y-2">
         <div class="space-y-2">
           <span class="ml-4 text-[10px] font-black uppercase tracking-widest text-blue-400">Username</span>
-          <button 
-            type="button"
-            on:click|stopPropagation={() => focusedField = 'username'}
-            class="relative w-full h-20 px-8 rounded-3xl bg-white border flex items-center text-xl font-bold transition-all outline-none text-left
-            {focusedField === 'username' ? 'border-blue-500 ring-4 ring-blue-500/10' : 'border-blue-100 shadow-sm'}"
-          >
-            <div class="flex items-baseline overflow-hidden w-full">
-              <span class="text-blue-900 whitespace-nowrap">{username}</span>
-              
-              {#if focusedField === 'username'}
-                <div class="ml-1 w-0.5 h-6 bg-blue-500 animate-pulse"></div>
-              {/if}
-              
-              {#if !username && focusedField !== 'username'}
-                <span class="text-blue-900/20">firstname.lastname</span>
-              {/if}
-              
-              <!-- <span class="ml-1 text-blue-300 font-medium select-none">@kiosk.local</span> -->
-            </div>
-          </button>
+          <input
+            type="text"
+            bind:value={username}
+            placeholder="firstname.lastname"
+            autocomplete="username"
+            class="w-full h-20 px-8 rounded-3xl bg-white border border-blue-100 shadow-sm text-xl font-bold text-blue-900 placeholder:text-blue-900/20 outline-none focus:border-blue-500 focus:ring-4 focus:ring-blue-500/10 transition-all"
+          />
         </div>
       </div>
 
       <div class="space-y-2">
         <span class="ml-4 text-[10px] font-black uppercase tracking-widest text-blue-400">Password</span>
-        
-        <div 
-          on:click|stopPropagation={() => focusedField = 'password'}
-          on:keydown={(e) => e.key === 'Enter' && (focusedField = 'password')}
-          role="button"
-          tabindex="0"
-          class="relative w-full h-20 px-8 rounded-3xl bg-white border flex items-center justify-between text-xl font-bold transition-all outline-none cursor-pointer
-          {focusedField === 'password' ? 'border-blue-500 ring-4 ring-blue-500/10' : 'border-blue-100 shadow-sm'}"
-        >
-          <div class="flex items-center flex-1 h-full pointer-events-none">
-            <span class="text-blue-900">
-              {password ? (showPassword ? password : '•'.repeat(password.length)) : ''}
-              {#if !password && focusedField !== 'password'}
-                <span class="text-blue-900/20">••••••••</span>
-              {/if}
-            </span>
-            {#if focusedField === 'password'}
-              <div class="ml-1 w-0.5 h-6 bg-blue-500 animate-pulse"></div>
-            {/if}
-          </div>
-          
-          <button 
+        <div class="relative w-full h-20">
+          <input
+            type={showPassword ? 'text' : 'password'}
+            bind:value={password}
+            placeholder="••••••••"
+            autocomplete="current-password"
+            class="w-full h-full px-8 pr-24 rounded-3xl bg-white border border-blue-100 shadow-sm text-xl font-bold text-blue-900 placeholder:text-blue-900/20 outline-none focus:border-blue-500 focus:ring-4 focus:ring-blue-500/10 transition-all"
+          />
+          <button
             type="button"
-            on:click|stopPropagation={() => showPassword = !showPassword} 
-            class="text-blue-900/30 p-2 z-10 hover:text-blue-600 active:scale-90 transition-all"
+            on:click={() => showPassword = !showPassword}
+            class="absolute right-6 top-1/2 -translate-y-1/2 text-blue-900/30 p-2 z-10 hover:text-blue-600 active:scale-90 transition-all"
           >
             {#if showPassword}
               <svg xmlns="http://www.w3.org/2000/svg" class="w-6 h-6" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="2">
@@ -274,100 +223,6 @@
       </button>
     </div>
   </div>
-
-  {#if focusedField}
-    <div 
-      on:click|stopPropagation
-      on:keydown={(e) => e.key === 'Escape' && (focusedField = null)}
-      role="dialog"
-      aria-label="Virtual Keyboard"
-      tabindex="-1" 
-      transition:slide={{ axis: 'y', duration: 400 }} 
-      class="fixed bottom-0 left-0 right-0 bg-white/95 backdrop-blur-xl border-t border-blue-100 p-6 pb-12 z-40 outline-none"
-    >
-      <div class="max-w-4xl mx-auto space-y-3">
-        <div class="flex justify-center gap-2">
-          {#each rows.numbers as num}
-            <button 
-              type="button"
-              on:mousedown|preventDefault={() => handleKeyPress(num)} 
-              class="h-14 flex-1 bg-white border border-blue-50 rounded-xl font-bold text-blue-950 shadow-xs active:bg-blue-500 active:text-white transition-colors text-xl"
-            >
-              {num}
-            </button>
-          {/each}
-        </div>
-
-        {#each rows.letters as row, i}
-          <div class="flex justify-center gap-2">
-            {#if i === 2}
-              <button 
-                type="button"
-                on:mousedown|preventDefault={() => isCaps = !isCaps} 
-                class="w-20 h-16 {isCaps ? 'bg-blue-600 text-white' : 'bg-blue-50 text-blue-600'} border border-blue-100 rounded-xl font-black text-xs"
-              >
-                CAPS
-              </button>
-            {/if}
-
-            {#each row as key}
-              <button 
-                type="button"
-                on:mousedown|preventDefault={() => handleKeyPress(key)} 
-                class="h-16 flex-1 bg-white border border-blue-50 rounded-xl font-bold text-blue-950 shadow-xs active:bg-blue-500 active:text-white transition-colors text-xl"
-              >
-                {isCaps ? key : key.toLowerCase()}
-              </button>
-            {/each}
-
-            {#if i === 2}
-              <button 
-                type="button"
-                on:mousedown|preventDefault={backspace} 
-                aria-label="Backspace"
-                class="w-20 h-16 bg-blue-50 text-blue-600 border border-blue-100 rounded-xl font-bold flex items-center justify-center"
-              >
-                ⌫
-              </button>
-            {/if}
-          </div>
-        {/each}
-
-        <div class="flex justify-center mt-4 gap-4">
-          <button 
-            type="button" 
-            on:mousedown|preventDefault={() => handleKeyPress('@')} 
-            class="w-20 h-14 bg-blue-600 text-white rounded-xl font-black text-xl shadow-lg active:scale-95 transition-transform"
-          >
-            @
-          </button>
-          <button 
-            type="button" 
-            on:mousedown|preventDefault={() => handleKeyPress('.')} 
-            class="w-20 h-14 bg-blue-100 text-blue-600 rounded-xl font-black text-2xl active:scale-95 transition-transform"
-           >
-            .
-          </button>
-
-          <button 
-            type="button" 
-            aria-label="Spacebar" 
-            on:mousedown|preventDefault={() => handleKeyPress(' ')} 
-            class="{focusedField === 'recoveryEmail' ? 'w-44' : 'w-64'} h-14 bg-white border border-blue-100 rounded-xl active:bg-blue-50 transition-all"
-          >
-          </button>
-
-          <button 
-            type="button" 
-            on:click={() => focusedField = null} 
-            class="px-12 py-3 bg-blue-950 rounded-full text-[10px] font-black uppercase tracking-[0.4em] text-white shadow-md active:scale-95 transition-transform"
-          >
-            Done
-          </button>
-        </div>
-      </div>
-    </div>
-  {/if}
 
   {#if showFingerprintModal}
     <div 

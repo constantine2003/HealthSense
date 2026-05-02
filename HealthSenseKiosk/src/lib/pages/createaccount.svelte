@@ -1,5 +1,5 @@
 <script lang="ts">
-  import { fade, slide, scale } from 'svelte/transition';
+  import { fade, scale } from 'svelte/transition';
   import { onDestroy } from 'svelte';
   import {
     startFingerprintEnroll,
@@ -22,7 +22,6 @@
   let middleName = "";
   let lastName = "";
   let sex: 'Male' | 'Female' | 'Other' | '' = '';
-  let focusedField: 'first' | 'middle' | 'last' | 'recoveryEmail' | 'password' | 'confirmPassword' | null = null;
   let isSubmitting = false;
   let recoveryEmail = "";
   let password = "";
@@ -100,38 +99,6 @@
     }
   });
   onDestroy(unsubFP);
-
-  // --- KEYBOARD CONFIG ---
-  const rows = {
-    numbers: ['1','2','3','4','5','6','7','8','9','0'],
-    letters: [
-      ['Q','W','E','R','T','Y','U','I','O','P'],
-      ['A','S','D','F','G','H','J','K','L'],
-      ['Z','X','C','V','B','N','M']
-    ]
-  };
-  let isCaps = true;
-
-  // --- LOGIC FUNCTIONS ---
-  function handleKeyPress(key: string) {
-    if (!focusedField) return;
-    const char = isCaps ? key.toUpperCase() : key.toLowerCase();
-    if (focusedField === 'first')           firstName       += char;
-    if (focusedField === 'middle')          middleName      += char;
-    if (focusedField === 'last')            lastName        += char;
-    if (focusedField === 'recoveryEmail')   recoveryEmail   += char;
-    if (focusedField === 'password')        password        += char;
-    if (focusedField === 'confirmPassword') confirmPassword += char;
-  }
-
-  function backspace() {
-    if (focusedField === 'first')           firstName       = firstName.slice(0, -1);
-    if (focusedField === 'middle')          middleName      = middleName.slice(0, -1);
-    if (focusedField === 'last')            lastName        = lastName.slice(0, -1);
-    if (focusedField === 'recoveryEmail')   recoveryEmail   = recoveryEmail.slice(0, -1);
-    if (focusedField === 'password')        password        = password.slice(0, -1);
-    if (focusedField === 'confirmPassword') confirmPassword = confirmPassword.slice(0, -1);
-  }
 
   async function startFingerprintScan() {
     // Open the modal immediately regardless of bridge state so the user
@@ -247,8 +214,7 @@
 </script>
 
 <div
-  class="relative h-full w-full flex flex-col bg-linear-to-b from-[#f0f7ff] to-[#9fc5f8] select-none overflow-hidden"
-  on:click={() => focusedField = null}
+  class="relative h-full w-full flex flex-col bg-linear-to-b from-[#f0f7ff] to-[#9fc5f8] overflow-hidden"
   role="presentation"
 >
   <button
@@ -274,57 +240,35 @@
     <div class="w-full space-y-5">
       <div class="space-y-1">
         <span class="ml-4 text-[10px] font-black uppercase tracking-widest text-blue-400">First Name</span>
-        <button
-          type="button"
-          on:click|stopPropagation={() => focusedField = 'first'}
-          class="w-full h-16 px-8 rounded-2xl bg-white border flex items-center text-lg font-bold transition-all {focusedField === 'first' ? 'border-blue-500 ring-4 ring-blue-500/10' : 'border-blue-100 shadow-sm'}"
-        >
-          <div class="flex items-center">
-            {#if focusedField === 'first'}
-              <span class="text-blue-950">{firstName}</span>
-              <div class="ml-0.5 w-0.5 h-6 bg-blue-500 animate-pulse"></div>
-            {:else}
-              <span class={firstName ? 'text-blue-950' : 'text-blue-900/20'}>
-                {firstName || 'Juan'}
-              </span>
-            {/if}
-          </div>
-        </button>
+        <input
+          type="text"
+          bind:value={firstName}
+          placeholder="Juan"
+          autocomplete="given-name"
+          class="w-full h-16 px-8 rounded-2xl bg-white border border-blue-100 shadow-sm text-lg font-bold text-blue-950 placeholder:text-blue-900/20 outline-none focus:border-blue-500 focus:ring-4 focus:ring-blue-500/10 transition-all"
+        />
       </div>
 
       <div class="space-y-1">
         <span class="ml-4 text-[10px] font-black uppercase tracking-widest text-blue-400">Middle Name (Optional)</span>
-        <button type="button" on:click|stopPropagation={() => focusedField = 'middle'}
-          class="w-full h-16 px-8 rounded-2xl bg-white border flex items-center text-lg font-bold transition-all {focusedField === 'middle' ? 'border-blue-500 ring-4 ring-blue-500/10' : 'border-blue-100 shadow-sm'}">
-          <div class="flex items-center">
-            {#if focusedField === 'middle'}
-              <span class="text-blue-950">{middleName}</span>
-              <div class="ml-0.5 w-0.5 h-6 bg-blue-500 animate-pulse"></div>
-            {:else}
-              <span class={middleName ? 'text-blue-950' : 'text-blue-900/20'}>{middleName || 'Dela'}</span>
-            {/if}
-          </div>
-        </button>
+        <input
+          type="text"
+          bind:value={middleName}
+          placeholder="Dela"
+          autocomplete="additional-name"
+          class="w-full h-16 px-8 rounded-2xl bg-white border border-blue-100 shadow-sm text-lg font-bold text-blue-950 placeholder:text-blue-900/20 outline-none focus:border-blue-500 focus:ring-4 focus:ring-blue-500/10 transition-all"
+        />
       </div>
 
       <div class="space-y-1">
         <span class="ml-4 text-[10px] font-black uppercase tracking-widest text-blue-400">Last Name</span>
-        <button
-          type="button"
-          on:click|stopPropagation={() => focusedField = 'last'}
-          class="w-full h-16 px-8 rounded-2xl bg-white border flex items-center text-lg font-bold transition-all {focusedField === 'last' ? 'border-blue-500 ring-4 ring-blue-500/10' : 'border-blue-100 shadow-sm'}"
-        >
-          <div class="flex items-center">
-            {#if focusedField === 'last'}
-              <span class="text-blue-950">{lastName}</span>
-              <div class="ml-0.5 w-0.5 h-6 bg-blue-500 animate-pulse"></div>
-            {:else}
-              <span class={lastName ? 'text-blue-950' : 'text-blue-900/20'}>
-                {lastName || 'Cruz'}
-              </span>
-            {/if}
-          </div>
-        </button>
+        <input
+          type="text"
+          bind:value={lastName}
+          placeholder="Cruz"
+          autocomplete="family-name"
+          class="w-full h-16 px-8 rounded-2xl bg-white border border-blue-100 shadow-sm text-lg font-bold text-blue-950 placeholder:text-blue-900/20 outline-none focus:border-blue-500 focus:ring-4 focus:ring-blue-500/10 transition-all"
+        />
       </div>
 
       <div class="w-full space-y-1">
@@ -395,24 +339,16 @@
           <span class="text-[10px] font-black uppercase tracking-widest text-blue-400">Password</span>
           <span class="text-[8px] font-black text-red-400 bg-red-50 px-2 py-0.5 rounded-full tracking-widest">REQUIRED</span>
         </div>
-        <div class="w-full h-16 rounded-2xl bg-white border flex items-center transition-all {focusedField === 'password' ? 'border-blue-500 ring-4 ring-blue-500/10' : 'border-blue-100 shadow-sm'}">
-          <!-- svelte-ignore a11y-no-static-element-interactions -->
-          <div class="flex-1 h-full px-8 flex items-center cursor-pointer"
-            on:click|stopPropagation={() => focusedField = 'password'}
-            on:keydown={() => {}}
-            role="none"
-          >
-            {#if focusedField === 'password'}
-              <span class="text-blue-950 text-lg font-bold">{showPassword ? password : '•'.repeat(password.length)}</span>
-              <div class="ml-0.5 w-0.5 h-6 bg-blue-500 animate-pulse"></div>
-            {:else}
-              <span class="text-lg font-bold {password ? 'text-blue-950' : 'text-blue-900/20'}">
-                {password ? (showPassword ? password : '•'.repeat(password.length)) : 'Enter password'}
-              </span>
-            {/if}
-          </div>
+        <div class="relative w-full h-16">
+          <input
+            type={showPassword ? 'text' : 'password'}
+            bind:value={password}
+            placeholder="Enter password"
+            autocomplete="new-password"
+            class="w-full h-full px-8 pr-24 rounded-2xl bg-white border border-blue-100 shadow-sm text-lg font-bold text-blue-950 placeholder:text-blue-900/20 outline-none focus:border-blue-500 focus:ring-4 focus:ring-blue-500/10 transition-all"
+          />
           <button type="button" on:click|stopPropagation={() => showPassword = !showPassword}
-            class="pr-6 text-blue-400 text-xs font-black uppercase tracking-widest flex-shrink-0">
+            class="absolute right-6 top-1/2 -translate-y-1/2 text-blue-400 text-xs font-black uppercase tracking-widest">
             {showPassword ? 'HIDE' : 'SHOW'}
           </button>
         </div>
@@ -424,24 +360,17 @@
           <span class="text-[10px] font-black uppercase tracking-widest text-blue-400">Confirm Password</span>
           <span class="text-[8px] font-black text-red-400 bg-red-50 px-2 py-0.5 rounded-full tracking-widest">REQUIRED</span>
         </div>
-        <div class="w-full h-16 rounded-2xl bg-white border flex items-center transition-all {focusedField === 'confirmPassword' ? 'border-blue-500 ring-4 ring-blue-500/10' : confirmPassword && confirmPassword !== password ? 'border-red-300' : 'border-blue-100 shadow-sm'}">
-          <!-- svelte-ignore a11y-no-static-element-interactions -->
-          <div class="flex-1 h-full px-8 flex items-center cursor-pointer"
-            on:click|stopPropagation={() => focusedField = 'confirmPassword'}
-            on:keydown={() => {}}
-            role="none"
-          >
-            {#if focusedField === 'confirmPassword'}
-              <span class="text-blue-950 text-lg font-bold">{showConfirmPassword ? confirmPassword : '•'.repeat(confirmPassword.length)}</span>
-              <div class="ml-0.5 w-0.5 h-6 bg-blue-500 animate-pulse"></div>
-            {:else}
-              <span class="text-lg font-bold {confirmPassword ? (confirmPassword === password ? 'text-green-600' : 'text-red-500') : 'text-blue-900/20'}">
-                {confirmPassword ? (showConfirmPassword ? confirmPassword : '•'.repeat(confirmPassword.length)) : 'Re-enter password'}
-              </span>
-            {/if}
-          </div>
+        <div class="relative w-full h-16">
+          <input
+            type={showConfirmPassword ? 'text' : 'password'}
+            bind:value={confirmPassword}
+            placeholder="Re-enter password"
+            autocomplete="new-password"
+            class="w-full h-full px-8 pr-24 rounded-2xl bg-white border shadow-sm text-lg font-bold text-blue-950 placeholder:text-blue-900/20 outline-none focus:ring-4 focus:ring-blue-500/10 transition-all
+              {confirmPassword && confirmPassword !== password ? 'border-red-300 focus:border-red-400' : 'border-blue-100 focus:border-blue-500'}"
+          />
           <button type="button" on:click|stopPropagation={() => showConfirmPassword = !showConfirmPassword}
-            class="pr-6 text-blue-400 text-xs font-black uppercase tracking-widest flex-shrink-0">
+            class="absolute right-6 top-1/2 -translate-y-1/2 text-blue-400 text-xs font-black uppercase tracking-widest">
             {showConfirmPassword ? 'HIDE' : 'SHOW'}
           </button>
         </div>
@@ -463,22 +392,13 @@
           {/if}
         </div>
 
-        <button
-          type="button"
-          on:click|stopPropagation={() => focusedField = 'recoveryEmail'}
-          class="w-full h-16 px-8 rounded-2xl bg-white border flex items-center text-lg font-bold transition-all {focusedField === 'recoveryEmail' ? 'border-blue-500 ring-4 ring-blue-500/10' : 'border-blue-100 shadow-sm'}"
-        >
-          <div class="flex items-center">
-            {#if focusedField === 'recoveryEmail'}
-              <span class="text-blue-950">{recoveryEmail}</span>
-              <div class="ml-0.5 w-0.5 h-6 bg-blue-500 animate-pulse"></div>
-            {:else}
-              <span class={recoveryEmail ? 'text-blue-950' : 'text-blue-900/20'}>
-                {recoveryEmail || 'example@email.com'}
-              </span>
-            {/if}
-          </div>
-        </button>
+        <input
+          type="email"
+          bind:value={recoveryEmail}
+          placeholder="example@email.com"
+          autocomplete="email"
+          class="w-full h-16 px-8 rounded-2xl bg-white border border-blue-100 shadow-sm text-lg font-bold text-blue-950 placeholder:text-blue-900/20 outline-none focus:border-blue-500 focus:ring-4 focus:ring-blue-500/10 transition-all"
+        />
 
         <p class="ml-4 text-[9px] font-bold uppercase tracking-tighter transition-colors {recoveryEmail ? 'text-blue-500' : 'text-red-400/60'}">
           {#if recoveryEmail}
@@ -587,68 +507,6 @@
     </div>
   {/if}
 
-  {#if focusedField}
-    <div
-      transition:slide={{ axis: 'y', duration: 400 }}
-      class="fixed bottom-0 left-0 right-0 bg-white/95 backdrop-blur-xl border-t border-blue-100 p-6 pb-12 z-40"
-      on:click|stopPropagation
-      role="none"
-      on:keydown|stopPropagation={() => {}}
-    >
-      <div class="max-w-4xl mx-auto space-y-3">
-        <div class="flex justify-center gap-2">
-          {#each rows.numbers as num}
-            <button type="button" on:mousedown|preventDefault={() => handleKeyPress(num)} class="h-14 flex-1 bg-white border border-blue-50 rounded-xl font-bold text-blue-950 active:bg-blue-500 active:text-white text-xl">{num}</button>
-          {/each}
-        </div>
-        {#each rows.letters as row, i}
-          <div class="flex justify-center gap-2">
-            {#if i === 2}
-              <button type="button" on:mousedown|preventDefault={() => isCaps = !isCaps} class="w-20 h-16 {isCaps ? 'bg-blue-600 text-white' : 'bg-blue-50 text-blue-600'} border border-blue-100 rounded-xl font-black text-xs">CAPS</button>
-            {/if}
-            {#each row as key}
-              <button type="button" on:mousedown|preventDefault={() => handleKeyPress(key)} class="h-16 flex-1 bg-white border border-blue-50 rounded-xl font-bold text-blue-950 active:bg-blue-500 active:text-white text-xl">{isCaps ? key : key.toLowerCase()}</button>
-            {/each}
-            {#if i === 2}
-              <button type="button" aria-label="Backspace" on:mousedown|preventDefault={backspace} class="w-20 h-16 bg-blue-50 text-blue-600 border border-blue-100 rounded-xl font-bold flex items-center justify-center">⌫</button>
-            {/if}
-          </div>
-        {/each}
-        <div class="flex justify-center mt-4 gap-4">
-          <button 
-            type="button" 
-            on:mousedown|preventDefault={() => handleKeyPress('@')} 
-            class="w-20 h-14 bg-blue-600 text-white rounded-xl font-black text-xl shadow-lg active:scale-95 transition-transform"
-          >
-            @
-          </button>
-          <button 
-            type="button" 
-            on:mousedown|preventDefault={() => handleKeyPress('.')} 
-            class="w-20 h-14 bg-blue-100 text-blue-600 rounded-xl font-black text-2xl active:scale-95 transition-transform"
-           >
-            .
-          </button>
-
-          <button 
-            type="button" 
-            aria-label="Spacebar" 
-            on:mousedown|preventDefault={() => handleKeyPress(' ')} 
-            class="{focusedField === 'recoveryEmail' ? 'w-44' : 'w-64'} h-14 bg-white border border-blue-100 rounded-xl active:bg-blue-50 transition-all"
-          >
-          </button>
-
-          <button 
-            type="button" 
-            on:click={() => focusedField = null} 
-            class="px-12 py-3 bg-blue-950 rounded-full text-[10px] font-black uppercase tracking-[0.4em] text-white shadow-md active:scale-95 transition-transform"
-          >
-            Done
-          </button>
-        </div>
-      </div>
-    </div>
-  {/if}
 </div>
 
 <style>

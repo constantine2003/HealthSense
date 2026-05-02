@@ -105,6 +105,17 @@ export interface BpDebugFrame {
 }
 export const bpDebugFrame = writable<BpDebugFrame | null>(null);
 
+export interface BpTestResult {
+  digits: Array<{
+    name: string;
+    segments: Record<string, boolean>;
+    decoded: string | null;
+  }>;
+  imageData: string;
+  error?: string;
+}
+export const bpTestResult = writable<BpTestResult | null>(null);
+
 /** True when the webapp can issue sensor commands */
 export const isReady = derived(bridgeStatus, ($s) => $s === 'esp32Ready');
 
@@ -260,6 +271,24 @@ function handleMessage(msg: BridgeMessage): void {
         capW:      (msg.capW as number | undefined) ?? undefined,
         capH:      (msg.capH as number | undefined) ?? undefined,
       });
+      break;
+    }
+
+    case 'bp_test_result': {
+      bpTestResult.set({
+        digits:    msg.digits    as BpTestResult['digits'],
+        imageData: msg.imageData as string ?? '',
+        error:     msg.error     as string | undefined,
+      });
+      if (msg.imageData) {
+        bpDebugFrame.set({
+          imageData: msg.imageData as string,
+          bands: { sys: '', dia: '', pulse: '' },
+          validated: { sys: null, dia: null, pulse: null, complete: false },
+          error: null,
+          calibrate: true,
+        });
+      }
       break;
     }
 

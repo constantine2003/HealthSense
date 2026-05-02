@@ -1122,10 +1122,223 @@ def _capture_only_mode():
     sys.exit(0)
 
 
+def _seg_sample_rect(gray, rx, ry, rw, rh):
+    """Return the mean brightness in a rectangle of a grayscale frame."""
+    h, w = gray.shape[:2]
+    x1, y1 = max(0, rx), max(0, ry)
+    x2, y2 = min(w, rx + rw), min(h, ry + rh)
+    if x2 <= x1 or y2 <= y1:
+        return 0.0
+    return float(gray[y1:y2, x1:x2].mean())
+
+
+# Standard 7-segment bit patterns (a,b,c,d,e,f,g) → digit
+_SEG_PATTERNS = {
+    (1,1,1,1,1,1,0): 0,
+    (0,1,1,0,0,0,0): 1,
+    (1,1,0,1,1,0,1): 2,
+    (1,1,1,1,0,0,1): 3,
+    (0,1,1,0,0,1,1): 4,
+    (1,0,1,1,0,1,1): 5,
+    (1,0,1,1,1,1,1): 6,
+    (1,1,1,0,0,0,0): 7,
+    (1,1,1,1,1,1,1): 8,
+    (1,1,1,1,0,1,1): 9,
+    (0,0,0,0,0,0,0): None,  # blank / off
+}
+
+
+def _decode_digit(seg_vals, threshold):
+    """Given 7 brightness values [a,b,c,d,e,f,g], return (digit_char, on_flags)."""
+    on = tuple(1 if v >= threshold else 0 for v in seg_vals)
+    d = _SEG_PATTERNS.get(on)
+    return (str(d) if d is not None else None, on)
+
+
+def _run_segment_test(config):
+    """
+    Capture one frame, sample all 42 rects, return per-segment ON/OFF + annotated image.
+    Output JSON: { digits:[{name,segments:{a:bool,...},decoded:str|null}], imageData, capW, capH }
+    """
+    try:
+        frame = capture_frame()
+    except Exception as e:
+        print(json.dumps({"error": f"Camera error: {e}"}))
+        sys.exit(0)
+
+    gray = cv2.cvtColor(frame, cv2.COLOR_BGR2GRAY)
+    threshold = config.get("threshold", 120)
+    seg_names = ["a", "b", "c", "d", "e", "f", "g"]
+
+    result_digits = []
+    vis = frame.copy()
+
+    for dconf in config["digits"]:
+        name = dconf["name"]
+        segs_rects = dconf["segments"]
+        seg_vals = [_seg_sample_rect(gray,
+                                     segs_rects[s]["x"], segs_rects[s]["y"],
+                                     segs_rects[s]["w"], segs_rects[s]["h"])
+                    for s in seg_names]
+        decoded, on_flags = _decode_digit(seg_vals, threshold)
+
+        seg_result = {}
+        for i, s in enumerate(seg_names):
+            seg_result[s] = bool(on_flags[i])
+            r = segs_rects[s]
+            color = (0, 220, 0) if on_flags[i] else (0, 0, 220)
+            cv2.rectangle(vis, (r["x"], r["y"]), (r["x"]+r["w"], r["y"]+r["h"]), color, 1)
+
+        result_digits.append({"name": name, "segments": seg_result, "decoded": decoded})
+
+    h, w = frame.shape[:2]
+    ok, buf = cv2.imencode(".jpg", vis, [cv2.IMWRITE_JPEG_QUALITY, 80])
+    img_b64 = base64.b64encode(buf.tobytes()).decode("ascii") if ok else ""
+
+    print(json.dumps({
+        "digits": result_digits,
+        "imageData": img_b64,
+        "capW": w, "capH": h,
+    }))
+    sys.exit(0)
+
+
+def _run_segment_detection(config):
+    """
+    Main detection loop using segment config. Requires STABILITY_NEEDED consecutive
+    identical SYS+DIA readings before confirming. Outputs same JSON schema as OCR path.
+    """
+    STABILITY_NEEDED = 4
+    TIMEOUT_S = 120
+    POLL_INTERVAL_S = 1.5
+
+    threshold = config.get("threshold", 120)
+    seg_names = ["a", "b", "c", "d", "e", "f", "g"]
+    digit_configs = config["digits"]  # ordered: sys0,sys1,sys2,dia0,dia1,dia2
+
+    stable_sys, stable_dia = None, None
+    stable_count = 0
+    import time
+    start_t = time.time()
+
+    while True:
+        if time.time() - start_t > TIMEOUT_S:
+            print(json.dumps({"valid": False, "reason": "timeout — no stable reading"}))
+            sys.exit(0)
+
+        try:
+            frame = capture_frame()
+        except Exception as e:
+            time.sleep(POLL_INTERVAL_S)
+            continue
+
+        gray = cv2.cvtColor(frame, cv2.COLOR_BGR2GRAY)
+        digits_decoded = []
+
+        for dconf in digit_configs:
+            segs_rects = dconf["segments"]
+            seg_vals = [_seg_sample_rect(gray,
+                                         segs_rects[s]["x"], segs_rects[s]["y"],
+                                         segs_rects[s]["w"], segs_rects[s]["h"])
+                        for s in seg_names]
+            decoded, _ = _decode_digit(seg_vals, threshold)
+            digits_decoded.append(decoded)  # None = blank, str = digit char
+
+        # sys0,sys1,sys2 → SYS value; dia0,dia1,dia2 → DIA value
+        def digits_to_int(chars):
+            s = "".join(c for c in chars if c is not None)
+            if not s:
+                return None
+            try:
+                return int(s)
+            except ValueError:
+                return None
+
+        sys_val = digits_to_int(digits_decoded[0:3])
+        dia_val = digits_to_int(digits_decoded[3:6])
+
+        if sys_val is None or dia_val is None:
+            stable_count = 0
+            stable_sys, stable_dia = None, None
+            time.sleep(POLL_INTERVAL_S)
+            continue
+
+        # Plausibility check
+        if not (60 <= sys_val <= 250 and 40 <= dia_val <= 150):
+            stable_count = 0
+            stable_sys, stable_dia = None, None
+            # Log to stderr for bridge log
+            print(json.dumps({"valid": False, "reason": f"implausible: sys={sys_val} dia={dia_val}",
+                               "sys": sys_val, "dia": dia_val}), file=sys.stderr)
+            time.sleep(POLL_INTERVAL_S)
+            continue
+
+        if sys_val == stable_sys and dia_val == stable_dia:
+            stable_count += 1
+        else:
+            stable_count = 1
+            stable_sys, stable_dia = sys_val, dia_val
+
+        if stable_count >= STABILITY_NEEDED:
+            # Build annotated debug image
+            vis = frame.copy()
+            for dconf, dc in zip(digit_configs, digits_decoded):
+                segs_rects = dconf["segments"]
+                for s in seg_names:
+                    r = segs_rects[s]
+                    color = (0, 200, 0)
+                    cv2.rectangle(vis, (r["x"], r["y"]), (r["x"]+r["w"], r["y"]+r["h"]), color, 1)
+            ok, buf = cv2.imencode(".jpg", vis, [cv2.IMWRITE_JPEG_QUALITY, 75])
+            dbg = base64.b64encode(buf.tobytes()).decode("ascii") if ok else ""
+
+            print(json.dumps({
+                "sys": sys_val, "dia": dia_val, "pulse": 0,
+                "raw_sys": str(sys_val), "raw_dia": str(dia_val), "raw_pulse": "",
+                "complete": True, "valid": True,
+                "debug_image": dbg,
+            }))
+            sys.exit(0)
+
+        time.sleep(POLL_INTERVAL_S)
+
+
 def main():
     if "--capture-only" in sys.argv:
         _capture_only_mode()
         return  # never reached — _capture_only_mode exits
+
+    # ── Segment-based detection paths ────────────────────────────────────────
+    if "--test" in sys.argv:
+        config_path = None
+        if "--config" in sys.argv:
+            idx = sys.argv.index("--config")
+            if idx + 1 < len(sys.argv):
+                config_path = sys.argv[idx + 1]
+        if not config_path:
+            print(json.dumps({"error": "--test requires --config <path>"}))
+            sys.exit(1)
+        try:
+            with open(config_path) as f:
+                config = json.load(f)
+        except Exception as e:
+            print(json.dumps({"error": f"Cannot load config: {e}"}))
+            sys.exit(1)
+        _run_segment_test(config)
+        return
+
+    # Check for seg_config.json alongside this script
+    _script_dir = os.path.dirname(os.path.abspath(__file__))
+    _seg_config_path = os.path.join(_script_dir, "seg_config.json")
+    if os.path.exists(_seg_config_path):
+        try:
+            with open(_seg_config_path) as f:
+                seg_config = json.load(f)
+            _run_segment_detection(seg_config)
+        except Exception as e:
+            # Fall through to OCR path if config is malformed
+            print(json.dumps({"valid": False, "reason": f"Segment config error: {e}",
+                               "raw_sys": "", "raw_dia": "", "raw_pulse": ""}), file=sys.stderr)
+        return
 
     try:
         frame = capture_frame()
