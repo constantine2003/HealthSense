@@ -9,6 +9,8 @@
   
   import { supabase } from './lib/pages/supabaseClient';
   import { connect as esp32Connect } from './lib/stores/esp32Store';
+  import { isOnline } from './lib/stores/connectivity';
+  import { saveCheckup, signOut as dbSignOut } from './lib/db/index';
   import { onMount } from 'svelte';
 
   type ScreenState = 'welcome' | 'login' | 'signup' | 'home' | 'history' | 'checkup';
@@ -33,9 +35,7 @@
   };
 
   const logout = async (): Promise<void> => { 
-    await supabase.auth.signOut();
-    // Do NOT disconnect the WebSocket here — the bridge must stay alive so the
-    // fingerprint sensor remains available on the login/signup screens.
+    await dbSignOut();
     user = null; 
     currentScreen = 'welcome'; 
   };
@@ -49,19 +49,13 @@
     try {
       isSaving = true;
 
-      // Verify we have a valid user ID before attempting the insert.
-      // user.id comes from supabase.auth.getUser() → data.user.id (UUID string).
       if (!data.user_id) {
         throw new Error('No authenticated user — please log in again.');
       }
 
       console.log("Saving checkup:", JSON.stringify(data, null, 2));
 
-      const { error } = await supabase
-        .from('health_checkups')
-        .insert([data]);
-
-      if (error) throw error;
+      await saveCheckup(data);
 
       currentScreen = 'home'; 
     } catch (err: any) {
@@ -132,6 +126,12 @@
     <div class="fixed inset-0 bg-blue-950/80 backdrop-blur-sm z-100 flex flex-col items-center justify-center text-white">
       <div class="w-16 h-16 border-4 border-white border-t-transparent rounded-full animate-spin mb-6"></div>
       <p class="font-black uppercase tracking-[0.3em] text-sm">Uploading Report...</p>
+    </div>
+  {/if}
+
+  {#if !$isOnline}
+    <div class="fixed top-0 inset-x-0 z-50 flex items-center justify-center gap-2 bg-amber-500 text-amber-950 text-[10px] font-black uppercase tracking-[0.2em] py-1 pointer-events-none">
+      <span>📶</span><span>Offline Mode — data will sync when connected</span>
     </div>
   {/if}
 </main>

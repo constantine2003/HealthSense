@@ -9,6 +9,9 @@
     "dev": "node --env-file=.env --watch server.js"
   },
   "dependencies": {
+    "@supabase/supabase-js": "^2.105.1",
+    "bcryptjs": "^3.0.3",
+    "better-sqlite3": "^12.9.0",
     "serialport": "^12.0.0",
     "ws": "^8.18.0"
   }

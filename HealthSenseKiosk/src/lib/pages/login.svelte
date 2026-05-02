@@ -1,13 +1,14 @@
 <script lang="ts">
   import { fade, slide, scale } from 'svelte/transition';
   import { onDestroy } from 'svelte';
-  import { supabase } from './supabaseClient';
   import {
     startFingerprintVerify,
     cancelFingerprint,
     fingerprintEvent,
     bridgeStatus,
   } from '../stores/esp32Store';
+  import { isOnline } from '../stores/connectivity';
+  import { login, loginByFingerprint } from '../db/index';
   import fingerprintIcon from '../../assets/fingerprint-svgrepo-com.svg';
 
   export let onBack: () => void;
@@ -110,18 +111,7 @@
   async function loginWithSlot(slot: number) {
     isLookingUpUser = true;
     try {
-      const { data: profile, error } = await supabase
-        .from('profiles')
-        .select('*')
-        .eq('fingerprint_id', slot)
-        .single();
-
-      if (error || !profile) {
-        scanStatus = 'error';
-        scanMessage = 'No account linked to this fingerprint';
-        return;
-      }
-
+      const profile = await loginByFingerprint(slot);
       scanStatus = 'success';
       setTimeout(() => {
         showFingerprintModal = false;
@@ -146,54 +136,11 @@
     isSubmitting = true;
 
     try {
-      const userInput = username.toLowerCase().trim();
-      let actualAuthEmail = "";
-
-      // 1. LOOKUP: Check if the user exists in profiles by username
-      const { data: profileLookup, error: lookupError } = await supabase
-        .from('profiles')
-        .select('recovery_email, username')
-        .eq('username', userInput)
-        .maybeSingle();
-
-      if (profileLookup) {
-        // MATCH FOUND: Use recovery_email if it exists, else use .local
-        actualAuthEmail = profileLookup.recovery_email 
-          ? profileLookup.recovery_email 
-          : `${profileLookup.username}@kiosk.local`;
-      } else {
-        // NO PROFILE FOUND: Maybe they typed a full email or are a .local user?
-        // Fallback to your "secretEmail" logic from the web app
-        actualAuthEmail = userInput.includes("@") 
-          ? userInput 
-          : `${userInput}@kiosk.local`;
-      }
-
-      // 2. AUTHENTICATE: Sign in with the resolved email
-      const { data: authData, error: authError } = await supabase.auth.signInWithPassword({
-        email: actualAuthEmail,
-        password: password,
-      });
-
-      if (authError) throw authError;
-
-      // 3. FETCH FULL PROFILE: Get all data for the Dashboard
-      if (authData.user) {
-        const { data: profile, error: profileError } = await supabase
-          .from('profiles')
-          .select('*')
-          .eq('id', authData.user.id)
-          .single();
-
-        if (profileError) throw profileError;
-
-        // 4. SUCCESS: Pass the profile to the main app state
-        onLogin(profile); 
-      }
+      const profile = await login(username, password);
+      onLogin(profile);
     } catch (err: any) {
-      // User-friendly feedback for the touchscreen
       let message = err.message;
-      if (err.message === "Invalid login credentials") {
+      if (message === "Invalid login credentials") {
         message = "Access denied. Please check your Patient ID and Password.";
       }
       alert("Login Failed: " + message);
@@ -222,6 +169,11 @@
         <span class="text-blue-950">LOG</span><span class="text-blue-500">IN</span>
       </h1>
       <p class="text-blue-900/50 font-bold uppercase tracking-[0.2em] text-xs">Access HealthSense Portal</p>
+      {#if !$isOnline}
+        <p class="mt-2 text-xs font-bold uppercase tracking-widest text-amber-600 bg-amber-50 border border-amber-200 rounded-full px-3 py-1 inline-block">
+          📶 Offline Mode
+        </p>
+      {/if}
     </div>
 
     <div class="w-full space-y-6">

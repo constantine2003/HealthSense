@@ -1,7 +1,7 @@
 <script lang="ts">
   import { onMount } from 'svelte';
   import { fade, slide } from 'svelte/transition';
-  import { supabase } from './supabaseClient'; 
+  import { getCheckups } from '../db/index';
   
   export let onBack: () => void;
   export let user: any; 
@@ -16,14 +16,7 @@
 
     try {
       isLoading = true;
-      const { data, error } = await supabase
-        .from('health_checkups')
-        .select('*')
-        .eq('user_id', userId) 
-        .order('created_at', { ascending: false });
-
-      if (error) throw error;
-      historyData = data || [];
+      historyData = await getCheckups(userId);
     } catch (err: any) {
       console.error("Fetch Error:", err.message);
     } finally {

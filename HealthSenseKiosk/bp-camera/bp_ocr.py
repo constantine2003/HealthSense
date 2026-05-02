@@ -114,6 +114,11 @@ _SEG_DIGITS = {
     (1,1,1,1,0,1,1): '9',
 }
 _SEG_THRESHOLD = 0.28   # fraction of zone pixels that must be "on" for segment active
+# Orientation of each segment: 'h' = horizontal bar, 'v' = vertical bar.
+# Used to reject "1"'s vertical bars falsely activating horizontal zones (a, d, g).
+_SEG_ORIENTATION = {
+    'a': 'h', 'b': 'v', 'c': 'v', 'd': 'h', 'e': 'v', 'f': 'v', 'g': 'h',
+}
 
 
 def _get_digit_mask(band_bgr):
@@ -221,27 +226,47 @@ def _decode_one_digit(digit_bin):
     """
     Classify a single binary digit image (255=on, 0=off) by measuring pixel
     density in each of the 7 standard segment zones.
+
+    Horizontal zones (a, d, g) also require pixels to span most of the zone
+    width — this prevents "1"'s narrow vertical bars from falsely activating
+    top/bottom/middle horizontal segments.
+
     Returns '0'–'9' or '' for unrecognised patterns.
-    Tries a small range of threshold values to tolerate imaging noise.
     """
     h, w = digit_bin.shape
     if h < 6 or w < 4:
         return ''
 
-    densities = []
+    # "1" fast-path: the segment bars are tall narrow columns.
+    # When the split span is tight (span ≈ bar width), the bars fill the full
+    # crop width and fool every horizontal zone.  Catch this with aspect ratio.
+    if w < h * 0.40:
+        return '1'
+
+    def _seg_active(seg, region, thresh):
+        if region.size == 0:
+            return 0
+        raw = float(np.count_nonzero(region)) / region.size
+        if raw < thresh:
+            return 0
+        if _SEG_ORIENTATION[seg] == 'h':
+            # Horizontal bar must actually span the zone width.
+            # Threshold kept low (0.25) so gapped bars in "7", "2", etc. still pass.
+            col_present = float(np.count_nonzero(region.sum(axis=0))) / max(region.shape[1], 1)
+            return 1 if col_present >= 0.25 else 0
+        else:
+            row_present = float(np.count_nonzero(region.sum(axis=1))) / max(region.shape[0], 1)
+            return 1 if row_present >= 0.30 else 0
+
+    regions = {}
     for seg in _SEG_ORDER:
         y0f, y1f, x0f, x1f = _SEG_ZONES[seg]
         y0, y1 = int(y0f * h), max(int(y1f * h), 1)
         x0, x1 = int(x0f * w), max(int(x1f * w), 1)
-        region = digit_bin[y0:y1, x0:x1]
-        if region.size == 0:
-            densities.append(0.0)
-        else:
-            densities.append(float(np.count_nonzero(region)) / region.size)
+        regions[seg] = digit_bin[y0:y1, x0:x1]
 
-    # Try increasing the threshold step by step to find the best match
     for thresh in (_SEG_THRESHOLD, 0.20, 0.35, 0.15, 0.40):
-        pattern = tuple(1 if d > thresh else 0 for d in densities)
+        pattern = tuple(_seg_active(seg, regions[seg], thresh) for seg in _SEG_ORDER)
         ch = _SEG_DIGITS.get(pattern)
         if ch is not None:
             return ch
@@ -250,46 +275,52 @@ def _decode_one_digit(digit_bin):
 
 def _split_digit_spans(mask):
     """
-    Locate individual digit column spans in a binary mask using a column
-    projection profile.  Returns a list of (x0, x1) tuples, left to right.
+    Find individual digit column spans via connected-component analysis.
+
+    Connected components are grouped into digit clusters when the horizontal
+    gap between them is small (intra-digit segment gaps).  This is more
+    robust than a fixed smoothing kernel because it adapts to any digit size
+    and avoids accidentally bridging the gap between adjacent digits.
+
+    Returns a list of (x0, x1) tuples, left to right.
     """
     h, w = mask.shape
-    col_sum = mask.sum(axis=0).astype(float)
-    if col_sum.max() == 0:
+    if np.count_nonzero(mask) == 0:
         return []
 
-    # Smooth over ~4% of width to close gaps within a single digit's strokes
-    smooth_k = max(1, w // 25)
-    smoothed = np.convolve(col_sum, np.ones(smooth_k) / smooth_k, mode='same')
-    active = smoothed > smoothed.max() * 0.08
+    num_labels, _labels, stats, _ = cv2.connectedComponentsWithStats(
+        mask, connectivity=8)
 
-    spans = []
-    start = None
-    for i in range(w):
-        if active[i] and start is None:
-            start = i
-        elif not active[i] and start is not None:
-            spans.append([start, i])
-            start = None
-    if start is not None:
-        spans.append([start, w])
-    if not spans:
+    # Collect components that are tall enough to be actual segment bars
+    # (filters tiny noise blobs and very short marks like decimal points)
+    min_comp_h = max(4, int(h * 0.12))
+    comps = []
+    for i in range(1, num_labels):
+        if (stats[i, cv2.CC_STAT_AREA] >= 6 and
+                stats[i, cv2.CC_STAT_HEIGHT] >= min_comp_h):
+            x0 = stats[i, cv2.CC_STAT_LEFT]
+            comps.append((x0, x0 + stats[i, cv2.CC_STAT_WIDTH]))
+
+    if not comps:
         return []
 
-    widths = [s[1] - s[0] for s in spans]
-    med_w = float(np.median(widths)) if widths else 1.0
+    comps.sort()  # left to right
 
-    # Merge spans separated by less than 20% of median digit width
-    gap_lim = max(2, int(med_w * 0.20))
-    merged = [spans[0][:]]
-    for s in spans[1:]:
-        if s[0] - merged[-1][1] < gap_lim:
-            merged[-1][1] = s[1]
+    # gap_lim: merge components within 12 % of digit height.
+    # Intra-digit gaps (e.g. between "1"'s top-right and bottom-right bars,
+    # or between horizontal and vertical bars of a digit) are typically
+    # ≤ 10 % of digit height; inter-digit gaps are usually much larger.
+    gap_lim = max(3, int(h * 0.12))
+
+    merged = [list(comps[0])]
+    for x0, x1 in comps[1:]:
+        if x0 - merged[-1][1] <= gap_lim:
+            merged[-1][1] = max(x1, merged[-1][1])
         else:
-            merged.append(s[:])
+            merged.append([x0, x1])
 
-    # Drop micro-spans (< 12% of median width = noise)
-    min_w = max(2, int(med_w * 0.12))
+    # Drop micro-spans (noise)
+    min_w = max(2, int(w * 0.02))
     return [(s[0], s[1]) for s in merged if s[1] - s[0] >= min_w]
 
 
@@ -523,6 +554,27 @@ def crop_to_display(frame):
     w = int(os.environ.get("BP_CROP_W", frame.shape[1]))
     h = int(os.environ.get("BP_CROP_H", frame.shape[0]))
     return frame[y:y+h, x:x+w]
+
+
+def get_manual_band_crop(frame, prefix):
+    """
+    Return a crop of `frame` using BP_<prefix>_X/Y/W/H env vars.
+    prefix is 'SYS' or 'DIA'.  Returns None if any variable is missing.
+    Coordinates are clamped to frame bounds.
+    """
+    try:
+        x = int(os.environ[f'BP_{prefix}_X'])
+        y = int(os.environ[f'BP_{prefix}_Y'])
+        w = int(os.environ[f'BP_{prefix}_W'])
+        h = int(os.environ[f'BP_{prefix}_H'])
+    except KeyError:
+        return None
+    fh, fw = frame.shape[:2]
+    x = max(0, min(x, fw - 1))
+    y = max(0, min(y, fh - 1))
+    w = max(1, min(w, fw - x))
+    h = max(1, min(h, fh - y))
+    return frame[y:y + h, x:x + w]
 
 
 def preprocess_band(band_bgr):
@@ -812,107 +864,90 @@ def find_digit_rows(display_bgr):
 
 def build_debug_image(full_frame, display_bgr, detected_rect, band_results, bands_bgr, digit_rows=None):
     """
-    Build a debug JPEG with three panels side-by-side:
-      Left:   full camera frame with detected display boundary
-      Centre: display crop with detected digit-row rectangles + OCR results
-      Right:  stacked individual band crops (what OCR actually sees)
+    Build a debug JPEG with two panels side-by-side:
+      Left:   full raw camera frame with SYS (red) and DIA (green) crop boxes drawn
+      Right:  stacked raw band crops (SYS top, DIA bottom) — no inversion/binarisation
     Returns base64-encoded JPEG string.
     """
-    TARGET_H = 480   # height everything is scaled to
+    TARGET_H = 320   # height everything is scaled to
 
-    # ── LEFT: full frame with detected rect ──────────────────────────────────
+    # ── LEFT: raw frame annotated with SYS / DIA boxes ───────────────────────
     fh, fw = full_frame.shape[:2]
     scale_f = TARGET_H / fh
     left = cv2.resize(full_frame, (max(1, int(fw * scale_f)), TARGET_H))
 
-    if detected_rect is not None:
-        rx, ry, rw, rh = detected_rect
-        x1 = int(rx * scale_f);         y1 = int(ry * scale_f)
-        x2 = int((rx + rw) * scale_f);  y2 = int((ry + rh) * scale_f)
-        cv2.rectangle(left, (x1, y1), (x2, y2), (0, 220, 50), 3)
-        cv2.putText(left, "detected", (x1, max(y1 - 6, 14)),
-                    cv2.FONT_HERSHEY_SIMPLEX, 0.55, (0, 220, 50), 2, cv2.LINE_AA)
-    else:
-        cv2.putText(left, "no display found", (8, 26),
-                    cv2.FONT_HERSHEY_SIMPLEX, 0.55, (0, 60, 220), 2, cv2.LINE_AA)
+    box_colors = {"SYS": (0, 0, 220), "DIA": (0, 200, 60)}
+    for prefix, color in box_colors.items():
+        try:
+            bx = int(os.environ[f'BP_{prefix}_X'])
+            by = int(os.environ[f'BP_{prefix}_Y'])
+            bw = int(os.environ[f'BP_{prefix}_W'])
+            bh_e = int(os.environ[f'BP_{prefix}_H'])
+            x1s = int(bx * scale_f); y1s = int(by * scale_f)
+            x2s = int((bx + bw) * scale_f); y2s = int((by + bh_e) * scale_f)
+            cv2.rectangle(left, (x1s, y1s), (x2s, y2s), color, 2)
+            cv2.putText(left, prefix, (x1s + 4, y1s + 18),
+                        cv2.FONT_HERSHEY_SIMPLEX, 0.55, color, 2, cv2.LINE_AA)
+        except KeyError:
+            pass
 
-    # ── CENTRE: display crop with digit-row annotations ───────────────────────
-    dh, dw = display_bgr.shape[:2]
-    scale_d = TARGET_H / dh if dh > 0 else 1.0
-    centre = cv2.resize(display_bgr, (max(1, int(dw * scale_d)), TARGET_H))
-    cdh, cdw = centre.shape[:2]
+    has_manual = 'BP_SYS_X' in os.environ and 'BP_DIA_X' in os.environ
+    if not has_manual:
+        cv2.putText(left, "No manual boxes", (6, TARGET_H - 8),
+                    cv2.FONT_HERSHEY_SIMPLEX, 0.40, (100, 100, 255), 1, cv2.LINE_AA)
 
-    # Use actual detected digit rows if available; fall back to halves
-    n_bands = len(band_results)
-    if digit_rows and len(digit_rows) >= 1:
-        row_rects = [(int(y0 * scale_d), int(y1 * scale_d)) for y0, y1 in digit_rows]
-        # Pad to match band_results length if needed
-        while len(row_rects) < n_bands:
-            row_rects.append(row_rects[-1])
-    else:
-        half_c = cdh // 2
-        row_rects = [(0, half_c), (half_c, cdh)]
+    cv2.putText(left, "RAW", (6, 18),
+                cv2.FONT_HERSHEY_SIMPLEX, 0.50, (220, 220, 220), 1, cv2.LINE_AA)
 
-    for i, (label, raw, val) in enumerate(band_results):
-        y_top, y_bot = row_rects[i] if i < len(row_rects) else (0, cdh)
-        colour = BAND_COLOURS[i]
-        cv2.rectangle(centre, (0, y_top), (cdw - 1, y_bot - 1), colour, 2)
-        cv2.putText(centre, label, (4, y_top + 16),
-                    cv2.FONT_HERSHEY_SIMPLEX, 0.5, colour, 2, cv2.LINE_AA)
-        raw_str = f'"{raw}"' if raw else "(none)"
-        val_str = f"-> {val}" if val is not None else "-> ?"
-        cv2.putText(centre, raw_str, (4, y_top + 36),
-                    cv2.FONT_HERSHEY_SIMPLEX, 0.45, colour, 1, cv2.LINE_AA)
-        cv2.putText(centre, val_str, (4, y_top + 56),
-                    cv2.FONT_HERSHEY_SIMPLEX, 0.5, (255, 255, 255), 2, cv2.LINE_AA)
-
-    # ── RIGHT: binarised digit masks for each band (what 7-seg decoder sees) ───
-    # Shows the processed mask after binarisation so you can verify segments.
-    BAND_W = 200
+    # ── RIGHT: stacked raw band crops (no processing) ────────────────────────
     n_bands = len(bands_bgr)
-    band_h = TARGET_H // n_bands if n_bands > 0 else TARGET_H
+    band_h = TARGET_H // max(n_bands, 1)
+    band_labels = [r[0] for r in band_results]
+    band_vals   = [r[2] for r in band_results]
+    b_colors    = [(0, 0, 220), (0, 200, 60)]  # SYS=red-ish, DIA=green
+
     right_strips = []
-    for i, (band, (label, raw, val)) in enumerate(zip(bands_bgr, band_results)):
+    for i, band in enumerate(bands_bgr):
         bh, bw = band.shape[:2]
+        label  = band_labels[i] if i < len(band_labels) else f"band{i}"
+        val    = band_vals[i]   if i < len(band_vals)   else None
+        bcolor = b_colors[i]    if i < len(b_colors)    else (180, 180, 180)
+
         if bh == 0 or bw == 0:
-            strip = np.zeros((band_h, BAND_W, 3), dtype=np.uint8)
+            strip = np.zeros((band_h, 200, 3), dtype=np.uint8)
         else:
-            # Build the mask the decoder actually used
-            bmask, strat, _ = _get_digit_mask(band)
-            # Upscale to match OCR scale for faithful preview
-            scale = int(os.environ.get("BP_SCALE", 4))
-            if scale > 1:
-                bmask = cv2.resize(bmask, None, fx=scale, fy=scale,
-                                   interpolation=cv2.INTER_NEAREST)
-            # Show mask as BGR (white-on-black) and scale to band_h
-            bmask_bgr = cv2.cvtColor(bmask, cv2.COLOR_GRAY2BGR)
-            mh, mw = bmask_bgr.shape[:2]
-            scale_m = band_h / mh if mh > 0 else 1.0
-            strip = cv2.resize(bmask_bgr, (max(1, int(mw * scale_m)), band_h))
-            # Pad/crop to fixed width
-            sh, sw = strip.shape[:2]
-            if sw >= BAND_W:
-                strip = strip[:, :BAND_W]
-            else:
-                pad = np.zeros((sh, BAND_W - sw, 3), dtype=np.uint8)
-                strip = np.hstack([strip, pad])
-            # Label with strategy name and OCR result
-            band_colour = BAND_COLOURS[i] if i < len(BAND_COLOURS) else (200, 200, 200)
-            cv2.rectangle(strip, (0, 0), (BAND_W - 1, band_h - 1), band_colour, 2)
-            cv2.putText(strip, f"{label}[{strat}]", (4, 18),
-                        cv2.FONT_HERSHEY_SIMPLEX, 0.40, band_colour, 1, cv2.LINE_AA)
-            cv2.putText(strip, raw or "?", (4, band_h - 8),
-                        cv2.FONT_HERSHEY_SIMPLEX, 0.55, (200, 200, 255), 2, cv2.LINE_AA)
+            # Use raw colour crop — no inversion or binarisation
+            scale_b = band_h / bh if bh > 0 else 1.0
+            strip = cv2.resize(band, (max(1, int(bw * scale_b)), band_h))
+
+            sh2, sw2 = strip.shape[:2]
+            cv2.rectangle(strip, (0, 0), (sw2 - 1, sh2 - 1), bcolor, 2)
+            cv2.putText(strip, label, (4, 18),
+                        cv2.FONT_HERSHEY_SIMPLEX, 0.50, bcolor, 2, cv2.LINE_AA)
+            result_str = f"{val}" if val is not None else "?"
+            cv2.putText(strip, result_str, (4, sh2 - 8),
+                        cv2.FONT_HERSHEY_SIMPLEX, 0.55, (255, 255, 255), 2, cv2.LINE_AA)
+
         right_strips.append(strip)
 
-    right = np.vstack(right_strips)
-    # Ensure right panel height exactly matches TARGET_H (rounding from integer division)
-    if right.shape[0] != TARGET_H:
-        right = cv2.resize(right, (BAND_W, TARGET_H))
+    if right_strips:
+        max_w = max(s.shape[1] for s in right_strips)
+        padded = []
+        for s in right_strips:
+            sh, sw = s.shape[:2]
+            if sw < max_w:
+                pad = np.zeros((sh, max_w - sw, 3), dtype=np.uint8)
+                s = np.hstack([s, pad])
+            padded.append(s)
+        right = np.vstack(padded)
+        if right.shape[0] != TARGET_H:
+            right = cv2.resize(right, (right.shape[1], TARGET_H))
+    else:
+        right = np.zeros((TARGET_H, 200, 3), dtype=np.uint8)
 
-    # ── Combine three panels ──────────────────────────────────────────────────
-    combined = np.hstack([left, centre, right])
-    ok, buf = cv2.imencode(".jpg", combined, [cv2.IMWRITE_JPEG_QUALITY, 72])
+    # ── Combine two panels ────────────────────────────────────────────────────
+    combined = np.hstack([left, right])
+    ok, buf = cv2.imencode(".jpg", combined, [cv2.IMWRITE_JPEG_QUALITY, 75])
     if not ok:
         return ""
     return base64.b64encode(buf.tobytes()).decode("ascii")
@@ -1041,7 +1076,57 @@ def _parse_bp_digits(s, lo, hi):
     return None
 
 
+def _capture_only_mode():
+    """
+    Capture one frame and output it as a JSON payload — no OCR.
+    Used by the calibration UI to show a live preview.
+    Output: {"mode":"capture","cap_w":W,"cap_h":H,"cap_image":"<base64 JPEG>"}
+    """
+    try:
+        frame = capture_frame()
+    except Exception as e:
+        print(json.dumps({"mode": "capture", "error": str(e)}))
+        sys.exit(0)
+
+    h, w = frame.shape[:2]
+    ok, buf = cv2.imencode(".jpg", frame, [cv2.IMWRITE_JPEG_QUALITY, 80])
+    if not ok:
+        print(json.dumps({"mode": "capture", "error": "Failed to encode JPEG"}))
+        sys.exit(0)
+    image_b64 = base64.b64encode(buf.tobytes()).decode("ascii")
+
+    # Draw any already-configured manual band boxes so the user sees them
+    vis = frame.copy()
+    for prefix, color in (("SYS", (0, 0, 220)), ("DIA", (0, 180, 0))):
+        try:
+            bx = int(os.environ[f'BP_{prefix}_X'])
+            by = int(os.environ[f'BP_{prefix}_Y'])
+            bw = int(os.environ[f'BP_{prefix}_W'])
+            bh = int(os.environ[f'BP_{prefix}_H'])
+            cv2.rectangle(vis, (bx, by), (bx + bw, by + bh), color, 2)
+            cv2.putText(vis, prefix, (bx + 4, by + 18),
+                        cv2.FONT_HERSHEY_SIMPLEX, 0.6, color, 2, cv2.LINE_AA)
+        except KeyError:
+            pass
+
+    ok2, buf2 = cv2.imencode(".jpg", vis, [cv2.IMWRITE_JPEG_QUALITY, 80])
+    if ok2:
+        image_b64 = base64.b64encode(buf2.tobytes()).decode("ascii")
+
+    print(json.dumps({
+        "mode":      "capture",
+        "cap_w":     w,
+        "cap_h":     h,
+        "cap_image": image_b64,
+    }))
+    sys.exit(0)
+
+
 def main():
+    if "--capture-only" in sys.argv:
+        _capture_only_mode()
+        return  # never reached — _capture_only_mode exits
+
     try:
         frame = capture_frame()
     except Exception as e:
@@ -1055,21 +1140,35 @@ def main():
 
     # Apply manual crop override if env vars are set, then auto-detect display
     coarse = crop_to_display(frame)
-    display, detected_rect = find_display(coarse)
 
-    # Dynamically locate digit rows — only SYS and DIA (pulse row covered)
-    digit_rows = find_digit_rows(display)
+    # ── Per-band manual crop (BP_SYS_X/Y/W/H and BP_DIA_X/Y/W/H) ────────────
+    # When these are set the user has calibrated exact crop regions — bypass
+    # display auto-detection and row-splitting entirely.
+    sys_manual = get_manual_band_crop(frame, 'SYS')
+    dia_manual = get_manual_band_crop(frame, 'DIA')
+    use_manual_bands = sys_manual is not None and dia_manual is not None
 
-    # Build exactly 2 band crops (SYS top, DIA bottom)
-    dh = display.shape[0]
-    bands_bgr = []
-    for i in range(2):
-        if i < len(digit_rows):
-            y0, y1 = digit_rows[i]
-        else:
-            half = dh // 2
-            y0, y1 = (0, half) if i == 0 else (half, dh)
-        bands_bgr.append(display[y0:y1, :])
+    if use_manual_bands:
+        bands_bgr = [sys_manual, dia_manual]
+        display = coarse           # keep coarse for debug image base
+        detected_rect = None
+        digit_rows = []
+    else:
+        display, detected_rect = find_display(coarse)
+
+        # Dynamically locate digit rows — only SYS and DIA (pulse row covered)
+        digit_rows = find_digit_rows(display)
+
+        # Build exactly 2 band crops (SYS top, DIA bottom)
+        dh = display.shape[0]
+        bands_bgr = []
+        for i in range(2):
+            if i < len(digit_rows):
+                y0, y1 = digit_rows[i]
+            else:
+                half = dh // 2
+                y0, y1 = (0, half) if i == 0 else (half, dh)
+            bands_bgr.append(display[y0:y1, :])
 
     # Collect masks for debug saving (does nothing unless BP_DEBUG_SAVE=1)
     masks_info = [_get_digit_mask(b) for b in bands_bgr]

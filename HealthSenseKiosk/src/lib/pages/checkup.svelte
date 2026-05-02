@@ -11,6 +11,7 @@
     sensorStatus,
     bpLiveReading,
     bpDebugFrame,
+    send as wsSend,
     type SensorKey,
   } from '../stores/esp32Store';
 
@@ -32,6 +33,102 @@
   let bpManualEntry = false;
   let bpManualSys = '';
   let bpManualDia = '';
+
+  // ── BP Calibration state ────────────────────────────────────────────────────
+  let bpCalibrateMode = false;
+
+  // Box positions in CSS pixels relative to the preview image element
+  let sysBoxCss = { x: 40, y: 20, w: 220, h: 70 };
+  let diaBoxCss = { x: 40, y: 110, w: 220, h: 70 };
+
+  // Camera settings (map to BP_BRIGHTNESS / BP_CONTRAST / BP_SHARPNESS / BP_SATURATION)
+  let camBrightness = 0.10;
+  let camContrast   = 1.50;
+  let camSharpness  = 2.00;
+  let camSaturation = 1.20;
+
+  // DOM refs for the calibration preview image
+  let calibPreviewImg: HTMLImageElement | null = null;
+
+  // Drag / resize state
+  interface DragState {
+    box: 'sys' | 'dia';
+    mode: 'move' | 'resize';
+    startX: number;
+    startY: number;
+    startBox: { x: number; y: number; w: number; h: number };
+  }
+  let dragState: DragState | null = null;
+
+  function openCalibration() {
+    bpCalibrateMode = true;
+    wsSend({ command: 'bp_calibrate_start' });
+  }
+
+  function closeCalibration() {
+    bpCalibrateMode = false;
+    wsSend({ command: 'bp_calibrate_stop' });
+  }
+
+  function saveCalibration() {
+    const img = calibPreviewImg;
+    const capW = $bpDebugFrame?.capW || 640;
+    const capH = $bpDebugFrame?.capH || 480;
+    const displayW = img?.clientWidth  || capW;
+    const displayH = img?.clientHeight || capH;
+    const sx = capW / displayW;
+    const sy = capH / displayH;
+
+    wsSend({
+      command: 'bp_save_config',
+      sysBox: {
+        x: Math.round(sysBoxCss.x * sx),
+        y: Math.round(sysBoxCss.y * sy),
+        w: Math.round(sysBoxCss.w * sx),
+        h: Math.round(sysBoxCss.h * sy),
+      },
+      diaBox: {
+        x: Math.round(diaBoxCss.x * sx),
+        y: Math.round(diaBoxCss.y * sy),
+        w: Math.round(diaBoxCss.w * sx),
+        h: Math.round(diaBoxCss.h * sy),
+      },
+      camera: {
+        brightness: camBrightness,
+        contrast:   camContrast,
+        sharpness:  camSharpness,
+        saturation: camSaturation,
+      },
+    });
+    closeCalibration();
+  }
+
+  function startBoxDrag(e: PointerEvent, box: 'sys' | 'dia', mode: 'move' | 'resize') {
+    e.preventDefault();
+    (e.target as HTMLElement).setPointerCapture(e.pointerId);
+    const b = box === 'sys' ? { ...sysBoxCss } : { ...diaBoxCss };
+    dragState = { box, mode, startX: e.clientX, startY: e.clientY, startBox: b };
+  }
+
+  function onCalibPointerMove(e: PointerEvent) {
+    if (!dragState) return;
+    const dx = e.clientX - dragState.startX;
+    const dy = e.clientY - dragState.startY;
+    const b = { ...dragState.startBox };
+    if (dragState.mode === 'move') {
+      b.x += dx;
+      b.y += dy;
+    } else {
+      b.w = Math.max(40, b.w + dx);
+      b.h = Math.max(20, b.h + dy);
+    }
+    if (dragState.box === 'sys') sysBoxCss = b;
+    else diaBoxCss = b;
+  }
+
+  function onCalibPointerUp() {
+    dragState = null;
+  }
 
   // Derived SYS/DIA from the stored bp string (e.g. "120/80")
   $: bpParts = results.bp !== '0/0' ? results.bp.split('/') : ['0', '0'];
@@ -387,7 +484,7 @@
                 <img
                   src="data:image/jpeg;base64,{$bpDebugFrame.imageData}"
                   alt="BP camera debug"
-                  class="w-full rounded-xl border border-orange-200 object-contain"
+                  class="max-h-44 w-auto mx-auto block rounded-xl border border-orange-200 object-contain"
                 />
               {:else}
                 <div class="w-full h-24 rounded-xl border border-orange-200 bg-orange-100 flex items-center justify-center text-orange-400 text-xs font-bold uppercase tracking-widest">
@@ -417,12 +514,6 @@
                     <td class="pr-3">"{$bpDebugFrame.bands.dia || '—'}"</td>
                     <td class="pr-3">{$bpDebugFrame.validated.dia ?? '—'}</td>
                     <td>{$bpDebugFrame.validated.dia !== null ? '✓' : '✗'}</td>
-                  </tr>
-                  <tr>
-                    <td class="pr-3 font-black text-blue-500">PULSE</td>
-                    <td class="pr-3">"{$bpDebugFrame.bands.pulse || '—'}"</td>
-                    <td class="pr-3">{$bpDebugFrame.validated.pulse ?? '—'}</td>
-                    <td>{$bpDebugFrame.validated.pulse !== null ? '✓' : '✗'}</td>
                   </tr>
                 </tbody>
               </table>
@@ -540,6 +631,13 @@
               <p class="text-base text-blue-900/60 font-bold">Sit still, then press Start</p>
             </div>
           </div>
+          <!-- Calibrate shortcut -->
+          <button
+            on:click={openCalibration}
+            class="mt-8 px-5 py-2.5 rounded-2xl border-2 border-orange-300 bg-orange-50 text-orange-600 text-[11px] font-black uppercase tracking-widest active:scale-95 transition-transform"
+          >
+            🎯 Calibrate Camera
+          </button>
         </div>
       {:else}
         <div in:fade class="flex flex-col items-center">
@@ -699,6 +797,134 @@
     </div>
   {/if}
 </div>
+
+<!-- ── BP Camera Calibration Overlay ───────────────────────────────────────── -->
+{#if bpCalibrateMode}
+  <!-- svelte-ignore a11y-no-static-element-interactions -->
+  <div
+    class="fixed inset-0 bg-black/90 z-50 flex flex-col p-4 overflow-y-auto"
+    in:fade out:fade
+    on:pointermove={onCalibPointerMove}
+    on:pointerup={onCalibPointerUp}
+  >
+    <!-- Header -->
+    <div class="flex items-center justify-between mb-3 flex-shrink-0">
+      <div class="flex items-center gap-2">
+        <span class="rounded-full bg-orange-500 px-2.5 py-0.5 text-[10px] font-black uppercase tracking-widest text-white">🎯 Calibration</span>
+        <span class="text-white/60 text-[10px] font-bold uppercase tracking-widest">Drag boxes to SYS &amp; DIA digits</span>
+      </div>
+      <button
+        on:click={closeCalibration}
+        class="text-white/50 font-black text-sm uppercase tracking-widest px-3 py-1 rounded-xl active:bg-white/10"
+      >
+        ✕
+      </button>
+    </div>
+
+    <!-- Camera preview with draggable boxes -->
+    <div class="relative w-full flex-shrink-0 mb-4 touch-none select-none">
+      {#if $bpDebugFrame?.imageData}
+        <img
+          bind:this={calibPreviewImg}
+          src="data:image/jpeg;base64,{$bpDebugFrame.imageData}"
+          alt="BP camera preview"
+          class="w-full h-auto block rounded-xl border border-white/10"
+          draggable="false"
+        />
+
+        <!-- SYS box (red) -->
+        <!-- svelte-ignore a11y-no-static-element-interactions -->
+        <div
+          class="absolute border-2 border-red-500 bg-red-500/10 touch-none"
+          style="left:{sysBoxCss.x}px; top:{sysBoxCss.y}px; width:{sysBoxCss.w}px; height:{sysBoxCss.h}px; cursor:move"
+          on:pointerdown={(e) => startBoxDrag(e, 'sys', 'move')}
+        >
+          <span class="absolute top-1 left-1.5 text-red-400 text-[10px] font-black uppercase pointer-events-none">SYS</span>
+          <!-- resize handle -->
+          <!-- svelte-ignore a11y-no-static-element-interactions -->
+          <div
+            class="absolute bottom-0 right-0 w-5 h-5 bg-red-500 rounded-tl-sm"
+            style="cursor:se-resize"
+            on:pointerdown|stopPropagation={(e) => startBoxDrag(e, 'sys', 'resize')}
+          />
+        </div>
+
+        <!-- DIA box (green) -->
+        <!-- svelte-ignore a11y-no-static-element-interactions -->
+        <div
+          class="absolute border-2 border-green-400 bg-green-400/10 touch-none"
+          style="left:{diaBoxCss.x}px; top:{diaBoxCss.y}px; width:{diaBoxCss.w}px; height:{diaBoxCss.h}px; cursor:move"
+          on:pointerdown={(e) => startBoxDrag(e, 'dia', 'move')}
+        >
+          <span class="absolute top-1 left-1.5 text-green-400 text-[10px] font-black uppercase pointer-events-none">DIA</span>
+          <!-- resize handle -->
+          <!-- svelte-ignore a11y-no-static-element-interactions -->
+          <div
+            class="absolute bottom-0 right-0 w-5 h-5 bg-green-500 rounded-tl-sm"
+            style="cursor:se-resize"
+            on:pointerdown|stopPropagation={(e) => startBoxDrag(e, 'dia', 'resize')}
+          />
+        </div>
+      {:else}
+        <div class="w-full h-48 rounded-xl border border-white/10 bg-white/5 flex items-center justify-center text-white/30 text-xs font-bold uppercase tracking-widest">
+          {$bpDebugFrame?.error ? `⚠ ${$bpDebugFrame.error}` : 'Waiting for camera…'}
+        </div>
+      {/if}
+    </div>
+
+    <!-- Camera settings sliders -->
+    <div class="grid grid-cols-2 gap-x-6 gap-y-4 mb-5 flex-shrink-0">
+      <div>
+        <div class="flex justify-between mb-1">
+          <label for="calib-brightness" class="text-[10px] font-black uppercase tracking-widest text-white/60">Brightness</label>
+          <span class="text-[10px] text-white/40 font-mono">{camBrightness.toFixed(2)}</span>
+        </div>
+        <input id="calib-brightness" type="range" min="-1" max="1" step="0.05" bind:value={camBrightness} class="w-full accent-blue-500" />
+      </div>
+      <div>
+        <div class="flex justify-between mb-1">
+          <label for="calib-contrast" class="text-[10px] font-black uppercase tracking-widest text-white/60">Contrast</label>
+          <span class="text-[10px] text-white/40 font-mono">{camContrast.toFixed(1)}</span>
+        </div>
+        <input id="calib-contrast" type="range" min="0" max="10" step="0.1" bind:value={camContrast} class="w-full accent-blue-500" />
+      </div>
+      <div>
+        <div class="flex justify-between mb-1">
+          <label for="calib-sharpness" class="text-[10px] font-black uppercase tracking-widest text-white/60">Sharpness</label>
+          <span class="text-[10px] text-white/40 font-mono">{camSharpness.toFixed(1)}</span>
+        </div>
+        <input id="calib-sharpness" type="range" min="0" max="16" step="0.5" bind:value={camSharpness} class="w-full accent-blue-500" />
+      </div>
+      <div>
+        <div class="flex justify-between mb-1">
+          <label for="calib-saturation" class="text-[10px] font-black uppercase tracking-widest text-white/60">Saturation</label>
+          <span class="text-[10px] text-white/40 font-mono">{camSaturation.toFixed(1)}</span>
+        </div>
+        <input id="calib-saturation" type="range" min="0" max="10" step="0.1" bind:value={camSaturation} class="w-full accent-blue-500" />
+      </div>
+    </div>
+
+    <p class="text-[10px] text-white/30 font-bold uppercase tracking-widest text-center mb-4 flex-shrink-0">
+      Drag boxes to cover the SYS (red) and DIA (green) digit areas. Corner handle to resize.
+    </p>
+
+    <!-- Action buttons -->
+    <div class="flex gap-3 flex-shrink-0">
+      <button
+        on:click={closeCalibration}
+        class="flex-1 py-4 rounded-2xl border-2 border-white/20 text-white/60 font-black uppercase text-xs tracking-widest active:scale-95 transition-transform"
+      >
+        Discard
+      </button>
+      <button
+        on:click={saveCalibration}
+        class="flex-1 py-4 rounded-2xl bg-blue-600 text-white font-black uppercase text-xs tracking-widest active:scale-95 transition-transform"
+      >
+        💾 Save &amp; Close
+      </button>
+    </div>
+  </div>
+{/if}
 
 <style>
   .custom-scrollbar::-webkit-scrollbar {

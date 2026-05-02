@@ -99,6 +99,9 @@ export interface BpDebugFrame {
   bands:     { sys: string; dia: string; pulse: string };  // raw OCR text per band
   validated: { sys: number | null; dia: number | null; pulse: number | null; complete: boolean };
   error:     string | null;                     // set when OCR failed (shows reason in debug panel)
+  calibrate?: boolean;                          // true when this is a calibration preview (not OCR)
+  capW?:     number;                            // original frame width  (present in calibrate mode)
+  capH?:     number;                            // original frame height (present in calibrate mode)
 }
 export const bpDebugFrame = writable<BpDebugFrame | null>(null);
 
@@ -253,6 +256,9 @@ function handleMessage(msg: BridgeMessage): void {
         bands:     msg.bands     as BpDebugFrame['bands'],
         validated: msg.validated as BpDebugFrame['validated'],
         error:     (msg.error as string | null) ?? null,
+        calibrate: (msg.calibrate as boolean | undefined) ?? false,
+        capW:      (msg.capW as number | undefined) ?? undefined,
+        capH:      (msg.capH as number | undefined) ?? undefined,
       });
       break;
     }

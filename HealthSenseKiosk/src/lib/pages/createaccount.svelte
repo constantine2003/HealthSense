@@ -1,26 +1,34 @@
 <script lang="ts">
   import { fade, slide, scale } from 'svelte/transition';
   import { onDestroy } from 'svelte';
-  import { supabase } from './supabaseClient';
   import {
     startFingerprintEnroll,
     cancelFingerprint,
     fingerprintEvent,
     bridgeStatus,
   } from '../stores/esp32Store';
+  import { isOnline, BRIDGE_BASE } from '../stores/connectivity';
+  import { createAccount } from '../db/index';
   import fingerprintIcon from '../../assets/fingerprint-svgrepo-com.svg';
+
+  const bridgeUrl = BRIDGE_BASE;
+  const bridgeToken = import.meta.env.VITE_HS_TOKEN ?? '';
 
   export let onBack: () => void;
   export let onCreated: (user: any) => void;
 
   // --- FORM STATE ---
   let firstName = "";
-  let middleName = ""; // Added
+  let middleName = "";
   let lastName = "";
   let sex: 'Male' | 'Female' | 'Other' | '' = '';
-  let focusedField: 'first' | 'middle' | 'last' | 'recoveryEmail' | null = null;
+  let focusedField: 'first' | 'middle' | 'last' | 'recoveryEmail' | 'password' | 'confirmPassword' | null = null;
   let isSubmitting = false;
   let recoveryEmail = "";
+  let password = "";
+  let confirmPassword = "";
+  let showPassword = false;
+  let showConfirmPassword = false;
 
   // --- BIRTHDAY SCROLLER STATE ---
   const months = ["JAN", "FEB", "MAR", "APR", "MAY", "JUN", "JUL", "AUG", "SEP", "OCT", "NOV", "DEC"];
@@ -60,17 +68,10 @@
 
   // --- BIOMETRIC MODAL STATE ---
   let showBiometricModal = false;
-  // 'idle'     → ready to start
-  // 'scanning' → waiting for first finger placement
-  // 'lift'     → first scan done, waiting for finger to lift
-  // 'again'    → waiting for the same finger a second time
-  // 'success'  → enrollment complete
-  // 'error'    → something went wrong
   let scanStatus: 'idle' | 'scanning' | 'lift' | 'again' | 'success' | 'error' = 'idle';
   let scanMessage = "";
   let fingerprintRegistered = false;
-  let fingerprintSlot: number | null = null;   // slot saved during enroll, stored in DB
-  let addFingerprint = false;                  // checkbox: user opts in to biometric login
+  let fingerprintSlot: number | null = null;
 
   // Explicit store subscription — more reliable than $: reactive blocks
   // because Svelte will never batch-suppress a direct subscriber callback.
@@ -115,17 +116,21 @@
   function handleKeyPress(key: string) {
     if (!focusedField) return;
     const char = isCaps ? key.toUpperCase() : key.toLowerCase();
-    if (focusedField === 'first') firstName += char;
-    if (focusedField === 'middle') middleName += char; // Added
-    if (focusedField === 'last') lastName += char;
-    if (focusedField === 'recoveryEmail') recoveryEmail += char; // Add this
+    if (focusedField === 'first')           firstName       += char;
+    if (focusedField === 'middle')          middleName      += char;
+    if (focusedField === 'last')            lastName        += char;
+    if (focusedField === 'recoveryEmail')   recoveryEmail   += char;
+    if (focusedField === 'password')        password        += char;
+    if (focusedField === 'confirmPassword') confirmPassword += char;
   }
 
   function backspace() {
-    if (focusedField === 'first') firstName = firstName.slice(0, -1);
-    if (focusedField === 'middle') middleName = middleName.slice(0, -1); // Added
-    if (focusedField === 'last') lastName = lastName.slice(0, -1);
-    if (focusedField === 'recoveryEmail') recoveryEmail = recoveryEmail.slice(0, -1);
+    if (focusedField === 'first')           firstName       = firstName.slice(0, -1);
+    if (focusedField === 'middle')          middleName      = middleName.slice(0, -1);
+    if (focusedField === 'last')            lastName        = lastName.slice(0, -1);
+    if (focusedField === 'recoveryEmail')   recoveryEmail   = recoveryEmail.slice(0, -1);
+    if (focusedField === 'password')        password        = password.slice(0, -1);
+    if (focusedField === 'confirmPassword') confirmPassword = confirmPassword.slice(0, -1);
   }
 
   async function startFingerprintScan() {
@@ -144,85 +149,64 @@
       return;
     }
 
-    // Determine next free slot: MAX(fingerprint_id) + 1, or 1 if nobody enrolled yet
-    const { data: slotRow } = await supabase
-      .from('profiles')
-      .select('fingerprint_id')
-      .not('fingerprint_id', 'is', null)
-      .order('fingerprint_id', { ascending: false })
-      .limit(1)
-      .maybeSingle();
-
-    const nextSlot = slotRow?.fingerprint_id != null ? (slotRow.fingerprint_id as number) + 1 : 1;
+    // Determine next free slot via bridge API (no direct Supabase call)
+    try {
+      const res = await fetch(`${bridgeUrl}/api/profiles/next-fingerprint-slot`, {
+        headers: { 'x-hs-token': bridgeToken }
+      });
+      const data = await res.json();
+      var nextSlot = data.slot ?? 1;
+    } catch {
+      var nextSlot = 1;
+    }
 
     startFingerprintEnroll(nextSlot);
   }
 
-  // --- UPDATED SUBMIT WITH MIDDLE NAME & .COM FIX ---
   async function handleSubmit() {
-    // 1. REMOVED recoveryEmail from the required check to allow "No Email" users
-    if (firstName && lastName && sex) { 
-      isSubmitting = true;
-      
-      const cleanFirst = firstName.toLowerCase().trim().replace(/\s+/g, '');
-      const cleanLast = lastName.toLowerCase().trim().replace(/\s+/g, '');
-      const generatedUsername = `${cleanFirst}.${cleanLast}`;
-      
-      // 2. FALLBACK LOGIC: Use real email if provided, otherwise use kiosk.local
-      const hasRealEmail = recoveryEmail && recoveryEmail.trim().length > 0;
-      const authEmail = hasRealEmail ? recoveryEmail.trim() : `${generatedUsername}@kiosk.local`; 
-      
-      const generatedPassword = `${generatedUsername}123`; 
-
-      try {
-        // Create Auth account
-        const { data: authData, error: authError } = await supabase.auth.signUp({
-          email: authEmail,
-          password: generatedPassword,
-          options: {
-            data: { 
-              display_name: firstName,
-              username: generatedUsername 
-            }
-          }
-        });
-
-        if (authError) throw authError;
-
-        const monthIdx = months.indexOf(selM) + 1;
-        const dbDate = `${selY}-${monthIdx.toString().padStart(2, '0')}-${selD}`;
-
-        if (authData.user) {
-          const profilePayload = {
-            id: authData.user.id,
-            first_name: firstName,
-            middle_name: middleName || null,
-            last_name: lastName,
-            username: generatedUsername,
-            // Store the real email if they have it, or null/fake if they don't
-            recovery_email: hasRealEmail ? authEmail : null, 
-            birthday: dbDate,
-            sex: sex,
-            fingerprint_id: fingerprintSlot,   // null if user skipped enrollment
-            created_at: new Date().toISOString()
-          };
-
-          const { error: profileError } = await supabase
-            .from('profiles')
-            .insert(profilePayload);
-
-          if (profileError) throw profileError;
-
-          onCreated(profilePayload); 
-        }
-      } catch (err: any) {
-        alert("Registration Error: " + err.message);
-      } finally {
-        isSubmitting = false;
-      }
-    } else {
-      // Updated alert to show Email is optional
+    if (!firstName || !lastName || !sex) {
       alert("Please fill in First Name, Last Name, and Gender.");
+      return;
+    }
+    if (!password || password.length < 6) {
+      alert("Password must be at least 6 characters.");
+      return;
+    }
+    if (password !== confirmPassword) {
+      alert("Passwords do not match.");
+      return;
+    }
+    if (!fingerprintRegistered) {
+      alert("Fingerprint registration is required. Please scan your fingerprint to continue.");
+      return;
+    }
+
+    isSubmitting = true;
+
+    const monthIdx = months.indexOf(selM) + 1;
+    const dbDate   = `${selY}-${monthIdx.toString().padStart(2, '0')}-${selD}`;
+
+    try {
+      const profile = await createAccount({
+        firstName,
+        middleName,
+        lastName,
+        sex,
+        birthday: dbDate,
+        recoveryEmail,
+        fingerprintSlot,
+        password,
+      });
+
+      if (!$isOnline) {
+        alert("Account created in offline mode. It will sync to the cloud when internet is restored.");
+      }
+
+      onCreated(profile);
+    } catch (err: any) {
+      alert("Registration Error: " + err.message);
+    } finally {
+      isSubmitting = false;
     }
   }
 
@@ -405,6 +389,70 @@
         </div>
       </div>
 
+      <!-- Password -->
+      <div class="w-full space-y-1">
+        <div class="flex justify-between items-center px-4">
+          <span class="text-[10px] font-black uppercase tracking-widest text-blue-400">Password</span>
+          <span class="text-[8px] font-black text-red-400 bg-red-50 px-2 py-0.5 rounded-full tracking-widest">REQUIRED</span>
+        </div>
+        <div class="w-full h-16 rounded-2xl bg-white border flex items-center transition-all {focusedField === 'password' ? 'border-blue-500 ring-4 ring-blue-500/10' : 'border-blue-100 shadow-sm'}">
+          <!-- svelte-ignore a11y-no-static-element-interactions -->
+          <div class="flex-1 h-full px-8 flex items-center cursor-pointer"
+            on:click|stopPropagation={() => focusedField = 'password'}
+            on:keydown={() => {}}
+            role="none"
+          >
+            {#if focusedField === 'password'}
+              <span class="text-blue-950 text-lg font-bold">{showPassword ? password : '•'.repeat(password.length)}</span>
+              <div class="ml-0.5 w-0.5 h-6 bg-blue-500 animate-pulse"></div>
+            {:else}
+              <span class="text-lg font-bold {password ? 'text-blue-950' : 'text-blue-900/20'}">
+                {password ? (showPassword ? password : '•'.repeat(password.length)) : 'Enter password'}
+              </span>
+            {/if}
+          </div>
+          <button type="button" on:click|stopPropagation={() => showPassword = !showPassword}
+            class="pr-6 text-blue-400 text-xs font-black uppercase tracking-widest flex-shrink-0">
+            {showPassword ? 'HIDE' : 'SHOW'}
+          </button>
+        </div>
+      </div>
+
+      <!-- Confirm Password -->
+      <div class="w-full space-y-1">
+        <div class="flex justify-between items-center px-4">
+          <span class="text-[10px] font-black uppercase tracking-widest text-blue-400">Confirm Password</span>
+          <span class="text-[8px] font-black text-red-400 bg-red-50 px-2 py-0.5 rounded-full tracking-widest">REQUIRED</span>
+        </div>
+        <div class="w-full h-16 rounded-2xl bg-white border flex items-center transition-all {focusedField === 'confirmPassword' ? 'border-blue-500 ring-4 ring-blue-500/10' : confirmPassword && confirmPassword !== password ? 'border-red-300' : 'border-blue-100 shadow-sm'}">
+          <!-- svelte-ignore a11y-no-static-element-interactions -->
+          <div class="flex-1 h-full px-8 flex items-center cursor-pointer"
+            on:click|stopPropagation={() => focusedField = 'confirmPassword'}
+            on:keydown={() => {}}
+            role="none"
+          >
+            {#if focusedField === 'confirmPassword'}
+              <span class="text-blue-950 text-lg font-bold">{showConfirmPassword ? confirmPassword : '•'.repeat(confirmPassword.length)}</span>
+              <div class="ml-0.5 w-0.5 h-6 bg-blue-500 animate-pulse"></div>
+            {:else}
+              <span class="text-lg font-bold {confirmPassword ? (confirmPassword === password ? 'text-green-600' : 'text-red-500') : 'text-blue-900/20'}">
+                {confirmPassword ? (showConfirmPassword ? confirmPassword : '•'.repeat(confirmPassword.length)) : 'Re-enter password'}
+              </span>
+            {/if}
+          </div>
+          <button type="button" on:click|stopPropagation={() => showConfirmPassword = !showConfirmPassword}
+            class="pr-6 text-blue-400 text-xs font-black uppercase tracking-widest flex-shrink-0">
+            {showConfirmPassword ? 'HIDE' : 'SHOW'}
+          </button>
+        </div>
+        {#if confirmPassword && confirmPassword !== password}
+          <p class="ml-4 text-[9px] font-bold uppercase tracking-tighter text-red-400">⚠ Passwords do not match</p>
+        {:else if confirmPassword && confirmPassword === password}
+          <p class="ml-4 text-[9px] font-bold uppercase tracking-tighter text-green-500">✓ Passwords match</p>
+        {/if}
+      </div>
+
+      <!-- Recovery Email -->
       <div class="w-full space-y-1">
         <div class="flex justify-between items-center px-4">
           <span class="text-[10px] font-black uppercase tracking-widest text-blue-400">
@@ -441,58 +489,46 @@
         </p>
       </div>
 
-      <button
-        type="button"
-        on:click={handleSubmit}
-        disabled={isSubmitting}
-        class="w-full h-20 bg-blue-950 rounded-3xl text-white font-black text-xl uppercase tracking-widest shadow-xl shadow-blue-900/20 mt-4 active:scale-[0.98] transition-transform disabled:opacity-50"
-      >
-        {isSubmitting ? 'Processing...' : 'Complete Registration'}
-      </button>
-
-      <!-- Fingerprint opt-in checkbox card -->
-      <button
-        type="button"
-        on:click={() => { addFingerprint = !addFingerprint; if (!addFingerprint) { fingerprintRegistered = false; fingerprintSlot = null; } }}
-        class="w-full rounded-2xl border-2 px-5 py-4 flex items-center gap-4 text-left transition-all
-          {addFingerprint ? 'bg-blue-50 border-blue-400' : 'bg-white/50 border-blue-100 active:bg-white/80'}"
-      >
-        <!-- Checkbox indicator -->
-        <div class="w-7 h-7 rounded-lg border-2 flex-shrink-0 flex items-center justify-center transition-all
-          {addFingerprint ? 'bg-blue-500 border-blue-500' : 'bg-white border-blue-200'}">
-          {#if addFingerprint}
-            <svg class="w-4 h-4 text-white" fill="currentColor" viewBox="0 0 20 20"><path d="M16.707 5.293a1 1 0 00-1.414 0L8 12.586 4.707 9.293a1 1 0 00-1.414 1.414l4 4a1 1 0 001.414 0l8-8a1 1 0 000-1.414z"/></svg>
-          {/if}
+      <!-- Fingerprint — mandatory -->
+      <div class="w-full space-y-3">
+        <div class="flex justify-between items-center px-4">
+          <span class="text-[10px] font-black uppercase tracking-widest text-blue-400">Fingerprint Registration</span>
+          <span class="text-[8px] font-black text-red-400 bg-red-50 px-2 py-0.5 rounded-full tracking-widest">REQUIRED</span>
         </div>
-        <!-- Label -->
-        <div class="flex-1 min-w-0">
-          <p class="text-[11px] font-black text-blue-950 uppercase tracking-widest leading-tight">Register Fingerprint Login</p>
-          <p class="text-[10px] text-blue-900/40 font-semibold mt-0.5">Log in instantly with your fingerprint instead of a password</p>
-        </div>
-        <!-- Fingerprint icon -->
-        <img src={fingerprintIcon} alt="" class="w-8 h-8 flex-shrink-0 transition-all
-          {addFingerprint ? 'opacity-70' : 'opacity-20'}" style="filter: grayscale(100%)" />
-      </button>
 
-      <!-- Scan button — only visible when opted in -->
-      {#if addFingerprint}
         <button
           type="button"
           on:click={startFingerprintScan}
-          class="w-full h-16 rounded-2xl border-2 transition-all flex items-center justify-center gap-3
+          class="w-full h-20 rounded-2xl border-2 transition-all flex items-center justify-center gap-4
           {fingerprintRegistered
             ? 'bg-green-50 border-green-400'
             : 'bg-blue-500 border-blue-500 active:bg-blue-600'}"
         >
           {#if fingerprintRegistered}
-            <svg class="w-5 h-5 text-green-600" fill="currentColor" viewBox="0 0 20 20"><path d="M10 18a8 8 0 100-16 8 8 0 000 16zm3.707-9.293a1 1 0 00-1.414-1.414L9 10.586 7.707 9.293a1 1 0 00-1.414 1.414l2 2a1 1 0 001.414 0l4-4z"/></svg>
-            <span class="text-green-600 font-black uppercase tracking-widest text-[10px]">Fingerprint Linked</span>
+            <svg class="w-7 h-7 text-green-600" fill="currentColor" viewBox="0 0 20 20"><path d="M10 18a8 8 0 100-16 8 8 0 000 16zm3.707-9.293a1 1 0 00-1.414-1.414L9 10.586 7.707 9.293a1 1 0 00-1.414 1.414l2 2a1 1 0 001.414 0l4-4z"/></svg>
+            <div class="text-left">
+              <p class="text-green-600 font-black uppercase tracking-widest text-[10px]">Fingerprint Registered</p>
+              <p class="text-green-500/70 text-[9px] font-semibold mt-0.5">Tap to re-scan</p>
+            </div>
           {:else}
-            <img src={fingerprintIcon} alt="" class="w-6 h-6" style="filter: invert(1)" />
-            <span class="text-white font-black uppercase tracking-widest text-[10px]">Scan Fingerprint Now</span>
+            <img src={fingerprintIcon} alt="" class="w-8 h-8" style="filter: invert(1)" />
+            <div class="text-left">
+              <p class="text-white font-black uppercase tracking-widest text-[10px]">Scan Fingerprint</p>
+              <p class="text-white/70 text-[9px] font-semibold mt-0.5">Required to complete registration</p>
+            </div>
           {/if}
         </button>
-      {/if}
+      </div>
+
+      <!-- Submit button — at the very bottom -->
+      <button
+        type="button"
+        on:click={handleSubmit}
+        disabled={isSubmitting || !fingerprintRegistered}
+        class="w-full h-20 bg-blue-950 rounded-3xl text-white font-black text-xl uppercase tracking-widest shadow-xl shadow-blue-900/20 mt-4 active:scale-[0.98] transition-transform disabled:opacity-40"
+      >
+        {isSubmitting ? 'Processing...' : 'Complete Registration'}
+      </button>
     </div>
   </div>
 

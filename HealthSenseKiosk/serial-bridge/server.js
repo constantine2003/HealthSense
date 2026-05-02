@@ -34,6 +34,10 @@ import { URL } from 'url';
 import { spawn } from 'child_process';
 import { resolve, dirname } from 'path';
 import { fileURLToPath } from 'url';
+import { readFileSync, writeFileSync } from 'fs';
+import bcrypt from 'bcryptjs';
+import { createClient } from '@supabase/supabase-js';
+import * as localDb from './local-db.js';
 
 const __dirname = dirname(fileURLToPath(import.meta.url));
 
@@ -93,6 +97,15 @@ let bpTimeoutTimer  = null;
 let bpStartedAt     = 0;
 /** @type {import('child_process').ChildProcess | null} */
 let bpOcrProcess    = null;
+
+// ─── BP Calibration state ─────────────────────────────────────────────────────
+
+let bpCalibrateActive  = false;
+let bpCalibrateTimer   = null;
+/** @type {import('child_process').ChildProcess | null} */
+let bpCalibrateProcess = null;
+
+const ENV_PATH = resolve(__dirname, '.env');
 
 // ─── Logging helpers ──────────────────────────────────────────────────────────
 
@@ -275,6 +288,119 @@ function broadcastBpErrorFrame(errorMsg) {
   });
 }
 
+// ─── BP Calibration helpers ───────────────────────────────────────────────────
+
+/**
+ * Start a capture-only loop for camera calibration.
+ * Stops any active OCR loop first. Sends a raw JPEG frame every ~3 s
+ * as a bp_frame message with calibrate:true so the frontend knows this
+ * is a calibration preview (not an OCR result).
+ */
+function startBpCalibrate() {
+  if (bpActive) stopBpMeasurement();
+  bpCalibrateActive = true;
+  log('BP calibration: starting capture preview loop');
+  scheduleBpCapture();
+}
+
+function stopBpCalibrate() {
+  bpCalibrateActive = false;
+  clearTimeout(bpCalibrateTimer);
+  bpCalibrateTimer = null;
+  if (bpCalibrateProcess) {
+    try { bpCalibrateProcess.kill(); } catch (_) {}
+    bpCalibrateProcess = null;
+  }
+  log('BP calibration: stopped');
+}
+
+function scheduleBpCapture() {
+  if (!bpCalibrateActive) return;
+  bpCalibrateTimer = setTimeout(runBpCapture, 3000);
+}
+
+function runBpCapture() {
+  if (!bpCalibrateActive) return;
+
+  const proc = spawn('python3', [BP_CONFIG.OCR_SCRIPT, '--capture-only']);
+  bpCalibrateProcess = proc;
+  let stdout = '';
+
+  const killTimer = setTimeout(() => {
+    if (bpCalibrateProcess === proc) {
+      warn('BP capture timed out — killing');
+      try { proc.kill(); } catch (_) {}
+      bpCalibrateProcess = null;
+      scheduleBpCapture();
+    }
+  }, 30000);
+
+  proc.stdout.on('data', (d) => { stdout += d.toString(); });
+  proc.stderr.on('data', (d) => { warn(`BP capture stderr: ${d.toString().trim()}`); });
+
+  proc.on('close', () => {
+    clearTimeout(killTimer);
+    bpCalibrateProcess = null;
+    if (!bpCalibrateActive) return;
+
+    let result = null;
+    try {
+      result = JSON.parse(stdout.trim());
+    } catch (e) {
+      warn(`BP capture parse error: ${e.message}`);
+      scheduleBpCapture();
+      return;
+    }
+
+    broadcast({
+      type:      'bp_frame',
+      imageData: result.cap_image || '',
+      calibrate: true,
+      capW:      result.cap_w || 0,
+      capH:      result.cap_h || 0,
+      bands:     { sys: '', dia: '', pulse: '' },
+      validated: { sys: null, dia: null, pulse: null, complete: false },
+      error:     result.error || null,
+    });
+
+    scheduleBpCapture();
+  });
+
+  proc.on('error', (e) => {
+    clearTimeout(killTimer);
+    bpCalibrateProcess = null;
+    warn(`BP capture process error: ${e.message}`);
+    scheduleBpCapture();
+  });
+}
+
+/**
+ * Update key=value pairs in the .env file and apply them to process.env
+ * so the next OCR invocation picks them up without a server restart.
+ * @param {Record<string,string|number>} updates
+ */
+function writeDotEnv(updates) {
+  let lines = [];
+  try {
+    lines = readFileSync(ENV_PATH, 'utf8').split('\n');
+  } catch {
+    // file doesn't exist yet — start with empty
+  }
+
+  for (const [key, value] of Object.entries(updates)) {
+    const str = String(value);
+    const idx = lines.findIndex((l) => l.startsWith(key + '='));
+    if (idx >= 0) {
+      lines[idx] = `${key}=${str}`;
+    } else {
+      lines.push(`${key}=${str}`);
+    }
+    process.env[key] = str;
+  }
+
+  writeFileSync(ENV_PATH, lines.join('\n'), 'utf8');
+}
+
 // ─── Serial connection ────────────────────────────────────────────────────────
 
 function connectSerial() {
@@ -374,13 +500,173 @@ function sendToESP32(payload) {
   return true;
 }
 
+// ─── HTTP API helpers ─────────────────────────────────────────────────────────
+
+function jsonOk(res, data) {
+  const body = JSON.stringify(data);
+  res.writeHead(200, { 'Content-Type': 'application/json', 'Access-Control-Allow-Origin': '*' });
+  res.end(body);
+}
+
+function jsonErr(res, status, msg) {
+  res.writeHead(status, { 'Content-Type': 'application/json', 'Access-Control-Allow-Origin': '*' });
+  res.end(JSON.stringify({ error: msg }));
+}
+
+function readBody(req) {
+  return new Promise((resolve) => {
+    let data = '';
+    req.on('data', c => { data += c; });
+    req.on('end', () => {
+      try { resolve(JSON.parse(data)); } catch { resolve({}); }
+    });
+  });
+}
+
+// ─── HTTP request router ──────────────────────────────────────────────────────
+
+async function handleHttpRequest(req, res) {
+  // CORS pre-flight
+  if (req.method === 'OPTIONS') {
+    res.writeHead(204, {
+      'Access-Control-Allow-Origin': '*',
+      'Access-Control-Allow-Methods': 'GET,POST,OPTIONS',
+      'Access-Control-Allow-Headers': 'Content-Type,x-hs-token',
+    });
+    return res.end();
+  }
+
+  // Auth check — same token as WebSocket.
+  if (!isAuthorized(req)) return jsonErr(res, 401, 'Unauthorized');
+
+  const parsedUrl = new URL(req.url, `http://${req.headers.host}`);
+  const path = parsedUrl.pathname;
+  const qs = parsedUrl.searchParams;
+
+  try {
+    // ── GET /api/connectivity ──────────────────────────────────────────────────
+    if (req.method === 'GET' && path === '/api/connectivity') {
+      const supaUrl = process.env.SUPABASE_URL ?? process.env.VITE_SUPABASE_URL ?? '';
+      let online = false;
+      if (supaUrl) {
+        try {
+          const ctrl = new AbortController();
+          const t = setTimeout(() => ctrl.abort(), 4000);
+          const r = await fetch(supaUrl, { method: 'HEAD', signal: ctrl.signal });
+          clearTimeout(t);
+          online = r.status < 500;
+        } catch { online = false; }
+      }
+      return jsonOk(res, { online });
+    }
+
+    // ── POST /api/auth/login ───────────────────────────────────────────────────
+    if (req.method === 'POST' && path === '/api/auth/login') {
+      const { username, password } = await readBody(req);
+      if (!username || !password) return jsonErr(res, 400, 'Missing username or password');
+
+      const profile = localDb.getProfileByUsername(username);
+      if (!profile) return jsonErr(res, 401, 'No account found for this username');
+      if (!profile.password_hash) return jsonErr(res, 401, 'No offline credentials stored for this account — please log in online first');
+
+      const ok = await bcrypt.compare(password, profile.password_hash);
+      if (!ok) return jsonErr(res, 401, 'Incorrect password');
+
+      const { password_hash, ...safeProfile } = profile;
+      return jsonOk(res, safeProfile);
+    }
+
+    // ── GET /api/profiles ──────────────────────────────────────────────────────
+    if (req.method === 'GET' && path === '/api/profiles') {
+      if (qs.has('username'))       return jsonOk(res, localDb.getProfileByUsername(qs.get('username')) ?? null);
+      if (qs.has('fingerprint_id')) return jsonOk(res, localDb.getProfileByFingerprint(Number(qs.get('fingerprint_id'))) ?? null);
+      if (qs.has('id'))             return jsonOk(res, localDb.getProfileById(qs.get('id')) ?? null);
+      return jsonErr(res, 400, 'Provide username, fingerprint_id, or id query param');
+    }
+
+    // ── POST /api/profiles (upsert — called after online login/create) ─────────
+    if (req.method === 'POST' && path === '/api/profiles') {
+      const body = await readBody(req);
+      const { _password, ...profile } = body;
+      if (_password) {
+        profile.password_hash = await bcrypt.hash(_password, 10);
+      }
+      profile.offline_created = profile.offline_created ?? 0;
+      profile.synced          = profile.synced          ?? 1;
+      localDb.upsertProfile(profile);
+      return jsonOk(res, { ok: true });
+    }
+
+    // ── GET /api/profiles/next-fingerprint-slot ───────────────────────────────
+    if (req.method === 'GET' && path === '/api/profiles/next-fingerprint-slot') {
+      const row = localDb.default.prepare(
+        'SELECT MAX(fingerprint_id) as max_slot FROM profiles WHERE fingerprint_id IS NOT NULL'
+      ).get();
+      const nextSlot = row?.max_slot != null ? row.max_slot + 1 : 1;
+      return jsonOk(res, { slot: nextSlot });
+    }
+
+    // ── POST /api/profiles/create-offline ─────────────────────────────────────
+    if (req.method === 'POST' && path === '/api/profiles/create-offline') {
+      const body = await readBody(req);
+      const { password, auth_email, ...profileFields } = body;
+      const id = crypto.randomUUID();
+      const hash = await bcrypt.hash(password, 10);
+
+      const profile = {
+        ...profileFields,
+        id,
+        created_at:     new Date().toISOString(),
+        password_hash:  hash,
+        offline_created: 1,
+        synced:          0,
+      };
+      localDb.upsertProfile(profile);
+
+      // Queue the Supabase auth.signUp + profiles.insert for later.
+      localDb.queueSync('auth_signup', 'auth.users', {
+        email: auth_email,
+        password,
+        display_name: profileFields.first_name,
+        username: profileFields.username,
+      }, id);
+      localDb.queueSync('profile_insert', 'profiles', profileFields, id);
+
+      const { password_hash, ...safeProfile } = profile;
+      return jsonOk(res, safeProfile);
+    }
+
+    // ── GET /api/checkups?user_id= ─────────────────────────────────────────────
+    if (req.method === 'GET' && path === '/api/checkups') {
+      const userId = qs.get('user_id');
+      if (!userId) return jsonErr(res, 400, 'Provide user_id query param');
+      return jsonOk(res, localDb.getCheckupsByUserId(userId));
+    }
+
+    // ── POST /api/checkups ─────────────────────────────────────────────────────
+    if (req.method === 'POST' && path === '/api/checkups') {
+      const body = await readBody(req);
+      const record = { id: crypto.randomUUID(), ...body, created_at: body.created_at ?? new Date().toISOString() };
+      localDb.insertCheckup(record);
+
+      if ((record.synced ?? 1) === 0) {
+        localDb.queueSync('checkup_insert', 'health_checkups', record, record.id);
+      }
+      return jsonOk(res, { ok: true, id: record.id });
+    }
+
+    return jsonErr(res, 404, 'Not found');
+  } catch (e) {
+    err(`HTTP API error [${path}]: ${e.message}`);
+    return jsonErr(res, 500, e.message);
+  }
+}
+
 // ─── WebSocket server ─────────────────────────────────────────────────────────
 
 function startWebSocketServer() {
   // Use an underlying http.Server so we can inspect headers before upgrade
-  const httpServer = createServer((_, res) => {
-    res.writeHead(404).end('HealthSense Serial Bridge – WebSocket endpoint only.');
-  });
+  const httpServer = createServer(handleHttpRequest);
 
   wss = new WebSocketServer({ noServer: true });
 
@@ -432,6 +718,44 @@ function startWebSocketServer() {
           return;
         }
 
+        // Calibration commands
+        if (msg.command === 'bp_calibrate_start') {
+          startBpCalibrate();
+          return;
+        }
+        if (msg.command === 'bp_calibrate_stop') {
+          stopBpCalibrate();
+          return;
+        }
+        if (msg.command === 'bp_save_config') {
+          const updates = {};
+          if (msg.sysBox) {
+            const { x, y, w, h } = msg.sysBox;
+            updates.BP_SYS_X = Math.round(x);
+            updates.BP_SYS_Y = Math.round(y);
+            updates.BP_SYS_W = Math.round(w);
+            updates.BP_SYS_H = Math.round(h);
+          }
+          if (msg.diaBox) {
+            const { x, y, w, h } = msg.diaBox;
+            updates.BP_DIA_X = Math.round(x);
+            updates.BP_DIA_Y = Math.round(y);
+            updates.BP_DIA_W = Math.round(w);
+            updates.BP_DIA_H = Math.round(h);
+          }
+          if (msg.camera) {
+            const cam = msg.camera;
+            if (cam.brightness !== undefined) updates.BP_BRIGHTNESS = cam.brightness;
+            if (cam.contrast   !== undefined) updates.BP_CONTRAST   = cam.contrast;
+            if (cam.sharpness  !== undefined) updates.BP_SHARPNESS  = cam.sharpness;
+            if (cam.saturation !== undefined) updates.BP_SATURATION = cam.saturation;
+          }
+          writeDotEnv(updates);
+          ws.send(JSON.stringify({ type: 'bp_config_saved' }));
+          log(`BP config saved: ${JSON.stringify(updates)}`);
+          return;
+        }
+
         // Cancel also stops any active BP OCR loop before forwarding to ESP32
         if ((msg.command === 'cancel' || msg.command === 'fp_cancel') && bpActive) {
           stopBpMeasurement();
@@ -476,6 +800,160 @@ function startWebSocketServer() {
   });
 }
 
+// ─── Cloud sync engine ────────────────────────────────────────────────────────
+
+let supabaseClient = null;
+
+function getSupabaseClient() {
+  if (supabaseClient) return supabaseClient;
+  const url = process.env.SUPABASE_URL ?? process.env.VITE_SUPABASE_URL ?? '';
+  const key = process.env.SUPABASE_ANON_KEY ?? process.env.VITE_SUPABASE_ANON_KEY ?? '';
+  if (!url || !key) return null;
+  supabaseClient = createClient(url, key);
+  return supabaseClient;
+}
+
+async function isInternetAvailable() {
+  const supaUrl = process.env.SUPABASE_URL ?? process.env.VITE_SUPABASE_URL ?? '';
+  if (!supaUrl) return false;
+  try {
+    const ctrl = new AbortController();
+    const t = setTimeout(() => ctrl.abort(), 4000);
+    const r = await fetch(supaUrl, { method: 'HEAD', signal: ctrl.signal });
+    clearTimeout(t);
+    return r.status < 500;
+  } catch { return false; }
+}
+
+async function syncToCloud() {
+  const online = await isInternetAvailable();
+  if (!online) return;
+
+  const supa = getSupabaseClient();
+  if (!supa) { warn('Sync: SUPABASE_URL / SUPABASE_ANON_KEY not set in .env — skipping'); return; }
+
+  const items = localDb.getPendingSyncItems();
+  if (items.length === 0) return;
+
+  log(`Sync: ${items.length} item(s) to push`);
+
+  // Keep a map of localId → realId for auth signups processed this run.
+  const idMap = new Map();
+
+  for (const item of items) {
+    let payload;
+    try { payload = JSON.parse(item.payload); } catch { localDb.markSyncItemError(item.id, 'bad JSON'); continue; }
+
+    try {
+      if (item.operation === 'auth_signup' && item.table_name === 'auth.users') {
+        const { data, error } = await supa.auth.signUp({
+          email: payload.email,
+          password: payload.password,
+          options: { data: { display_name: payload.display_name, username: payload.username } },
+        });
+        if (error) throw error;
+        const realId = data.user?.id;
+        if (realId && item.local_id) {
+          idMap.set(item.local_id, realId);
+          localDb.replaceProfileId(item.local_id, realId);
+          log(`Sync: mapped local UUID ${item.local_id} → Supabase ${realId}`);
+        }
+
+      } else if (item.operation === 'profile_insert' && item.table_name === 'profiles') {
+        // The profile row may already have its id updated by replaceProfileId above.
+        const localId   = item.local_id;
+        const realId    = idMap.get(localId) ?? localDb.getProfileById(localId)?.id ?? localId;
+        const profile   = localDb.getProfileById(realId);
+        if (!profile) throw new Error(`Profile ${realId} not found locally`);
+
+        const { password_hash, offline_created, synced, ...cloudPayload } = profile;
+        const { error } = await supa.from('profiles').upsert(cloudPayload);
+        if (error) throw error;
+
+      } else if (item.operation === 'checkup_insert' && item.table_name === 'health_checkups') {
+        // Remap user_id if it was an offline-created account.
+        const remapped = { ...payload };
+        if (item.local_id && idMap.has(payload.user_id)) {
+          remapped.user_id = idMap.get(payload.user_id);
+        }
+        const { synced, ...cloudPayload } = remapped;
+        const { error } = await supa.from('health_checkups').upsert(cloudPayload);
+        if (error) throw error;
+        localDb.markCheckupSynced(remapped.id);
+      }
+
+      localDb.markSyncItemDone(item.id);
+      log(`Sync: item #${item.id} (${item.operation}) pushed OK`);
+
+    } catch (e) {
+      localDb.markSyncItemError(item.id, e.message);
+      warn(`Sync: item #${item.id} failed — ${e.message}`);
+    }
+  }
+}
+
+// ─── One-time seed from Supabase ──────────────────────────────────────────────
+
+/**
+ * Pulls all profiles and health_checkups from Supabase into the local DB.
+ * Only runs if the local profiles table is empty (i.e., first ever start).
+ * This ensures existing users can log in and view history offline immediately.
+ */
+async function seedFromCloud() {
+  const existing = localDb.default.prepare('SELECT COUNT(*) as n FROM profiles').get();
+  if (existing.n > 0) return; // Already seeded — skip.
+
+  const online = await isInternetAvailable();
+  if (!online) {
+    warn('Seed: no internet — will retry on next sync cycle');
+    return;
+  }
+
+  const supa = getSupabaseClient();
+  if (!supa) { warn('Seed: Supabase credentials missing — skipping'); return; }
+
+  log('Seed: local DB is empty — pulling all records from Supabase…');
+
+  try {
+    // Pull profiles in pages of 1000.
+    let profileCount = 0;
+    let from = 0;
+    while (true) {
+      const { data, error } = await supa
+        .from('profiles')
+        .select('*')
+        .range(from, from + 999);
+      if (error) throw error;
+      if (!data || data.length === 0) break;
+      for (const p of data) localDb.upsertProfile({ ...p, synced: 1, offline_created: 0 });
+      profileCount += data.length;
+      if (data.length < 1000) break;
+      from += 1000;
+    }
+    log(`Seed: ${profileCount} profile(s) imported`);
+
+    // Pull health_checkups in pages of 1000.
+    let checkupCount = 0;
+    from = 0;
+    while (true) {
+      const { data, error } = await supa
+        .from('health_checkups')
+        .select('*')
+        .range(from, from + 999);
+      if (error) throw error;
+      if (!data || data.length === 0) break;
+      for (const c of data) localDb.upsertCheckupFromCloud(c);
+      checkupCount += data.length;
+      if (data.length < 1000) break;
+      from += 1000;
+    }
+    log(`Seed: ${checkupCount} checkup(s) imported`);
+    log('Seed: complete ✓');
+  } catch (e) {
+    err(`Seed failed: ${e.message}`);
+  }
+}
+
 // ─── Graceful shutdown ────────────────────────────────────────────────────────
 
 function shutdown(signal) {
@@ -497,3 +975,8 @@ process.on('SIGTERM', () => shutdown('SIGTERM'));
 log('HealthSense Serial Bridge starting…');
 startWebSocketServer();
 connectSerial();
+
+// Run seed on first start (no-op if DB already has data), then sync every 30 s.
+setTimeout(seedFromCloud, 5000);
+setTimeout(syncToCloud, 6000);
+setInterval(syncToCloud, 30_000);
