@@ -1093,14 +1093,14 @@ def _capture_only_mode():
 
     # Load seg_config once for live segment analysis
     _seg_cfg = None
-    _seg_threshold = 120
+    _seg_threshold = 40
     _seg_names_order = ["a", "b", "c", "d", "e", "f", "g"]
     seg_config_path = os.path.join(os.path.dirname(__file__), "seg_config.json")
     if os.path.exists(seg_config_path):
         try:
             with open(seg_config_path) as _f:
                 _seg_cfg = json.load(_f)
-            _seg_threshold = _seg_cfg.get("threshold", 120)
+            _seg_threshold = _seg_cfg.get("threshold", 40)
         except Exception as exc:
             sys.stderr.write(f"[calib] Failed to load seg_config: {exc}\n")
 
@@ -1270,7 +1270,7 @@ def _run_segment_test(config):
         sys.exit(0)
 
     gray = cv2.cvtColor(frame, cv2.COLOR_BGR2GRAY)
-    threshold = config.get("threshold", 120)
+    threshold = config.get("threshold", 40)
     seg_names = ["a", "b", "c", "d", "e", "f", "g"]
 
     result_digits = []
@@ -1321,7 +1321,7 @@ def _run_segment_detection(config):
     STABILITY_NEEDED = 4
     TIMEOUT_S = 120
 
-    threshold = config.get("threshold", 120)
+    threshold = config.get("threshold", 40)
     seg_names = ["a", "b", "c", "d", "e", "f", "g"]
     digit_configs = config["digits"]  # ordered: sys0,sys1,sys2,dia0,dia1,dia2
 

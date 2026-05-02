@@ -86,7 +86,7 @@
   let activeDigit: DigitName = 'sys0';
   let activeSeg: string | null = null;        // "sys0:a" format
   let allSegs: AllSegs = defaultSegPositions();
-  let segThreshold = 120;
+  let segThreshold = 40;
   let isTesting = false;
 
   // Camera settings (shared with segment calibration)
@@ -109,6 +109,7 @@
     bpTestResult.set(null);
     bpSegmentsLoaded.set(null);
     _segConfigApplied = false;
+    eyedropperActive = null;
     wsSend({ command: 'bp_calibrate_start' });
     wsSend({ command: 'bp_load_segments' });
   }
@@ -168,6 +169,7 @@
   function closeSegCalib() {
     segCalibMode = false;
     _segConfigApplied = false;
+    eyedropperActive = null;
     bpSegmentsLoaded.set(null);
     wsSend({ command: 'bp_calibrate_stop' });
   }
@@ -216,6 +218,63 @@
     for (const s of SEG_NAMES) newSegs[s] = { ...src[s], x: src[s].x + shiftX };
     allSegs = { ...allSegs, [nextName]: newSegs };
     activeDigit = nextName;
+  }
+
+  function resetActiveDigit() {
+    allSegs = { ...allSegs, [activeDigit]: defaultSegPositions()[activeDigit] };
+  }
+
+  // ── Eyedropper ────────────────────────────────────────────────────────────
+  type EyedropperTarget = 'background' | 'segment' | null;
+  let eyedropperActive: EyedropperTarget = null;
+  let sampledBg: number | null = null;      // grayscale brightness of background pick
+  let sampledSeg: number | null = null;     // grayscale brightness of segment pick
+
+  /** Sample grayscale brightness at a display-coordinate point from the preview image. */
+  function samplePixelGray(imgEl: HTMLImageElement, clientX: number, clientY: number): number | null {
+    try {
+      const rect = imgEl.getBoundingClientRect();
+      // Position within the displayed image element
+      const px = clientX - rect.left;
+      const py = clientY - rect.top;
+      // The image uses object-contain — compute the actual rendered image bounds
+      const dispW = rect.width;
+      const dispH = rect.height;
+      const natW = imgEl.naturalWidth  || dispW;
+      const natH = imgEl.naturalHeight || dispH;
+      const scale = Math.min(dispW / natW, dispH / natH);
+      const renderW = natW * scale;
+      const renderH = natH * scale;
+      const offsetX = (dispW - renderW) / 2;
+      const offsetY = (dispH - renderH) / 2;
+      // Pixel in native image coordinates
+      const nx = Math.round((px - offsetX) / scale);
+      const ny = Math.round((py - offsetY) / scale);
+      if (nx < 0 || ny < 0 || nx >= natW || ny >= natH) return null;
+      // Draw image to offscreen canvas and read pixel
+      const canvas = document.createElement('canvas');
+      canvas.width = natW;
+      canvas.height = natH;
+      const ctx = canvas.getContext('2d');
+      if (!ctx) return null;
+      ctx.drawImage(imgEl, 0, 0, natW, natH);
+      const [r, g, b] = ctx.getImageData(nx, ny, 1, 1).data;
+      // Same grayscale formula as OpenCV BGR2GRAY (approx)
+      return Math.round(0.114 * r + 0.587 * g + 0.299 * b);
+    } catch { return null; }
+  }
+
+  function onCalibImgClick(e: MouseEvent) {
+    if (!eyedropperActive || !calibPreviewImg) return;
+    const gray = samplePixelGray(calibPreviewImg, e.clientX, e.clientY);
+    if (gray === null) return;
+    if (eyedropperActive === 'background') sampledBg = gray;
+    else sampledSeg = gray;
+    eyedropperActive = null;
+    // Auto-compute threshold as midpoint if both sampled
+    if (sampledBg !== null && sampledSeg !== null) {
+      segThreshold = Math.round((sampledBg + sampledSeg) / 2);
+    }
   }
 
   function testSegments() {
@@ -917,12 +976,15 @@
       style="min-height:0"
     >
       {#if $bpDebugFrame?.imageData}
+        <!-- svelte-ignore a11y-click-events-have-key-events -->
+        <!-- svelte-ignore a11y-no-noninteractive-element-interactions -->
         <img
           bind:this={calibPreviewImg}
           src="data:image/jpeg;base64,{$bpDebugFrame.imageData}"
           alt="BP camera preview"
-          class="w-full h-full object-contain block"
+          class="w-full h-full object-contain block {eyedropperActive ? 'cursor-crosshair' : ''}"
           draggable="false"
+          on:click={onCalibImgClick}
         />
 
         <!-- Segment overlays for all 6 digits -->
@@ -1054,17 +1116,81 @@
       >
         Copy→
       </button>
+      <button
+        on:click={resetActiveDigit}
+        class="px-3 py-2 rounded-xl bg-white/10 text-white/60 text-[10px] font-black uppercase tracking-wider active:bg-white/20"
+        title="Reset active digit to default position"
+      >
+        ↺ Reset
+      </button>
     </div>
 
     <!-- Camera sliders + threshold + actions -->
     <div class="px-4 pb-4 flex-shrink-0 space-y-3">
+
+      <!-- Eyedropper row -->
+      <div class="flex items-center gap-2">
+        <span class="text-[9px] font-black uppercase tracking-widest text-white/50 shrink-0">Eyedropper</span>
+        <!-- Background picker -->
+        <button
+          on:click={() => eyedropperActive = eyedropperActive === 'background' ? null : 'background'}
+          class="flex items-center gap-1.5 px-2.5 py-1.5 rounded-lg text-[9px] font-black uppercase tracking-wider transition-all
+            {eyedropperActive === 'background'
+              ? 'bg-emerald-500 text-white ring-2 ring-white/40'
+              : 'bg-white/10 text-white/60 active:bg-white/20'}"
+          title="Click to pick background color from preview"
+        >
+          🎯 Background
+          {#if sampledBg !== null}
+            <span class="font-mono text-[8px] opacity-70">{sampledBg}</span>
+          {/if}
+        </button>
+        <!-- Segment picker -->
+        <button
+          on:click={() => eyedropperActive = eyedropperActive === 'segment' ? null : 'segment'}
+          class="flex items-center gap-1.5 px-2.5 py-1.5 rounded-lg text-[9px] font-black uppercase tracking-wider transition-all
+            {eyedropperActive === 'segment'
+              ? 'bg-orange-500 text-white ring-2 ring-white/40'
+              : 'bg-white/10 text-white/60 active:bg-white/20'}"
+          title="Click to pick segment (dark) color from preview"
+        >
+          🎯 Segment
+          {#if sampledSeg !== null}
+            <span class="font-mono text-[8px] opacity-70">{sampledSeg}</span>
+          {/if}
+        </button>
+        {#if eyedropperActive}
+          <span class="text-[8px] text-yellow-300 font-bold animate-pulse">← tap preview</span>
+        {/if}
+        {#if sampledBg !== null && sampledSeg !== null}
+          <button
+            on:click={() => { sampledBg = null; sampledSeg = null; }}
+            class="ml-auto text-[8px] text-white/30 font-bold uppercase tracking-wider active:text-white/60"
+          >Clear</button>
+        {/if}
+      </div>
+
       <div class="grid grid-cols-2 gap-x-5 gap-y-2">
         <div>
           <div class="flex justify-between">
-            <span class="text-[9px] font-black uppercase tracking-widest text-white/50">Threshold</span>
+            <span class="text-[9px] font-black uppercase tracking-widest text-white/50">
+              Threshold
+              {#if sampledBg !== null && sampledSeg !== null}
+                <span class="text-yellow-400 ml-1">auto</span>
+              {/if}
+            </span>
             <span class="text-[9px] text-white/40 font-mono">{segThreshold}</span>
           </div>
-          <input type="range" min="30" max="220" step="5" bind:value={segThreshold} class="w-full accent-orange-400" />
+          <input type="range" min="5" max="220" step="1" bind:value={segThreshold} class="w-full accent-orange-400" />
+          {#if sampledBg !== null && sampledSeg !== null}
+            <div class="flex gap-1 mt-0.5 text-[7px] font-mono">
+              <span class="text-emerald-400">bg:{sampledBg}</span>
+              <span class="text-white/30">·</span>
+              <span class="text-orange-400">seg:{sampledSeg}</span>
+              <span class="text-white/30">·</span>
+              <span class="text-yellow-300">mid:{Math.round((sampledBg+sampledSeg)/2)}</span>
+            </div>
+          {/if}
         </div>
         <div>
           <div class="flex justify-between">
