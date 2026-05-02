@@ -36,6 +36,7 @@ import { resolve, dirname } from 'path';
 import { fileURLToPath } from 'url';
 import { readFileSync, writeFileSync, unlinkSync } from 'fs';
 import { tmpdir } from 'os';
+import { createInterface as createReadlineInterface } from 'readline';
 import bcrypt from 'bcryptjs';
 import { createClient } from '@supabase/supabase-js';
 import * as localDb from './local-db.js';
@@ -217,7 +218,30 @@ function runBpOcr() {
   }, BP_CONFIG.PROCESS_TIMEOUT_MS);
 
   proc.stdout.on('data', (d) => { stdout += d.toString(); });
-  proc.stderr.on('data', (d) => { warn(`BP OCR stderr: ${d.toString().trim()}`); });
+  proc.stderr.on('data', (d) => {
+    const text = d.toString();
+    for (const line of text.split('\n')) {
+      const trimmed = line.trim();
+      if (!trimmed) continue;
+      if (trimmed.startsWith('BPFRAME:')) {
+        // Live preview frame emitted by _run_segment_detection — relay to frontend
+        try {
+          const frameData = JSON.parse(trimmed.slice('BPFRAME:'.length));
+          broadcast({
+            type:      'bp_frame',
+            imageData: frameData.imageData || '',
+            capW:      frameData.capW || 0,
+            capH:      frameData.capH || 0,
+            bands:     { sys: frameData.sys?.toString() ?? '', dia: frameData.dia?.toString() ?? '', pulse: '' },
+            validated: { sys: frameData.sys ?? null, dia: frameData.dia ?? null, pulse: null, complete: false },
+            error:     null,
+          });
+        } catch (_) { /* malformed — ignore */ }
+      } else {
+        warn(`BP OCR stderr: ${trimmed}`);
+      }
+    }
+  });
 
   proc.on('close', () => {
     clearTimeout(killTimer);
@@ -292,16 +316,69 @@ function broadcastBpErrorFrame(errorMsg) {
 // ─── BP Calibration helpers ───────────────────────────────────────────────────
 
 /**
- * Start a capture-only loop for camera calibration.
- * Stops any active OCR loop first. Sends a raw JPEG frame every ~3 s
- * as a bp_frame message with calibrate:true so the frontend knows this
- * is a calibration preview (not an OCR result).
+ * Start a persistent streaming calibration process.
+ * Spawns ONE Python process with --capture-only --stream which opens picamera2
+ * once and outputs one JSON line per frame continuously. Frames are broadcast
+ * as bp_frame messages as they arrive (no per-frame process spawn overhead).
  */
 function startBpCalibrate() {
   if (bpActive) stopBpMeasurement();
+  if (bpCalibrateActive) stopBpCalibrate();   // clean up any stale process
   bpCalibrateActive = true;
-  log('BP calibration: starting capture preview loop');
-  scheduleBpCapture();
+  log('BP calibration: starting persistent stream');
+
+  const proc = spawn('python3', [BP_CONFIG.OCR_SCRIPT, '--capture-only', '--stream']);
+  bpCalibrateProcess = proc;
+
+  // Kill-switch: if the process hangs for > 60 s with no output, restart it
+  let lastFrameAt = Date.now();
+  const watchdog = setInterval(() => {
+    if (!bpCalibrateActive) { clearInterval(watchdog); return; }
+    if (Date.now() - lastFrameAt > 60000) {
+      warn('BP calibration stream watchdog: no frame for 60 s — restarting');
+      clearInterval(watchdog);
+      try { proc.kill(); } catch (_) {}
+    }
+  }, 10000);
+
+  const rl = createReadlineInterface({ input: proc.stdout, crlfDelay: Infinity });
+  rl.on('line', (line) => {
+    lastFrameAt = Date.now();
+    if (!bpCalibrateActive) return;
+    let result = null;
+    try { result = JSON.parse(line); } catch (_) { return; }
+    broadcast({
+      type:      'bp_frame',
+      imageData: result.cap_image || '',
+      calibrate: true,
+      capW:      result.cap_w || 0,
+      capH:      result.cap_h || 0,
+      bands:     { sys: '', dia: '', pulse: '' },
+      validated: { sys: null, dia: null, pulse: null, complete: false },
+      error:     result.error || null,
+    });
+  });
+
+  proc.stderr.on('data', (d) => { warn(`BP capture stderr: ${d.toString().trim()}`); });
+
+  proc.on('close', () => {
+    clearInterval(watchdog);
+    bpCalibrateProcess = null;
+    // Restart automatically if calibration is still active (e.g. process crashed)
+    if (bpCalibrateActive) {
+      warn('BP calibration stream exited unexpectedly — restarting in 1 s');
+      bpCalibrateTimer = setTimeout(startBpCalibrate, 1000);
+    }
+  });
+
+  proc.on('error', (e) => {
+    clearInterval(watchdog);
+    bpCalibrateProcess = null;
+    warn(`BP calibration process error: ${e.message}`);
+    if (bpCalibrateActive) {
+      bpCalibrateTimer = setTimeout(startBpCalibrate, 1000);
+    }
+  });
 }
 
 function stopBpCalibrate() {
@@ -313,66 +390,6 @@ function stopBpCalibrate() {
     bpCalibrateProcess = null;
   }
   log('BP calibration: stopped');
-}
-
-function scheduleBpCapture() {
-  if (!bpCalibrateActive) return;
-  bpCalibrateTimer = setTimeout(runBpCapture, 3000);
-}
-
-function runBpCapture() {
-  if (!bpCalibrateActive) return;
-
-  const proc = spawn('python3', [BP_CONFIG.OCR_SCRIPT, '--capture-only']);
-  bpCalibrateProcess = proc;
-  let stdout = '';
-
-  const killTimer = setTimeout(() => {
-    if (bpCalibrateProcess === proc) {
-      warn('BP capture timed out — killing');
-      try { proc.kill(); } catch (_) {}
-      bpCalibrateProcess = null;
-      scheduleBpCapture();
-    }
-  }, 30000);
-
-  proc.stdout.on('data', (d) => { stdout += d.toString(); });
-  proc.stderr.on('data', (d) => { warn(`BP capture stderr: ${d.toString().trim()}`); });
-
-  proc.on('close', () => {
-    clearTimeout(killTimer);
-    bpCalibrateProcess = null;
-    if (!bpCalibrateActive) return;
-
-    let result = null;
-    try {
-      result = JSON.parse(stdout.trim());
-    } catch (e) {
-      warn(`BP capture parse error: ${e.message}`);
-      scheduleBpCapture();
-      return;
-    }
-
-    broadcast({
-      type:      'bp_frame',
-      imageData: result.cap_image || '',
-      calibrate: true,
-      capW:      result.cap_w || 0,
-      capH:      result.cap_h || 0,
-      bands:     { sys: '', dia: '', pulse: '' },
-      validated: { sys: null, dia: null, pulse: null, complete: false },
-      error:     result.error || null,
-    });
-
-    scheduleBpCapture();
-  });
-
-  proc.on('error', (e) => {
-    clearTimeout(killTimer);
-    bpCalibrateProcess = null;
-    warn(`BP capture process error: ${e.message}`);
-    scheduleBpCapture();
-  });
 }
 
 /**

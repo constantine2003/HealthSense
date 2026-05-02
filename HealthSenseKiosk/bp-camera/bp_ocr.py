@@ -43,26 +43,23 @@ try:
 except ImportError:
     PICAMERA2_AVAILABLE = False
 
-try:
-    import pytesseract
-    TESSERACT_AVAILABLE = True
-except ImportError:
-    TESSERACT_AVAILABLE = False
+import importlib.util
 
-try:
-    import easyocr as _easyocr_mod
-    EASYOCR_AVAILABLE = True
-except ImportError:
-    EASYOCR_AVAILABLE = False
+# Availability flags — checked without actually importing the heavy libraries so that
+# process startup for calibration and segment-detection paths is not penalised by
+# torch/model imports that would only be needed for the OCR fallback.
+TESSERACT_AVAILABLE = importlib.util.find_spec('pytesseract') is not None
+EASYOCR_AVAILABLE   = importlib.util.find_spec('easyocr')    is not None
 
-# EasyOCR Reader is expensive to initialise (~2–4s, model load).
-# We cache it at module level so it's only initialised once per process.
-_EASYOCR_READER = None
+# EasyOCR Reader is expensive to initialise (~6-10 s, model + torch load).
+# Imported and cached lazily — only when the OCR path is actually reached.
+_EASYOCR_READER    = None
+_easyocr_mod       = None
 
 def _get_easyocr_reader():
-    global _EASYOCR_READER
+    global _EASYOCR_READER, _easyocr_mod
     if _EASYOCR_READER is None and EASYOCR_AVAILABLE:
-        # gpu=False → CPU inference; verbose=False → no progress spam
+        import easyocr as _easyocr_mod          # deferred — loads torch here
         _EASYOCR_READER = _easyocr_mod.Reader(['en'], gpu=False, verbose=False)
     return _EASYOCR_READER
 
@@ -681,6 +678,7 @@ def ocr_band_tesseract(band_binary):
     """Tesseract fallback when ssocr fails."""
     if not TESSERACT_AVAILABLE:
         return ""
+    import pytesseract  # deferred — only loaded when OCR path is taken
     cfg = r"--oem 3 --psm 7 -c tessedit_char_whitelist=0123456789"
     text = pytesseract.image_to_string(band_binary, config=cfg).strip()
     return "".join(c for c in text if c.isdigit())
@@ -1078,48 +1076,110 @@ def _parse_bp_digits(s, lo, hi):
 
 def _capture_only_mode():
     """
-    Capture one frame and output it as a JSON payload — no OCR.
-    Used by the calibration UI to show a live preview.
-    Output: {"mode":"capture","cap_w":W,"cap_h":H,"cap_image":"<base64 JPEG>"}
+    Camera preview for the calibration UI.
+
+    Two modes:
+      Normal (no --stream):  capture one frame, print JSON, exit.
+      Stream (--stream):     open picamera2 once, loop capturing frames, print one
+                             JSON line per frame to stdout, run until SIGTERM/SIGPIPE.
+
+    JSON line format:
+      {"mode":"capture","cap_w":W,"cap_h":H,"cap_image":"<base64 JPEG>"}
     """
-    try:
-        frame = capture_frame()
-    except Exception as e:
-        print(json.dumps({"mode": "capture", "error": str(e)}))
-        sys.exit(0)
+    stream_mode = "--stream" in sys.argv
 
-    h, w = frame.shape[:2]
-    ok, buf = cv2.imencode(".jpg", frame, [cv2.IMWRITE_JPEG_QUALITY, 80])
-    if not ok:
-        print(json.dumps({"mode": "capture", "error": "Failed to encode JPEG"}))
-        sys.exit(0)
-    image_b64 = base64.b64encode(buf.tobytes()).decode("ascii")
+    w = int(os.environ.get("BP_CAP_W", 640))
+    h = int(os.environ.get("BP_CAP_H", 480))
 
-    # Draw any already-configured manual band boxes so the user sees them
-    vis = frame.copy()
-    for prefix, color in (("SYS", (0, 0, 220)), ("DIA", (0, 180, 0))):
+    def _annotated_b64(frame_bgr):
+        """Draw any already-configured manual band boxes and return base64 JPEG."""
+        vis = frame_bgr.copy()
+        for prefix, color in (("SYS", (0, 0, 220)), ("DIA", (0, 180, 0))):
+            try:
+                bx = int(os.environ[f'BP_{prefix}_X'])
+                by = int(os.environ[f'BP_{prefix}_Y'])
+                bw = int(os.environ[f'BP_{prefix}_W'])
+                bh = int(os.environ[f'BP_{prefix}_H'])
+                cv2.rectangle(vis, (bx, by), (bx + bw, by + bh), color, 2)
+                cv2.putText(vis, prefix, (bx + 4, by + 18),
+                            cv2.FONT_HERSHEY_SIMPLEX, 0.6, color, 2, cv2.LINE_AA)
+            except KeyError:
+                pass
+        fh, fw = vis.shape[:2]
+        ok, buf = cv2.imencode(".jpg", vis, [cv2.IMWRITE_JPEG_QUALITY, 80])
+        if not ok:
+            return ""
+        return base64.b64encode(buf.tobytes()).decode("ascii")
+
+    if not stream_mode:
+        # ── One-shot mode ────────────────────────────────────────────────────
         try:
-            bx = int(os.environ[f'BP_{prefix}_X'])
-            by = int(os.environ[f'BP_{prefix}_Y'])
-            bw = int(os.environ[f'BP_{prefix}_W'])
-            bh = int(os.environ[f'BP_{prefix}_H'])
-            cv2.rectangle(vis, (bx, by), (bx + bw, by + bh), color, 2)
-            cv2.putText(vis, prefix, (bx + 4, by + 18),
-                        cv2.FONT_HERSHEY_SIMPLEX, 0.6, color, 2, cv2.LINE_AA)
-        except KeyError:
-            pass
+            frame = capture_frame()
+        except Exception as e:
+            print(json.dumps({"mode": "capture", "error": str(e)}))
+            sys.exit(0)
+        fh, fw = frame.shape[:2]
+        print(json.dumps({
+            "mode":      "capture",
+            "cap_w":     fw,
+            "cap_h":     fh,
+            "cap_image": _annotated_b64(frame),
+        }))
+        sys.exit(0)
 
-    ok2, buf2 = cv2.imencode(".jpg", vis, [cv2.IMWRITE_JPEG_QUALITY, 80])
-    if ok2:
-        image_b64 = base64.b64encode(buf2.tobytes()).decode("ascii")
+    # ── Stream mode: persistent picamera2, one JSON line per frame ────────────
+    _cam = None
+    _persistent = False
+    if PICAMERA2_AVAILABLE:
+        _wireplumber_stop()
+        try:
+            _cam = Picamera2()
+            cfg = _cam.create_preview_configuration(main={"size": (w, h)})
+            _cam.configure(cfg)
+            _cam.start()
+            time.sleep(1.5)  # one-time warm-up
+            _persistent = True
+        except Exception as exc:
+            sys.stderr.write(f"Picamera2 stream init failed ({exc}), fallback to rpicam-still\n")
+            if _cam is not None:
+                try: _cam.stop(); _cam.close()
+                except Exception: pass
+                _cam = None
+            _wireplumber_start()
 
-    print(json.dumps({
-        "mode":      "capture",
-        "cap_w":     w,
-        "cap_h":     h,
-        "cap_image": image_b64,
-    }))
-    sys.exit(0)
+    def _get_frame():
+        if _cam is not None:
+            arr = _cam.capture_array()
+            return cv2.cvtColor(arr, cv2.COLOR_RGB2BGR)
+        return capture_frame()
+
+    try:
+        while True:
+            try:
+                frame = _get_frame()
+            except Exception as e:
+                err_line = json.dumps({"mode": "capture", "error": str(e)})
+                sys.stdout.write(err_line + "\n")
+                sys.stdout.flush()
+                time.sleep(0.5)
+                continue
+            fh, fw = frame.shape[:2]
+            line = json.dumps({
+                "mode":      "capture",
+                "cap_w":     fw,
+                "cap_h":     fh,
+                "cap_image": _annotated_b64(frame),
+            })
+            sys.stdout.write(line + "\n")
+            sys.stdout.flush()
+    except (BrokenPipeError, KeyboardInterrupt):
+        pass
+    finally:
+        if _cam is not None:
+            try: _cam.stop(); _cam.close()
+            except Exception: pass
+        if _persistent:
+            _wireplumber_start()
 
 
 def _seg_sample_rect(gray, rx, ry, rw, rh):
@@ -1207,99 +1267,154 @@ def _run_segment_detection(config):
     """
     Main detection loop using segment config. Requires STABILITY_NEEDED consecutive
     identical SYS+DIA readings before confirming. Outputs same JSON schema as OCR path.
+
+    Performance: opens picamera2 ONCE and keeps it open for the full session to avoid
+    the ~5-10 s per-frame overhead of stopping/starting wireplumber and re-initialising
+    the camera. Falls back to the slow capture_frame() path if picamera2 is unavailable.
+
+    Live preview: writes a BPFRAME:<json> line to stderr on every iteration so the bridge
+    can relay it to the frontend as a bp_frame WS message during scanning.
     """
     STABILITY_NEEDED = 4
     TIMEOUT_S = 120
-    POLL_INTERVAL_S = 1.5
 
     threshold = config.get("threshold", 120)
     seg_names = ["a", "b", "c", "d", "e", "f", "g"]
     digit_configs = config["digits"]  # ordered: sys0,sys1,sys2,dia0,dia1,dia2
 
+    w = int(os.environ.get("BP_CAP_W", 640))
+    h = int(os.environ.get("BP_CAP_H", 480))
+
     stable_sys, stable_dia = None, None
     stable_count = 0
-    import time
     start_t = time.time()
 
-    while True:
-        if time.time() - start_t > TIMEOUT_S:
-            print(json.dumps({"valid": False, "reason": "timeout — no stable reading"}))
-            sys.exit(0)
-
+    # ── Try to open a persistent picamera2 session ─────────────────────────────
+    _cam = None
+    _persistent = False
+    if PICAMERA2_AVAILABLE:
+        _wireplumber_stop()
         try:
-            frame = capture_frame()
-        except Exception as e:
-            time.sleep(POLL_INTERVAL_S)
-            continue
+            _cam = Picamera2()
+            cfg = _cam.create_preview_configuration(main={"size": (w, h)})
+            _cam.configure(cfg)
+            _cam.start()
+            time.sleep(1.5)  # one-time warm-up
+            _persistent = True
+        except Exception as exc:
+            sys.stderr.write(f"Picamera2 persistent init failed ({exc}), using per-frame capture\n")
+            if _cam is not None:
+                try: _cam.stop(); _cam.close()
+                except Exception: pass
+                _cam = None
+            _wireplumber_start()
 
-        gray = cv2.cvtColor(frame, cv2.COLOR_BGR2GRAY)
-        digits_decoded = []
+    def _get_frame():
+        if _cam is not None:
+            arr = _cam.capture_array()
+            return cv2.cvtColor(arr, cv2.COLOR_RGB2BGR)
+        return capture_frame()  # slow fallback (stop/start wireplumber each time)
 
-        for dconf in digit_configs:
-            segs_rects = dconf["segments"]
-            seg_vals = [_seg_sample_rect(gray,
-                                         segs_rects[s]["x"], segs_rects[s]["y"],
-                                         segs_rects[s]["w"], segs_rects[s]["h"])
-                        for s in seg_names]
-            decoded, _ = _decode_digit(seg_vals, threshold)
-            digits_decoded.append(decoded)  # None = blank, str = digit char
+    def _send_preview(frame_bgr, sys_hint, dia_hint):
+        """Emit a compressed frame to stderr; the bridge will relay it as bp_frame."""
+        ok, buf = cv2.imencode(".jpg", frame_bgr, [cv2.IMWRITE_JPEG_QUALITY, 55])
+        if not ok:
+            return
+        img_b64 = base64.b64encode(buf.tobytes()).decode("ascii")
+        payload = json.dumps({
+            "bpframe": True,
+            "imageData": img_b64,
+            "capW": w, "capH": h,
+            "sys": sys_hint,
+            "dia": dia_hint,
+        })
+        sys.stderr.write(f"BPFRAME:{payload}\n")
+        sys.stderr.flush()
 
-        # sys0,sys1,sys2 → SYS value; dia0,dia1,dia2 → DIA value
-        def digits_to_int(chars):
-            s = "".join(c for c in chars if c is not None)
-            if not s:
-                return None
+    def digits_to_int(chars):
+        s = "".join(c for c in chars if c is not None)
+        if not s:
+            return None
+        try:
+            return int(s)
+        except ValueError:
+            return None
+
+    try:
+        while True:
+            if time.time() - start_t > TIMEOUT_S:
+                print(json.dumps({"valid": False, "reason": "timeout — no stable reading",
+                                   "raw_sys": "", "raw_dia": "", "raw_pulse": ""}))
+                return
+
             try:
-                return int(s)
-            except ValueError:
-                return None
+                frame = _get_frame()
+            except Exception as e:
+                sys.stderr.write(f"Frame capture error: {e}\n")
+                time.sleep(0.5)
+                continue
 
-        sys_val = digits_to_int(digits_decoded[0:3])
-        dia_val = digits_to_int(digits_decoded[3:6])
+            gray = cv2.cvtColor(frame, cv2.COLOR_BGR2GRAY)
+            digits_decoded = []
 
-        if sys_val is None or dia_val is None:
-            stable_count = 0
-            stable_sys, stable_dia = None, None
-            time.sleep(POLL_INTERVAL_S)
-            continue
-
-        # Plausibility check
-        if not (60 <= sys_val <= 250 and 40 <= dia_val <= 150):
-            stable_count = 0
-            stable_sys, stable_dia = None, None
-            # Log to stderr for bridge log
-            print(json.dumps({"valid": False, "reason": f"implausible: sys={sys_val} dia={dia_val}",
-                               "sys": sys_val, "dia": dia_val}), file=sys.stderr)
-            time.sleep(POLL_INTERVAL_S)
-            continue
-
-        if sys_val == stable_sys and dia_val == stable_dia:
-            stable_count += 1
-        else:
-            stable_count = 1
-            stable_sys, stable_dia = sys_val, dia_val
-
-        if stable_count >= STABILITY_NEEDED:
-            # Build annotated debug image
-            vis = frame.copy()
-            for dconf, dc in zip(digit_configs, digits_decoded):
+            for dconf in digit_configs:
                 segs_rects = dconf["segments"]
-                for s in seg_names:
-                    r = segs_rects[s]
-                    color = (0, 200, 0)
-                    cv2.rectangle(vis, (r["x"], r["y"]), (r["x"]+r["w"], r["y"]+r["h"]), color, 1)
-            ok, buf = cv2.imencode(".jpg", vis, [cv2.IMWRITE_JPEG_QUALITY, 75])
-            dbg = base64.b64encode(buf.tobytes()).decode("ascii") if ok else ""
+                seg_vals = [_seg_sample_rect(gray,
+                                             segs_rects[s]["x"], segs_rects[s]["y"],
+                                             segs_rects[s]["w"], segs_rects[s]["h"])
+                            for s in seg_names]
+                decoded, _ = _decode_digit(seg_vals, threshold)
+                digits_decoded.append(decoded)  # None = blank, str = digit char
 
-            print(json.dumps({
-                "sys": sys_val, "dia": dia_val, "pulse": 0,
-                "raw_sys": str(sys_val), "raw_dia": str(dia_val), "raw_pulse": "",
-                "complete": True, "valid": True,
-                "debug_image": dbg,
-            }))
-            sys.exit(0)
+            sys_val = digits_to_int(digits_decoded[0:3])
+            dia_val = digits_to_int(digits_decoded[3:6])
 
-        time.sleep(POLL_INTERVAL_S)
+            # Always send a live preview frame to the bridge
+            _send_preview(frame, sys_val, dia_val)
+
+            if sys_val is None or dia_val is None:
+                stable_count = 0
+                stable_sys, stable_dia = None, None
+                continue
+
+            # Plausibility check
+            if not (60 <= sys_val <= 250 and 40 <= dia_val <= 150):
+                stable_count = 0
+                stable_sys, stable_dia = None, None
+                continue
+
+            if sys_val == stable_sys and dia_val == stable_dia:
+                stable_count += 1
+            else:
+                stable_count = 1
+                stable_sys, stable_dia = sys_val, dia_val
+
+            if stable_count >= STABILITY_NEEDED:
+                # Build annotated debug image for the final result
+                vis = frame.copy()
+                for dconf in digit_configs:
+                    segs_rects = dconf["segments"]
+                    for s in seg_names:
+                        r = segs_rects[s]
+                        cv2.rectangle(vis, (r["x"], r["y"]),
+                                      (r["x"]+r["w"], r["y"]+r["h"]), (0, 200, 0), 1)
+                ok2, buf2 = cv2.imencode(".jpg", vis, [cv2.IMWRITE_JPEG_QUALITY, 75])
+                dbg = base64.b64encode(buf2.tobytes()).decode("ascii") if ok2 else ""
+
+                print(json.dumps({
+                    "sys": sys_val, "dia": dia_val, "pulse": 0,
+                    "raw_sys": str(sys_val), "raw_dia": str(dia_val), "raw_pulse": "",
+                    "complete": True, "valid": True,
+                    "debug_image": dbg,
+                }))
+                return
+
+    finally:
+        if _cam is not None:
+            try: _cam.stop(); _cam.close()
+            except Exception: pass
+        if _persistent:
+            _wireplumber_start()
 
 
 def main():
@@ -1335,117 +1450,15 @@ def main():
                 seg_config = json.load(f)
             _run_segment_detection(seg_config)
         except Exception as e:
-            # Fall through to OCR path if config is malformed
             print(json.dumps({"valid": False, "reason": f"Segment config error: {e}",
-                               "raw_sys": "", "raw_dia": "", "raw_pulse": ""}), file=sys.stderr)
+                               "raw_sys": "", "raw_dia": "", "raw_pulse": ""}))
         return
 
-    try:
-        frame = capture_frame()
-    except Exception as e:
-        print(json.dumps({
-            "valid": False,
-            "reason": f"Camera error: {e}",
-            "debug_image": make_error_image(str(e)),
-            "raw_sys": "", "raw_dia": "", "raw_pulse": "",
-        }))
-        sys.exit(0)
-
-    # Apply manual crop override if env vars are set, then auto-detect display
-    coarse = crop_to_display(frame)
-
-    # ── Per-band manual crop (BP_SYS_X/Y/W/H and BP_DIA_X/Y/W/H) ────────────
-    # When these are set the user has calibrated exact crop regions — bypass
-    # display auto-detection and row-splitting entirely.
-    sys_manual = get_manual_band_crop(frame, 'SYS')
-    dia_manual = get_manual_band_crop(frame, 'DIA')
-    use_manual_bands = sys_manual is not None and dia_manual is not None
-
-    if use_manual_bands:
-        bands_bgr = [sys_manual, dia_manual]
-        display = coarse           # keep coarse for debug image base
-        detected_rect = None
-        digit_rows = []
-    else:
-        display, detected_rect = find_display(coarse)
-
-        # Dynamically locate digit rows — only SYS and DIA (pulse row covered)
-        digit_rows = find_digit_rows(display)
-
-        # Build exactly 2 band crops (SYS top, DIA bottom)
-        dh = display.shape[0]
-        bands_bgr = []
-        for i in range(2):
-            if i < len(digit_rows):
-                y0, y1 = digit_rows[i]
-            else:
-                half = dh // 2
-                y0, y1 = (0, half) if i == 0 else (half, dh)
-            bands_bgr.append(display[y0:y1, :])
-
-    # Collect masks for debug saving (does nothing unless BP_DEBUG_SAVE=1)
-    masks_info = [_get_digit_mask(b) for b in bands_bgr]
-    save_debug_frames(coarse, display, bands_bgr, masks_info)
-
-    # ── Primary: EasyOCR on the full display crop ────────────────────────────
-    raw_sys, raw_dia = '', ''
-    sys_val, dia_val = None, None
-
-    if EASYOCR_AVAILABLE:
-        e_sys, e_dia, _ = ocr_display_easyocr(display)
-        raw_sys = e_sys or ''
-        raw_dia = e_dia or ''
-        sys_val = _parse_bp_digits(e_sys, 60, 250)
-        dia_val = _parse_bp_digits(e_dia, 40, 150)
-
-    # ── Fallback: per-band custom 7-seg decoder for any slot still missing ───
-    if sys_val is None:
-        v, raw = ocr_band(bands_bgr[0])
-        raw_sys = raw or raw_sys
-        sys_val = v
-    if dia_val is None and len(bands_bgr) > 1:
-        v, raw = ocr_band(bands_bgr[1])
-        raw_dia = raw or raw_dia
-        dia_val = v
-
-    # Pulse is physically covered — always omitted
-    raw_pulse, pulse_val = '', None
-
-    # ── Range validation ─────────────────────────────────────────────────────
-    if sys_val is not None and not (60 <= sys_val <= 250):
-        sys_val = None
-    if dia_val is not None and not (40 <= dia_val <= 150):
-        dia_val = None
-    if sys_val is not None and dia_val is not None and sys_val <= dia_val:
-        sys_val = None  # implausible reading
-
-    band_results = [
-        (BAND_LABELS[0], raw_sys,   sys_val),
-        (BAND_LABELS[1], raw_dia,   dia_val),
-    ]
-    debug_image = build_debug_image(coarse, display, detected_rect, band_results, bands_bgr, digit_rows)
-
-    complete = (sys_val is not None and dia_val is not None)
-
-    if dia_val is None:
-        print(json.dumps({
-            "valid": False,
-            "reason": f"OCR: no DIA yet — sys='{raw_sys}' dia='{raw_dia}'",
-            "debug_image": debug_image,
-            "raw_sys": raw_sys, "raw_dia": raw_dia, "raw_pulse": "",
-        }))
-        sys.exit(0)
-
+    # No calibration config found — segment detection requires calibration first.
     print(json.dumps({
-        "sys":       sys_val,
-        "dia":       dia_val,
-        "pulse":     None,
-        "raw_sys":   raw_sys,
-        "raw_dia":   raw_dia,
-        "raw_pulse": "",
-        "complete":  complete,
-        "valid":     True,
-        "debug_image": debug_image,
+        "valid": False,
+        "reason": "No calibration found. Open Settings → Calibrate BP Camera to set up segment positions.",
+        "raw_sys": "", "raw_dia": "", "raw_pulse": "",
     }))
 
 

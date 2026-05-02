@@ -538,63 +538,25 @@
             <p class="text-[10px] text-blue-300 font-bold uppercase tracking-widest mt-3">Waiting for reading to finish…</p>
           {/if}
 
-          <!-- ── DEBUG panel: live annotated camera feed + per-band OCR readout ── -->
+          <!-- ── Live camera preview during scanning ── -->
           {#if $bpDebugFrame}
-            <div in:fade class="mt-6 w-full rounded-2xl border-2 border-orange-300 bg-orange-50 p-3 text-left">
-              <!-- Badge -->
-              <div class="flex items-center gap-2 mb-2">
-                <span class="rounded-full bg-orange-400 px-2 py-0.5 text-[10px] font-black uppercase tracking-widest text-white">⚙ Debug</span>
-                <span class="text-[10px] text-orange-500 font-bold uppercase tracking-widest">Camera OCR — live</span>
-              </div>
-
-              <!-- Error banner (shown when OCR fails) -->
+            <div in:fade class="mt-4 rounded-2xl overflow-hidden border border-blue-200 bg-blue-50 max-w-[280px] mx-auto">
               {#if $bpDebugFrame.error}
-                <div class="mb-2 rounded-xl bg-red-100 border border-red-300 px-3 py-2 text-[11px] font-mono text-red-700 break-all">
+                <div class="px-3 py-2 text-[11px] font-bold text-red-600 bg-red-50 border-b border-red-200">
                   ⚠ {$bpDebugFrame.error}
                 </div>
               {/if}
-
-              <!-- Annotated frame (hidden when no image data) -->
               {#if $bpDebugFrame.imageData}
                 <img
                   src="data:image/jpeg;base64,{$bpDebugFrame.imageData}"
-                  alt="BP camera debug"
-                  class="max-h-44 w-auto mx-auto block rounded-xl border border-orange-200 object-contain"
+                  alt="BP camera preview"
+                  class="w-full max-h-40 object-contain"
                 />
               {:else}
-                <div class="w-full h-24 rounded-xl border border-orange-200 bg-orange-100 flex items-center justify-center text-orange-400 text-xs font-bold uppercase tracking-widest">
-                  No camera image
+                <div class="w-full h-16 flex items-center justify-center text-blue-300 text-xs font-bold uppercase tracking-widest">
+                  Waiting for camera…
                 </div>
               {/if}
-
-              <!-- Per-band table -->
-              <table class="mt-3 w-full text-[11px] font-mono">
-                <thead>
-                  <tr class="text-orange-400 uppercase text-[9px] tracking-widest">
-                    <th class="text-left pb-1 font-black">Band</th>
-                    <th class="text-left pb-1 font-black">Raw OCR</th>
-                    <th class="text-left pb-1 font-black">Validated</th>
-                    <th class="text-left pb-1 font-black">OK?</th>
-                  </tr>
-                </thead>
-                <tbody class="text-orange-700">
-                  <tr>
-                    <td class="pr-3 font-black text-red-500">SYS</td>
-                    <td class="pr-3">"{$bpDebugFrame.bands.sys || '—'}"</td>
-                    <td class="pr-3">{$bpDebugFrame.validated.sys ?? '—'}</td>
-                    <td>{$bpDebugFrame.validated.sys !== null ? '✓' : '✗'}</td>
-                  </tr>
-                  <tr>
-                    <td class="pr-3 font-black text-green-600">DIA</td>
-                    <td class="pr-3">"{$bpDebugFrame.bands.dia || '—'}"</td>
-                    <td class="pr-3">{$bpDebugFrame.validated.dia ?? '—'}</td>
-                    <td>{$bpDebugFrame.validated.dia !== null ? '✓' : '✗'}</td>
-                  </tr>
-                </tbody>
-              </table>
-              <p class="mt-2 text-[9px] text-orange-400 font-bold uppercase tracking-widest">
-                Complete: {$bpDebugFrame.validated.complete ? '✓ all rows visible' : '… waiting'}
-              </p>
             </div>
           {/if}
         {:else}
