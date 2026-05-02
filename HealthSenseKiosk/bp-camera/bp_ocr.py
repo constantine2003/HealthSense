@@ -1105,12 +1105,15 @@ def _capture_only_mode():
             sys.stderr.write(f"[calib] Failed to load seg_config: {exc}\n")
 
     def _annotated_b64_with_segs(frame_bgr):
-        """Draw segment rects (green=ON, dim-red=OFF) on preview and return base64 JPEG + seg_status."""
-        vis = frame_bgr.copy()
+        """Compute seg_status from current frame and return base64 JPEG + seg_status.
+
+        Rectangles are NOT drawn onto the image — the Svelte UI renders its own
+        interactive overlays, so drawing them here would cause duplicates.
+        """
         seg_status = []
 
         if _seg_cfg is not None:
-            gray = cv2.cvtColor(vis, cv2.COLOR_BGR2GRAY)
+            gray = cv2.cvtColor(frame_bgr, cv2.COLOR_BGR2GRAY)
             for dconf in _seg_cfg["digits"]:
                 dname = dconf["name"]
                 segs_rects = dconf["segments"]
@@ -1127,10 +1130,6 @@ def _capture_only_mode():
                 for i, s in enumerate(_seg_names_order):
                     on_dict[s] = bool(on_flags[i])
                     brightness_dict[s] = round(seg_vals[i], 1)
-                    r = segs_rects[s]
-                    # Green = ON (dark/black segment detected), dim red = OFF (background)
-                    color = (0, 200, 0) if on_flags[i] else (60, 60, 180)
-                    cv2.rectangle(vis, (r["x"], r["y"]), (r["x"]+r["w"], r["y"]+r["h"]), color, 1)
 
                 seg_status.append({
                     "name": dname,
@@ -1139,8 +1138,8 @@ def _capture_only_mode():
                     "brightness": brightness_dict,
                 })
 
-        fh, fw = vis.shape[:2]
-        ok, buf = cv2.imencode(".jpg", vis, [cv2.IMWRITE_JPEG_QUALITY, 80])
+        fh, fw = frame_bgr.shape[:2]
+        ok, buf = cv2.imencode(".jpg", frame_bgr, [cv2.IMWRITE_JPEG_QUALITY, 80])
         b64 = base64.b64encode(buf.tobytes()).decode("ascii") if ok else ""
         return b64, seg_status
 
