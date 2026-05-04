@@ -95,8 +95,9 @@
   let camSharpness  = 2.00;
   let camSaturation = 1.20;
 
-  // DOM ref for the calibration preview image
+  // DOM refs for the calibration preview
   let calibPreviewImg: HTMLImageElement | null = null;
+  let calibPreviewContainer: HTMLDivElement | null = null;
 
   interface SegDragState {
     digit: string; seg: string; mode: 'move' | 'resize';
@@ -110,6 +111,8 @@
     bpSegmentsLoaded.set(null);
     _segConfigApplied = false;
     eyedropperActive = null;
+    isDraggingSel = false;
+    selStart = selCurrent = null;
     wsSend({ command: 'bp_calibrate_start' });
     wsSend({ command: 'bp_load_segments' });
   }
@@ -170,6 +173,8 @@
     segCalibMode = false;
     _segConfigApplied = false;
     eyedropperActive = null;
+    isDraggingSel = false;
+    selStart = selCurrent = null;
     bpSegmentsLoaded.set(null);
     wsSend({ command: 'bp_calibrate_stop' });
   }
@@ -227,54 +232,125 @@
   // ── Eyedropper ────────────────────────────────────────────────────────────
   type EyedropperTarget = 'background' | 'segment' | null;
   let eyedropperActive: EyedropperTarget = null;
-  let sampledBg: number | null = null;      // grayscale brightness of background pick
-  let sampledSeg: number | null = null;     // grayscale brightness of segment pick
+  let sampledBg: number | null = null;
+  let sampledSeg: number | null = null;
 
-  /** Sample grayscale brightness at a display-coordinate point from the preview image. */
+  // Area-select drag state
+  let selStart:   { clientX: number; clientY: number } | null = null;
+  let selCurrent: { clientX: number; clientY: number } | null = null;
+  let isDraggingSel = false;
+
+  /** Average grayscale brightness over a region of the preview image (display-space coords relative to container). */
+  function sampleAreaGray(
+    imgEl: HTMLImageElement,
+    containerEl: HTMLElement,
+    dispX: number, dispY: number, dispW: number, dispH: number
+  ): number | null {
+    try {
+      const cRect = containerEl.getBoundingClientRect();
+      const iRect = imgEl.getBoundingClientRect();
+      const natW  = imgEl.naturalWidth  || iRect.width;
+      const natH  = imgEl.naturalHeight || iRect.height;
+      // object-contain scale + offset relative to the container
+      const scale   = Math.min(iRect.width / natW, iRect.height / natH);
+      const offsetX = (iRect.width  - natW * scale) / 2 + (iRect.left - cRect.left);
+      const offsetY = (iRect.height - natH * scale) / 2 + (iRect.top  - cRect.top);
+      const nx1 = Math.max(0,    Math.round((dispX          - offsetX) / scale));
+      const ny1 = Math.max(0,    Math.round((dispY          - offsetY) / scale));
+      const nx2 = Math.min(natW, Math.round((dispX + dispW  - offsetX) / scale));
+      const ny2 = Math.min(natH, Math.round((dispY + dispH  - offsetY) / scale));
+      if (nx2 <= nx1 || ny2 <= ny1) return null;
+      const canvas = document.createElement('canvas');
+      canvas.width = natW; canvas.height = natH;
+      const ctx = canvas.getContext('2d');
+      if (!ctx) return null;
+      ctx.drawImage(imgEl, 0, 0, natW, natH);
+      const data = ctx.getImageData(nx1, ny1, nx2 - nx1, ny2 - ny1).data;
+      let sum = 0;
+      const n = data.length / 4;
+      for (let i = 0; i < data.length; i += 4)
+        sum += 0.114 * data[i] + 0.587 * data[i + 1] + 0.299 * data[i + 2];
+      return Math.round(sum / n);
+    } catch { return null; }
+  }
+
+  /** Single-pixel sample (kept for segment point-pick fallback). */
   function samplePixelGray(imgEl: HTMLImageElement, clientX: number, clientY: number): number | null {
     try {
       const rect = imgEl.getBoundingClientRect();
-      // Position within the displayed image element
       const px = clientX - rect.left;
       const py = clientY - rect.top;
-      // The image uses object-contain — compute the actual rendered image bounds
-      const dispW = rect.width;
-      const dispH = rect.height;
-      const natW = imgEl.naturalWidth  || dispW;
-      const natH = imgEl.naturalHeight || dispH;
-      const scale = Math.min(dispW / natW, dispH / natH);
+      const natW = imgEl.naturalWidth  || rect.width;
+      const natH = imgEl.naturalHeight || rect.height;
+      const scale = Math.min(rect.width / natW, rect.height / natH);
       const renderW = natW * scale;
       const renderH = natH * scale;
-      const offsetX = (dispW - renderW) / 2;
-      const offsetY = (dispH - renderH) / 2;
-      // Pixel in native image coordinates
+      const offsetX = (rect.width  - renderW) / 2;
+      const offsetY = (rect.height - renderH) / 2;
       const nx = Math.round((px - offsetX) / scale);
       const ny = Math.round((py - offsetY) / scale);
       if (nx < 0 || ny < 0 || nx >= natW || ny >= natH) return null;
-      // Draw image to offscreen canvas and read pixel
       const canvas = document.createElement('canvas');
-      canvas.width = natW;
-      canvas.height = natH;
+      canvas.width = natW; canvas.height = natH;
       const ctx = canvas.getContext('2d');
       if (!ctx) return null;
       ctx.drawImage(imgEl, 0, 0, natW, natH);
       const [r, g, b] = ctx.getImageData(nx, ny, 1, 1).data;
-      // Same grayscale formula as OpenCV BGR2GRAY (approx)
       return Math.round(0.114 * r + 0.587 * g + 0.299 * b);
     } catch { return null; }
   }
 
-  function onCalibImgClick(e: MouseEvent) {
-    if (!eyedropperActive || !calibPreviewImg) return;
-    const gray = samplePixelGray(calibPreviewImg, e.clientX, e.clientY);
+  function onSelPointerDown(e: PointerEvent) {
+    if (!eyedropperActive || !calibPreviewContainer) return;
+    e.preventDefault();
+    (e.target as Element).setPointerCapture(e.pointerId);
+    selStart   = { clientX: e.clientX, clientY: e.clientY };
+    selCurrent = { clientX: e.clientX, clientY: e.clientY };
+    isDraggingSel = true;
+  }
+
+  function onSelPointerMove(e: PointerEvent) {
+    if (!isDraggingSel) return;
+    e.preventDefault();
+    selCurrent = { clientX: e.clientX, clientY: e.clientY };
+  }
+
+  function onSelPointerUp(e: PointerEvent) {
+    if (!isDraggingSel || !calibPreviewImg || !calibPreviewContainer) return;
+    e.preventDefault();
+    isDraggingSel = false;
+
+    let gray: number | null = null;
+
+    if (selStart && selCurrent) {
+      const cRect = calibPreviewContainer.getBoundingClientRect();
+      const x1 = Math.min(selStart.clientX, selCurrent.clientX) - cRect.left;
+      const y1 = Math.min(selStart.clientY, selCurrent.clientY) - cRect.top;
+      const x2 = Math.max(selStart.clientX, selCurrent.clientX) - cRect.left;
+      const y2 = Math.max(selStart.clientY, selCurrent.clientY) - cRect.top;
+      const w  = x2 - x1, h = y2 - y1;
+      if (w >= 4 && h >= 4) {
+        gray = sampleAreaGray(calibPreviewImg, calibPreviewContainer, x1, y1, w, h);
+      } else {
+        // Tiny drag → treat as point tap
+        gray = samplePixelGray(calibPreviewImg, selStart.clientX, selStart.clientY);
+      }
+    }
+
+    selStart = selCurrent = null;
     if (gray === null) return;
+
     if (eyedropperActive === 'background') sampledBg = gray;
     else sampledSeg = gray;
     eyedropperActive = null;
-    // Auto-compute threshold as midpoint if both sampled
-    if (sampledBg !== null && sampledSeg !== null) {
+
+    if (sampledBg !== null && sampledSeg !== null)
       segThreshold = Math.round((sampledBg + sampledSeg) / 2);
-    }
+  }
+
+  function onSelPointerCancel() {
+    isDraggingSel = false;
+    selStart = selCurrent = null;
   }
 
   function testSegments() {
@@ -972,11 +1048,15 @@
 
     <!-- Camera preview with segment overlays -->
     <div
+      bind:this={calibPreviewContainer}
       class="relative flex-1 mx-4 mb-3 touch-none select-none overflow-hidden rounded-xl border border-white/10"
       style="min-height:0"
+      on:pointerdown={onSelPointerDown}
+      on:pointermove={onSelPointerMove}
+      on:pointerup={onSelPointerUp}
+      on:pointercancel={onSelPointerCancel}
     >
       {#if $bpDebugFrame?.imageData}
-        <!-- svelte-ignore a11y-click-events-have-key-events -->
         <!-- svelte-ignore a11y-no-noninteractive-element-interactions -->
         <img
           bind:this={calibPreviewImg}
@@ -984,8 +1064,24 @@
           alt="BP camera preview"
           class="w-full h-full object-contain block {eyedropperActive ? 'cursor-crosshair' : ''}"
           draggable="false"
-          on:click={onCalibImgClick}
         />
+
+        <!-- Area-select overlay while dragging -->
+        {#if isDraggingSel && selStart && selCurrent && calibPreviewContainer}
+          {@const cRect = calibPreviewContainer.getBoundingClientRect()}
+          {@const sx = Math.min(selStart.clientX, selCurrent.clientX) - cRect.left}
+          {@const sy = Math.min(selStart.clientY, selCurrent.clientY) - cRect.top}
+          {@const sw = Math.abs(selCurrent.clientX - selStart.clientX)}
+          {@const sh = Math.abs(selCurrent.clientY - selStart.clientY)}
+          <div
+            class="absolute pointer-events-none border-2 rounded"
+            style="
+              left:{sx}px; top:{sy}px; width:{sw}px; height:{sh}px;
+              border-color: {eyedropperActive === 'background' ? '#34d399' : '#f97316'};
+              background: {eyedropperActive === 'background' ? 'rgba(52,211,153,0.15)' : 'rgba(249,115,22,0.15)'};
+            "
+          ></div>
+        {/if}
 
         <!-- Segment overlays for all 6 digits -->
         {#each DIGIT_NAMES as dname}
@@ -1160,7 +1256,7 @@
           {/if}
         </button>
         {#if eyedropperActive}
-          <span class="text-[8px] text-yellow-300 font-bold animate-pulse">← tap preview</span>
+          <span class="text-[8px] text-yellow-300 font-bold animate-pulse">← drag area on preview</span>
         {/if}
         {#if sampledBg !== null && sampledSeg !== null}
           <button

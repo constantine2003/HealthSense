@@ -415,33 +415,54 @@ def _enhance_frame(frame):
     return enhanced
 
 
+def _apply_camera_transform(frame):
+    """Apply camera orientation correction. Rotate 90° clockwise."""
+    return cv2.rotate(frame, cv2.ROTATE_90_CLOCKWISE)
+
+
+# ── USB Webcam mode ────────────────────────────────────────────────────────────
+# Set USE_WEBCAM = False to revert to the Pi CSI camera (picamera2/rpicam-still).
+USE_WEBCAM    = True
+WEBCAM_INDEX  = int(os.environ.get("BP_WEBCAM_INDEX", 0))
+
+
 def capture_frame():
     """
-    Capture one frame from the Pi camera.
+    Capture one frame from the camera.
 
-    On Pi OS Bookworm, PipeWire/wireplumber holds an exclusive libcamera lock.
-    We temporarily stop wireplumber, capture with rpicam-still, then restart it.
-    picamera2 is kept as a fallback if rpicam-still is not in PATH.
+    When USE_WEBCAM is True, uses a USB webcam via cv2.VideoCapture.
+    Otherwise uses the Pi CSI camera (rpicam-still primary, picamera2 fallback).
 
-    Camera tuning is driven by env vars (all optional):
-      BP_CAP_W / BP_CAP_H       — capture resolution (default 1280×960)
-      BP_BRIGHTNESS              — rpicam-still --brightness  (default  0.1, range -1..1)
-      BP_CONTRAST                — rpicam-still --contrast    (default  1.5, range  0..32)
-      BP_SHARPNESS               — rpicam-still --sharpness   (default  2.0, range  0..16)
-      BP_SATURATION              — rpicam-still --saturation  (default  1.2, range  0..32)
-      BP_SETTLE_MS               — settle time in ms          (default 1200)
+    Camera tuning env vars (Pi CSI path only, ignored for webcam):
+      BP_CAP_W / BP_CAP_H       — capture resolution (default 640×480)
+      BP_BRIGHTNESS / BP_CONTRAST / BP_SHARPNESS / BP_SATURATION
+      BP_SETTLE_MS
     """
     w = int(os.environ.get("BP_CAP_W", 640))
     h = int(os.environ.get("BP_CAP_H", 480))
 
-    # Camera tuning knobs
+    if USE_WEBCAM:
+        cap = cv2.VideoCapture(WEBCAM_INDEX)
+        cap.set(cv2.CAP_PROP_FRAME_WIDTH,  w)
+        cap.set(cv2.CAP_PROP_FRAME_HEIGHT, h)
+        try:
+            # Warm-up: first few frames from USB webcams are often black/stale
+            for _ in range(5):
+                cap.read()
+            ok, frame = cap.read()
+            if not ok or frame is None:
+                raise RuntimeError(f"USB webcam (index {WEBCAM_INDEX}) returned no frame")
+            return _apply_camera_transform(frame)
+        finally:
+            cap.release()
+
+    # ── Pi CSI camera path (USE_WEBCAM = False) ─────────────────────────────
     brightness  = float(os.environ.get("BP_BRIGHTNESS",  0.10))
     contrast    = float(os.environ.get("BP_CONTRAST",    1.50))
     sharpness   = float(os.environ.get("BP_SHARPNESS",   2.00))
     saturation  = float(os.environ.get("BP_SATURATION",  1.20))
     settle_ms   = int(os.environ.get("BP_SETTLE_MS",     400))
 
-    # ── Primary: rpicam-still (stop wireplumber first to release camera lock) ─
     if shutil.which("rpicam-still"):
         tmp = tempfile.mktemp(suffix=".jpg")
         _wireplumber_stop()
@@ -468,17 +489,14 @@ def capture_frame():
             frame = cv2.imread(tmp)
             if frame is None:
                 raise RuntimeError("rpicam-still wrote no image")
-            return frame
+            return _apply_camera_transform(frame)
         finally:
-            try:
-                os.unlink(tmp)
-            except OSError:
-                pass
+            try: os.unlink(tmp)
+            except OSError: pass
             _wireplumber_start()
 
-    # ── Fallback: picamera2 ──────────────────────────────────────────────────
     if not PICAMERA2_AVAILABLE:
-        raise RuntimeError("Neither rpicam-still nor picamera2 is available")
+        raise RuntimeError("No camera available: rpicam-still not found and picamera2 not installed")
 
     old_handler = signal.signal(signal.SIGALRM, _camera_timeout_handler)
     signal.alarm(15)
@@ -491,7 +509,7 @@ def capture_frame():
         frame = cam.capture_array()
         cam.stop()
         cam.close()
-        return cv2.cvtColor(frame, cv2.COLOR_RGB2BGR)
+        return _apply_camera_transform(cv2.cvtColor(frame, cv2.COLOR_RGB2BGR))
     finally:
         signal.alarm(0)
         signal.signal(signal.SIGALRM, old_handler)
@@ -1161,10 +1179,27 @@ def _capture_only_mode():
         }))
         sys.exit(0)
 
-    # ── Stream mode: persistent picamera2, one JSON line per frame ────────────
-    _cam = None
+    # ── Stream mode: persistent camera, one JSON line per frame ────────────
+    _cap = None   # cv2.VideoCapture (webcam) or None
+    _cam = None   # Picamera2 (Pi CSI) or None
     _persistent = False
-    if PICAMERA2_AVAILABLE:
+
+    if USE_WEBCAM:
+        try:
+            _cap = cv2.VideoCapture(WEBCAM_INDEX)
+            _cap.set(cv2.CAP_PROP_FRAME_WIDTH,  w)
+            _cap.set(cv2.CAP_PROP_FRAME_HEIGHT, h)
+            # Warm-up: discard stale frames
+            for _ in range(10):
+                _cap.read()
+            _persistent = True
+            sys.stderr.write(f"[calib] USB webcam {WEBCAM_INDEX} opened for streaming\n")
+        except Exception as exc:
+            sys.stderr.write(f"[calib] Webcam open failed ({exc}), falling back to capture_frame()\n")
+            if _cap is not None:
+                _cap.release()
+                _cap = None
+    elif PICAMERA2_AVAILABLE:
         _wireplumber_stop()
         try:
             _cam = Picamera2()
@@ -1174,7 +1209,7 @@ def _capture_only_mode():
             time.sleep(1.5)  # one-time warm-up
             _persistent = True
         except Exception as exc:
-            sys.stderr.write(f"Picamera2 stream init failed ({exc}), fallback to rpicam-still\n")
+            sys.stderr.write(f"[calib] Picamera2 stream init failed ({exc}), fallback to rpicam-still\n")
             if _cam is not None:
                 try: _cam.stop(); _cam.close()
                 except Exception: pass
@@ -1182,9 +1217,16 @@ def _capture_only_mode():
             _wireplumber_start()
 
     def _get_frame():
+        if _cap is not None:
+            for attempt in range(5):
+                ok, frame = _cap.read()
+                if ok and frame is not None:
+                    return _apply_camera_transform(frame)
+                time.sleep(0.05)
+            raise RuntimeError("Webcam read failed after 5 retries")
         if _cam is not None:
             arr = _cam.capture_array()
-            return cv2.cvtColor(arr, cv2.COLOR_RGB2BGR)
+            return _apply_camera_transform(cv2.cvtColor(arr, cv2.COLOR_RGB2BGR))
         return capture_frame()
 
     try:
@@ -1211,10 +1253,13 @@ def _capture_only_mode():
     except (BrokenPipeError, KeyboardInterrupt):
         pass
     finally:
+        if _cap is not None:
+            try: _cap.release()
+            except Exception: pass
         if _cam is not None:
             try: _cam.stop(); _cam.close()
             except Exception: pass
-        if _persistent:
+        if _persistent and not USE_WEBCAM:
             _wireplumber_start()
 
 
@@ -1331,10 +1376,26 @@ def _run_segment_detection(config):
     stable_count = 0
     start_t = time.time()
 
-    # ── Try to open a persistent picamera2 session ─────────────────────────────
-    _cam = None
+    # ── Open persistent camera for the detection loop ─────────────────────────
+    _cap = None   # cv2.VideoCapture (webcam)
+    _cam = None   # Picamera2 (Pi CSI)
     _persistent = False
-    if PICAMERA2_AVAILABLE:
+
+    if USE_WEBCAM:
+        try:
+            _cap = cv2.VideoCapture(WEBCAM_INDEX)
+            _cap.set(cv2.CAP_PROP_FRAME_WIDTH,  w)
+            _cap.set(cv2.CAP_PROP_FRAME_HEIGHT, h)
+            for _ in range(10):
+                _cap.read()
+            _persistent = True
+            sys.stderr.write(f"[bp] USB webcam {WEBCAM_INDEX} opened for detection\n")
+        except Exception as exc:
+            sys.stderr.write(f"[bp] Webcam open failed ({exc}), using per-frame capture\n")
+            if _cap is not None:
+                _cap.release()
+                _cap = None
+    elif PICAMERA2_AVAILABLE:
         _wireplumber_stop()
         try:
             _cam = Picamera2()
@@ -1344,7 +1405,7 @@ def _run_segment_detection(config):
             time.sleep(1.5)  # one-time warm-up
             _persistent = True
         except Exception as exc:
-            sys.stderr.write(f"Picamera2 persistent init failed ({exc}), using per-frame capture\n")
+            sys.stderr.write(f"[bp] Picamera2 persistent init failed ({exc}), using per-frame capture\n")
             if _cam is not None:
                 try: _cam.stop(); _cam.close()
                 except Exception: pass
@@ -1352,10 +1413,17 @@ def _run_segment_detection(config):
             _wireplumber_start()
 
     def _get_frame():
+        if _cap is not None:
+            for attempt in range(5):
+                ok, frame = _cap.read()
+                if ok and frame is not None:
+                    return _apply_camera_transform(frame)
+                time.sleep(0.05)
+            raise RuntimeError("Webcam read failed after 5 retries")
         if _cam is not None:
             arr = _cam.capture_array()
-            return cv2.cvtColor(arr, cv2.COLOR_RGB2BGR)
-        return capture_frame()  # slow fallback (stop/start wireplumber each time)
+            return _apply_camera_transform(cv2.cvtColor(arr, cv2.COLOR_RGB2BGR))
+        return capture_frame()  # slow fallback
 
     def _send_preview(frame_bgr, sys_hint, dia_hint):
         """Emit a compressed frame to stderr; the bridge will relay it as bp_frame."""
@@ -1457,10 +1525,13 @@ def _run_segment_detection(config):
                 return
 
     finally:
+        if _cap is not None:
+            try: _cap.release()
+            except Exception: pass
         if _cam is not None:
             try: _cam.stop(); _cam.close()
             except Exception: pass
-        if _persistent:
+        if _persistent and not USE_WEBCAM:
             _wireplumber_start()
 
 
