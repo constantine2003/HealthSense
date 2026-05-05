@@ -13,6 +13,7 @@
     bpDebugFrame,
     bpTestResult,
     bpSegmentsLoaded,
+    weightLiveReading,
     send as wsSend,
     type SensorKey,
   } from '../stores/esp32Store';
@@ -752,6 +753,32 @@
               {/if}
             </div>
           {/if}
+        {:else if currentPhase === 'weight'}
+          <h2 class="text-3xl font-[1000] text-blue-600 animate-pulse uppercase tracking-tighter">
+            Measuring Weight…
+          </h2>
+          <p class="text-sm text-blue-400 font-bold mt-2 uppercase tracking-widest">Stand still on the platform</p>
+          {#if $weightLiveReading !== null}
+            {@const lbs = ($weightLiveReading * 2.20462).toFixed(1)}
+            <div in:fade class="mt-8 flex flex-col items-center gap-2">
+              <div class="px-8 py-6 rounded-3xl bg-blue-50 text-center min-w-[14rem]">
+                <p class="text-[10px] font-black uppercase tracking-widest text-blue-400 mb-1">Live Reading</p>
+                <p class="text-6xl font-[1000] text-blue-950 tabular-nums leading-none">{$weightLiveReading.toFixed(1)}</p>
+                <p class="text-lg font-black text-blue-400 mt-1">kg</p>
+              </div>
+              <p class="text-sm font-bold text-blue-900/30 tabular-nums">{lbs} lbs</p>
+            </div>
+          {:else}
+            <p class="text-sm text-blue-900/30 font-bold mt-8 uppercase tracking-widest animate-pulse">Waiting for scale…</p>
+          {/if}
+          <!-- Tare button -->
+          <button
+            on:click={() => wsSend({ command: 'tare', sensor: 'weight' })}
+            class="mt-6 px-6 py-3 rounded-2xl border-2 border-blue-200 bg-white text-blue-400 text-[11px] font-black uppercase tracking-widest active:bg-blue-50 transition-colors"
+            title="Zero out the scale if it shows a non-zero reading when empty"
+          >
+            ⚖️ Tare / Zero Scale
+          </button>
         {:else}
           <h2 class="text-3xl font-[1000] text-blue-600 animate-pulse uppercase tracking-tighter">
             Capturing {phases[currentPhase as keyof typeof phases].title}
@@ -786,6 +813,20 @@
               </div>
             </div>
             <p class="mt-4 text-xs text-blue-900/30 font-bold uppercase tracking-widest">Remove the cuff and set it aside</p>
+          {:else if currentPhase === 'weight'}
+            {@const wKg = results.weight}
+            {@const wLbs = (wKg * 2.20462).toFixed(1)}
+            <div class="flex flex-col items-center gap-2 mt-2">
+              <div class="px-8 py-5 rounded-3xl bg-blue-50 text-center min-w-[14rem]">
+                <p class="text-[10px] font-black uppercase tracking-widest text-blue-400 mb-1">Weight</p>
+                <p class="text-5xl font-[1000] text-blue-950 tabular-nums leading-none">{wKg > 0 ? wKg.toFixed(1) : '--'}</p>
+                <p class="text-lg font-black text-blue-400 mt-1">kg</p>
+              </div>
+              {#if wKg > 0}
+                <p class="text-base font-bold text-blue-900/30 tabular-nums">{wLbs} lbs</p>
+              {/if}
+            </div>
+            <p class="mt-4 text-xs text-blue-900/30 font-bold uppercase tracking-widest">You may step off the platform</p>
           {:else}
             <div class="text-7xl font-[1000] text-blue-950 mb-2">
               {results[currentPhase as keyof CheckupResults]}
@@ -868,6 +909,26 @@
           >
             🎯 Calibrate Camera
           </button>
+        </div>
+      {:else if currentPhase === 'weight'}
+        <!-- Weight-specific instruction screen -->
+        <div in:fade class="flex flex-col items-center text-center">
+          <div class="w-48 h-48 bg-blue-50 rounded-[4rem] flex items-center justify-center text-8xl mb-10 shadow-inner">⚖️</div>
+          <h1 class="text-5xl font-[1000] text-blue-950 uppercase tracking-tighter mb-6">Weight</h1>
+          <div class="text-left space-y-3 w-full max-w-xs">
+            <div class="flex items-start gap-3">
+              <span class="w-6 h-6 bg-blue-600 text-white rounded-full flex items-center justify-center text-xs font-black flex-shrink-0 mt-0.5">1</span>
+              <p class="text-base text-blue-900/60 font-bold">Remove shoes and heavy items</p>
+            </div>
+            <div class="flex items-start gap-3">
+              <span class="w-6 h-6 bg-blue-600 text-white rounded-full flex items-center justify-center text-xs font-black flex-shrink-0 mt-0.5">2</span>
+              <p class="text-base text-blue-900/60 font-bold">Step onto the platform and stand still</p>
+            </div>
+            <div class="flex items-start gap-3">
+              <span class="w-6 h-6 bg-blue-600 text-white rounded-full flex items-center justify-center text-xs font-black flex-shrink-0 mt-0.5">3</span>
+              <p class="text-base text-blue-900/60 font-bold">Press Start and hold steady until done</p>
+            </div>
+          </div>
         </div>
       {:else}
         <div in:fade class="flex flex-col items-center">

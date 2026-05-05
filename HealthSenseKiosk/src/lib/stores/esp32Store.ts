@@ -93,6 +93,9 @@ export const fingerprintEvent = writable<FingerprintEvent | null>(null);
 /** Live BP reading from camera OCR while measuring (updates every ~2s) */
 export const bpLiveReading = writable<{ sys: number; dia: number } | null>(null);
 
+/** Live weight reading from scale while measuring (kg, updated from progress packets) */
+export const weightLiveReading = writable<number | null>(null);
+
 /** Debug camera frame from BP OCR — annotated JPEG (base64) + per-band raw text */
 export interface SegStatusEntry {
   name:       string;
@@ -247,6 +250,10 @@ function handleMessage(msg: BridgeMessage): void {
 
     case 'progress': {
       measureProgress.set(msg.progress as number);
+      // If ESP32 includes a live weight value in the progress packet, surface it
+      if (msg.sensor === 'weight' && msg.value !== undefined && msg.value !== null) {
+        weightLiveReading.set(Number(msg.value));
+      }
       break;
     }
 
@@ -440,6 +447,7 @@ export function startMeasurement(sensor: SensorKey): boolean {
   latestReading.set(null);
   lastError.set(null);
   if (sensor === 'bp') { bpLiveReading.set(null); bpDebugFrame.set(null); }
+  if (sensor === 'weight') { weightLiveReading.set(null); }
   return send({ command: 'start', sensor });
 }
 

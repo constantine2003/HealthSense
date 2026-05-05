@@ -416,8 +416,15 @@ def _enhance_frame(frame):
 
 
 def _apply_camera_transform(frame):
-    """Apply camera orientation correction. Rotate 90° clockwise."""
-    return cv2.rotate(frame, cv2.ROTATE_90_CLOCKWISE)
+    """Rotate 90° clockwise, then binarize to pure black/white using Otsu's threshold.
+
+    Converting to binary at capture time eliminates uneven-lighting ambiguity:
+    every pixel is either 0 (black) or 255 (white) before any segment reads.
+    """
+    rotated = cv2.rotate(frame, cv2.ROTATE_90_CLOCKWISE)
+    gray = cv2.cvtColor(rotated, cv2.COLOR_BGR2GRAY)
+    _, binary = cv2.threshold(gray, 0, 255, cv2.THRESH_BINARY | cv2.THRESH_OTSU)
+    return cv2.cvtColor(binary, cv2.COLOR_GRAY2BGR)
 
 
 # ── USB Webcam mode ────────────────────────────────────────────────────────────
