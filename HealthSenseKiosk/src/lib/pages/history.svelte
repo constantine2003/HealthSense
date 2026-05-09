@@ -91,71 +91,71 @@
   }
 </script>
 
-<div class="h-screen w-full bg-[#f0f7ff] flex flex-col p-10 select-none overflow-hidden">
+<div class="h-screen w-full bg-[#f0f7ff] flex flex-col px-12 py-12 select-none overflow-hidden">
   
-  <div class="flex items-center justify-between mb-10 shrink-0">
-    <button on:click={onBack} class="flex items-center gap-2 text-blue-900/40 font-black tracking-widest text-sm uppercase active:scale-90 transition-transform">
-      <svg xmlns="http://www.w3.org/2000/svg" class="w-6 h-6" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+  <div class="flex items-center justify-between mb-12 shrink-0">
+    <button on:click={onBack} class="flex items-center gap-2 text-blue-900/40 font-black tracking-widest text-base uppercase active:scale-90 transition-transform">
+      <svg xmlns="http://www.w3.org/2000/svg" class="w-7 h-7" fill="none" viewBox="0 0 24 24" stroke="currentColor">
         <path stroke-linecap="round" stroke-linejoin="round" stroke-width="3" d="M15 19l-7-7 7-7" />
       </svg>
       Back
     </button>
-    <h2 class="text-blue-950 font-black text-2xl uppercase tracking-tighter text-right">Medical History</h2>
+    <h2 class="text-blue-950 font-black text-3xl uppercase tracking-tighter text-right">Medical History</h2>
   </div>
 
-  <div class="flex-1 overflow-y-auto pr-2 custom-scrollbar" style="-webkit-overflow-scrolling: touch;">
-    <div class="space-y-6 pb-20"> 
+  <div class="flex-1 overflow-y-auto pr-2 custom-scrollbar touch-scroll" style="-webkit-overflow-scrolling: touch;">
+    <div class="w-full space-y-8 pb-20"> 
       {#if isLoading}
         <div class="h-64 flex flex-col items-center justify-center gap-4 opacity-50">
-          <div class="w-12 h-12 border-4 border-blue-600 border-t-transparent rounded-full animate-spin"></div>
-          <p class="font-bold text-blue-900 uppercase tracking-widest text-xs">Loading Archive...</p>
+          <div class="w-14 h-14 border-4 border-blue-600 border-t-transparent rounded-full animate-spin"></div>
+          <p class="font-bold text-blue-900 uppercase tracking-widest text-sm">Loading Archive...</p>
         </div>
       {:else if historyData.length === 0}
         <div class="h-64 flex flex-col items-center justify-center opacity-30 text-center">
-          <p class="font-black uppercase tracking-[0.3em] text-blue-900">No Records Found</p>
+          <p class="font-black uppercase tracking-[0.3em] text-blue-900 text-base">No Records Found</p>
         </div>
       {:else}
         {#each historyData as item}
           {@const timeInfo = formatDate(item.created_at)}
           {@const bmi = getBMIInfo(item)}
-          <div class="bg-white rounded-[2.5rem] p-8 shadow-sm border border-blue-50 flex flex-col gap-6" in:fade>
+          <div class="bg-white rounded-[2.5rem] p-10 shadow-sm border border-blue-50 flex flex-col gap-6" in:fade>
             <div class="flex justify-between items-start">
               <div>
-                <h3 class="text-2xl font-black text-blue-950">{timeInfo.date}</h3>
-                <p class="text-blue-400 font-bold text-sm uppercase tracking-[0.2em]">{timeInfo.time}</p>
+                <h3 class="text-3xl font-black text-blue-950">{timeInfo.date}</h3>
+                <p class="text-blue-400 font-bold text-base uppercase tracking-[0.2em]">{timeInfo.time}</p>
               </div>
-              <button on:click={() => selectedCheckup = item} class="px-5 py-3 bg-blue-600 text-white rounded-2xl font-black text-sm uppercase tracking-widest active:scale-95 transition-transform">
+              <button on:click={() => selectedCheckup = item} class="px-6 py-3.5 bg-blue-600 text-white rounded-2xl font-black text-base uppercase tracking-widest active:scale-95 transition-transform">
                 Details
               </button>
             </div>
 
             <div class="grid grid-cols-3 gap-4 border-t border-blue-50 pt-6">
                 <div class="flex flex-col">
-                <span class="text-xs font-bold text-blue-400 uppercase">HR + SpO2</span>
-                <span class="font-black text-lg text-blue-950">{readHeartRate(item) || '--'} bpm / {readSpo2(item) || '--'}%</span>
+                <span class="text-sm font-bold text-blue-400 uppercase">HR + SpO2</span>
+                <span class="font-black text-xl text-blue-950">{readHeartRate(item) || '--'} bpm / {readSpo2(item) || '--'}%</span>
                 </div>
                 <div class="flex flex-col">
-                    <span class="text-xs font-bold text-blue-400 uppercase">Temp</span>
-                    <span class="font-black text-lg text-blue-950">{item.temp || item.temperature || '--'}°</span>
+                    <span class="text-sm font-bold text-blue-400 uppercase">Temp</span>
+                    <span class="font-black text-xl text-blue-950">{item.temp || item.temperature || '--'}°</span>
                 </div>
                 <div class="flex flex-col">
-                    <span class="text-xs font-bold text-blue-400 uppercase">BP</span>
-                    <span class="font-black text-lg text-blue-950">{item.bp || item.blood_pressure || '--'}</span>
+                    <span class="text-sm font-bold text-blue-400 uppercase">BP</span>
+                    <span class="font-black text-xl text-blue-950">{item.bp || item.blood_pressure || '--'}</span>
                 </div>
             </div>
 
             <div class="grid grid-cols-3 gap-4 pt-2">
                 <div class="flex flex-col">
-                    <span class="text-xs font-bold text-blue-300 uppercase">Height</span>
-                    <span class="font-bold text-md text-blue-950">{item.height || '--'}m</span>
+                    <span class="text-sm font-bold text-blue-300 uppercase">Height</span>
+                    <span class="font-bold text-lg text-blue-950">{item.height || '--'}m</span>
                 </div>
                 <div class="flex flex-col">
-                    <span class="text-xs font-bold text-blue-300 uppercase">Weight</span>
-                    <span class="font-bold text-md text-blue-950">{item.weight || '--'}kg</span>
+                    <span class="text-sm font-bold text-blue-300 uppercase">Weight</span>
+                    <span class="font-bold text-lg text-blue-950">{item.weight || '--'}kg</span>
                 </div>
                 <div class="flex flex-col">
-                    <span class="text-xs font-bold text-blue-300 uppercase">BMI</span>
-                    <span class="font-bold text-md text-blue-950">{bmi.bmi}</span>
+                    <span class="text-sm font-bold text-blue-300 uppercase">BMI</span>
+                    <span class="font-bold text-lg text-blue-950">{bmi.bmi}</span>
                 </div>
             </div>
           </div>
@@ -176,81 +176,81 @@
     <div 
       transition:fade={{duration: 200}} 
       class="fixed inset-0 z-50 bg-blue-950/80 backdrop-blur-md flex items-end" 
-      on:click={() => selectedCheckup = null}
+      on:click={(e) => {
+        if (e.target === e.currentTarget) selectedCheckup = null;
+      }}
       on:keydown={handleKeydown}
       role="button"
       tabindex="0"
       aria-label="Close modal backdrop"
     >
       <div 
-        on:click|stopPropagation 
-        on:keydown|stopPropagation
         role="document"
         tabindex="-1"
-        class="bg-white w-full rounded-t-[4rem] p-10 max-h-[90vh] overflow-y-auto shadow-2xl pb-16"
+        class="bg-white w-full rounded-t-[4rem] p-12 max-h-[90vh] overflow-y-auto shadow-2xl pb-16 touch-scroll"
       >
         
         <div class="flex justify-between items-center mb-8 sticky top-0 bg-white pb-4 z-10">
           <div>
-            <h2 class="text-3xl font-[1000] text-blue-950 tracking-tighter uppercase leading-none">Health Report</h2>
-            <p class="text-blue-400 font-bold text-xs uppercase mt-2 tracking-widest">{formatDate(selectedCheckup.created_at).date}</p>
+            <h2 class="text-4xl font-[1000] text-blue-950 tracking-tighter uppercase leading-none">Health Report</h2>
+            <p class="text-blue-400 font-bold text-sm uppercase mt-2 tracking-widest">{formatDate(selectedCheckup.created_at).date}</p>
           </div>
           <button 
             on:click={() => selectedCheckup = null} 
-            class="p-4 bg-blue-50 rounded-full active:scale-90 transition-transform"
+            class="p-5 bg-blue-50 rounded-full active:scale-90 transition-transform"
             aria-label="Close report"
           >
-            <svg class="w-6 h-6 text-blue-900" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="4"><path d="M18 6L6 18M6 6l12 12"/></svg>
+            <svg class="w-7 h-7 text-blue-900" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="4"><path d="M18 6L6 18M6 6l12 12"/></svg>
           </button>
         </div>
 
         <div class="space-y-4">
-          <div class="p-6 bg-blue-50/50 rounded-3xl border border-blue-100 space-y-4">
-            <p class="text-sm font-black text-blue-400 uppercase mb-1">HR + SpO2</p>
+          <div class="p-7 bg-blue-50/50 rounded-3xl border border-blue-100 space-y-4">
+            <p class="text-base font-black text-blue-400 uppercase mb-1">HR + SpO2</p>
             <div class="grid grid-cols-2 gap-4">
               <div class="bg-white rounded-2xl p-4 border border-blue-100">
-                <p class="text-sm font-black text-blue-400 uppercase">Heart Rate</p>
-                <h4 class="text-3xl font-black text-blue-950">{hrVal || '--'} bpm</h4>
-                <span class="inline-block mt-2 px-3 py-1 rounded-lg text-white font-black text-sm uppercase" style="background: {hr.color}">{hr.status}</span>
+                <p class="text-base font-black text-blue-400 uppercase">Heart Rate</p>
+                <h4 class="text-4xl font-black text-blue-950">{hrVal || '--'} bpm</h4>
+                <span class="inline-block mt-2 px-4 py-1.5 rounded-lg text-white font-black text-sm uppercase" style="background: {hr.color}">{hr.status}</span>
               </div>
               <div class="bg-white rounded-2xl p-4 border border-blue-100">
-                <p class="text-sm font-black text-blue-400 uppercase">Blood Oxygen</p>
-                <h4 class="text-3xl font-black text-blue-950">{spo2Val || '--'}%</h4>
-                <span class="inline-block mt-2 px-3 py-1 rounded-lg text-white font-black text-sm uppercase" style="background: {s.color}">{s.status}</span>
+                <p class="text-base font-black text-blue-400 uppercase">Blood Oxygen</p>
+                <h4 class="text-4xl font-black text-blue-950">{spo2Val || '--'}%</h4>
+                <span class="inline-block mt-2 px-4 py-1.5 rounded-lg text-white font-black text-sm uppercase" style="background: {s.color}">{s.status}</span>
               </div>
             </div>
           </div>
 
-          <div class="flex justify-between items-center p-6 bg-blue-50/50 rounded-3xl border border-blue-100">
-            <div><p class="text-sm font-black text-blue-400 uppercase mb-1">Temperature</p><h4 class="text-3xl font-black text-blue-950">{selectedCheckup.temp || selectedCheckup.temperature || '--'}°C</h4></div>
-            <span class="px-4 py-2 rounded-xl text-white font-black text-sm uppercase" style="background: {t.color}">{t.status}</span>
+          <div class="flex justify-between items-center p-7 bg-blue-50/50 rounded-3xl border border-blue-100">
+            <div><p class="text-base font-black text-blue-400 uppercase mb-1">Temperature</p><h4 class="text-4xl font-black text-blue-950">{selectedCheckup.temp || selectedCheckup.temperature || '--'}°C</h4></div>
+            <span class="px-4 py-2.5 rounded-xl text-white font-black text-sm uppercase" style="background: {t.color}">{t.status}</span>
           </div>
 
-          <div class="flex justify-between items-center p-6 bg-blue-50/50 rounded-3xl border border-blue-100">
-            <div><p class="text-sm font-black text-blue-400 uppercase mb-1">Blood Pressure</p><h4 class="text-3xl font-black text-blue-950">{selectedCheckup.bp || selectedCheckup.blood_pressure || '--'}</h4></div>
-            <span class="px-4 py-2 rounded-xl text-white font-black text-sm uppercase" style="background: {bp.color}">{bp.status}</span>
+          <div class="flex justify-between items-center p-7 bg-blue-50/50 rounded-3xl border border-blue-100">
+            <div><p class="text-base font-black text-blue-400 uppercase mb-1">Blood Pressure</p><h4 class="text-4xl font-black text-blue-950">{selectedCheckup.bp || selectedCheckup.blood_pressure || '--'}</h4></div>
+            <span class="px-4 py-2.5 rounded-xl text-white font-black text-sm uppercase" style="background: {bp.color}">{bp.status}</span>
           </div>
 
           <div class="grid grid-cols-2 gap-4">
-             <div class="p-6 bg-blue-50/30 rounded-3xl border border-blue-100">
-                <p class="text-sm font-black text-blue-400 uppercase mb-1 text-center">Height</p>
-                <h4 class="text-2xl font-black text-blue-950 text-center">{selectedCheckup.height || '--'} m</h4>
+             <div class="p-7 bg-blue-50/30 rounded-3xl border border-blue-100">
+                <p class="text-base font-black text-blue-400 uppercase mb-1 text-center">Height</p>
+                <h4 class="text-3xl font-black text-blue-950 text-center">{selectedCheckup.height || '--'} m</h4>
              </div>
-             <div class="p-6 bg-blue-50/30 rounded-3xl border border-blue-100">
-                <p class="text-sm font-black text-blue-400 uppercase mb-1 text-center">Weight</p>
-                <h4 class="text-2xl font-black text-blue-950 text-center">{selectedCheckup.weight || '--'} kg</h4>
+             <div class="p-7 bg-blue-50/30 rounded-3xl border border-blue-100">
+                <p class="text-base font-black text-blue-400 uppercase mb-1 text-center">Weight</p>
+                <h4 class="text-3xl font-black text-blue-950 text-center">{selectedCheckup.weight || '--'} kg</h4>
              </div>
           </div>
 
-          <div class="flex justify-between items-center p-6 bg-blue-50/50 rounded-3xl border border-blue-200">
-            <div><p class="text-sm font-black text-blue-400 uppercase mb-1">BMI Score</p><h4 class="text-3xl font-black text-blue-950">{bmi.bmi}</h4></div>
-            <span class="px-4 py-2 rounded-xl text-white font-black text-sm uppercase" style="background: {bmi.color}">{bmi.status}</span>
+          <div class="flex justify-between items-center p-7 bg-blue-50/50 rounded-3xl border border-blue-200">
+            <div><p class="text-base font-black text-blue-400 uppercase mb-1">BMI Score</p><h4 class="text-4xl font-black text-blue-950">{bmi.bmi}</h4></div>
+            <span class="px-4 py-2.5 rounded-xl text-white font-black text-sm uppercase" style="background: {bmi.color}">{bmi.status}</span>
           </div>
         </div>
         
         <button 
           on:click={() => selectedCheckup = null} 
-          class="w-full mt-8 py-6 bg-blue-950 text-white rounded-4xl font-black uppercase tracking-widest shadow-xl active:scale-[0.98] transition-all"
+          class="w-full mt-8 py-7 bg-blue-950 text-white rounded-4xl font-black uppercase tracking-widest shadow-xl active:scale-[0.98] transition-all text-lg"
         >
           Close Report
         </button>
@@ -269,5 +269,10 @@
   .custom-scrollbar::-webkit-scrollbar-thumb {
     background: rgba(30, 58, 138, 0.1);
     border-radius: 10px;
+  }
+
+  .touch-scroll {
+    touch-action: pan-y;
+    overscroll-behavior: contain;
   }
 </style>
