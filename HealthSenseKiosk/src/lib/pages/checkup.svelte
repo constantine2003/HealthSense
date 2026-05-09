@@ -21,9 +21,8 @@
 
   export let onFinish: (data: any) => void;
   export let onCancel: () => void;
-  export let user: any; 
+  export let user: any;
 
-  // --- TYPES ---
   interface CheckupResults {
     weight: number;
     height: number;
@@ -33,15 +32,13 @@
     bp: string;
   }
 
-  // BP manual entry fallback state
   let bpManualEntry = false;
   let bpManualSys = '';
   let bpManualDia = '';
 
-  // ── BP Segment Calibration state ──────────────────────────────────────────
   type SegRect  = { x: number; y: number; w: number; h: number };
-  type DigitSegs = Record<string, SegRect>;           // keys: a b c d e f g
-  type AllSegs  = Record<string, DigitSegs>;          // keys: sys0..dia2
+  type DigitSegs = Record<string, SegRect>;
+  type AllSegs  = Record<string, DigitSegs>;
 
   const DIGIT_NAMES = ['sys0', 'sys1', 'sys2', 'dia0', 'dia1', 'dia2'] as const;
   type DigitName = typeof DIGIT_NAMES[number];
@@ -52,14 +49,8 @@
   };
 
   function makeDigitSegs(cx: number, cy: number): DigitSegs {
-    // Build a default 7-segment shape centered at (cx, cy) in CSS pixels.
-    //      aaa
-    //     f   b
-    //      ggg
-    //     e   c
-    //      ddd
-    const hw = 22, hh = 6;   // horiz segment: width, height
-    const vw = 6,  vh = 28;  // vert  segment: width, height
+    const hw = 22, hh = 6;
+    const vw = 6,  vh = 28;
     return {
       a: { x: Math.round(cx - hw/2), y: Math.round(cy - 38),         w: hw, h: hh },
       b: { x: Math.round(cx + 12),   y: Math.round(cy - 38 + hh + 1), w: vw, h: vh },
@@ -75,30 +66,24 @@
     const sysY = 80, diaY = 220;
     const xs = [65, 125, 185];
     return {
-      sys0: makeDigitSegs(xs[0], sysY),
-      sys1: makeDigitSegs(xs[1], sysY),
-      sys2: makeDigitSegs(xs[2], sysY),
-      dia0: makeDigitSegs(xs[0], diaY),
-      dia1: makeDigitSegs(xs[1], diaY),
-      dia2: makeDigitSegs(xs[2], diaY),
+      sys0: makeDigitSegs(xs[0], sysY), sys1: makeDigitSegs(xs[1], sysY), sys2: makeDigitSegs(xs[2], sysY),
+      dia0: makeDigitSegs(xs[0], diaY), dia1: makeDigitSegs(xs[1], diaY), dia2: makeDigitSegs(xs[2], diaY),
     };
   }
 
   let segCalibMode = false;
   let weightCalibMode = false;
   let activeDigit: DigitName = 'sys0';
-  let activeSeg: string | null = null;        // "sys0:a" format
+  let activeSeg: string | null = null;
   let allSegs: AllSegs = defaultSegPositions();
   let segThreshold = 40;
   let isTesting = false;
 
-  // Camera settings (shared with segment calibration)
   let camBrightness = 0.10;
   let camContrast   = 1.50;
   let camSharpness  = 2.00;
   let camSaturation = 1.20;
 
-  // DOM refs for the calibration preview
   let calibPreviewImg: HTMLImageElement | null = null;
   let calibPreviewContainer: HTMLDivElement | null = null;
 
@@ -120,19 +105,18 @@
     wsSend({ command: 'bp_load_segments' });
   }
 
-  // Flag so we only apply loaded config once per calibration session
   let _segConfigApplied = false;
 
   function _applyLoadedConfig(cfg: any) {
     if (_segConfigApplied) return;
     if (!cfg?.digits || !Array.isArray(cfg.digits)) return;
     const img = calibPreviewImg;
-    if (!img) return;  // DOM not rendered yet — reactive stmt will retry on next frame
+    if (!img) return;
     const capW = $bpDebugFrame?.capW || 640;
     const capH = $bpDebugFrame?.capH || 480;
     const displayW = img.clientWidth;
     const displayH = img.clientHeight;
-    if (displayW <= 0 || displayH <= 0) return;  // not rendered yet, wait
+    if (displayW <= 0 || displayH <= 0) return;
     const sx = displayW / capW;
     const sy = displayH / capH;
 
@@ -143,19 +127,11 @@
       for (const s of SEG_NAMES) {
         const r = d.segments[s];
         if (!r) continue;
-        segs[s] = {
-          x: Math.round(r.x * sx),
-          y: Math.round(r.y * sy),
-          w: Math.max(4, Math.round(r.w * sx)),
-          h: Math.max(2, Math.round(r.h * sy)),
-        };
+        segs[s] = { x: Math.round(r.x * sx), y: Math.round(r.y * sy), w: Math.max(4, Math.round(r.w * sx)), h: Math.max(2, Math.round(r.h * sy)) };
       }
-      if (Object.keys(segs).length === SEG_NAMES.length) {
-        loaded[d.name] = segs;
-      }
+      if (Object.keys(segs).length === SEG_NAMES.length) loaded[d.name] = segs;
     }
     allSegs = loaded;
-
     if (cfg.threshold !== undefined) segThreshold = cfg.threshold;
     if (cfg.camera) {
       const cam = cfg.camera;
@@ -167,10 +143,7 @@
     _segConfigApplied = true;
   }
 
-  // Re-try applying the loaded config each time a frame arrives (clientWidth valid after first render)
-  $: if ($bpSegmentsLoaded && segCalibMode && $bpDebugFrame) {
-    _applyLoadedConfig($bpSegmentsLoaded);
-  }
+  $: if ($bpSegmentsLoaded && segCalibMode && $bpDebugFrame) _applyLoadedConfig($bpSegmentsLoaded);
 
   function closeSegCalib() {
     segCalibMode = false;
@@ -195,22 +168,12 @@
       const segs: Record<string, { x: number; y: number; w: number; h: number }> = {};
       for (const s of SEG_NAMES) {
         const r = allSegs[name][s];
-        segs[s] = {
-          x: Math.max(0, Math.round(r.x * sx)),
-          y: Math.max(0, Math.round(r.y * sy)),
-          w: Math.max(4, Math.round(r.w * sx)),
-          h: Math.max(2, Math.round(r.h * sy)),
-        };
+        segs[s] = { x: Math.max(0, Math.round(r.x * sx)), y: Math.max(0, Math.round(r.y * sy)), w: Math.max(4, Math.round(r.w * sx)), h: Math.max(2, Math.round(r.h * sy)) };
       }
       return { name, segments: segs };
     });
 
-    wsSend({
-      command: 'bp_save_segments',
-      digits: scaledDigits,
-      threshold: segThreshold,
-      camera: { brightness: camBrightness, contrast: camContrast, sharpness: camSharpness, saturation: camSaturation },
-    });
+    wsSend({ command: 'bp_save_segments', digits: scaledDigits, threshold: segThreshold, camera: { brightness: camBrightness, contrast: camContrast, sharpness: camSharpness, saturation: camSaturation } });
     closeSegCalib();
   }
 
@@ -232,29 +195,21 @@
     allSegs = { ...allSegs, [activeDigit]: defaultSegPositions()[activeDigit] };
   }
 
-  // ── Eyedropper ────────────────────────────────────────────────────────────
   type EyedropperTarget = 'background' | 'segment' | null;
   let eyedropperActive: EyedropperTarget = null;
   let sampledBg: number | null = null;
   let sampledSeg: number | null = null;
 
-  // Area-select drag state
   let selStart:   { clientX: number; clientY: number } | null = null;
   let selCurrent: { clientX: number; clientY: number } | null = null;
   let isDraggingSel = false;
 
-  /** Average grayscale brightness over a region of the preview image (display-space coords relative to container). */
-  function sampleAreaGray(
-    imgEl: HTMLImageElement,
-    containerEl: HTMLElement,
-    dispX: number, dispY: number, dispW: number, dispH: number
-  ): number | null {
+  function sampleAreaGray(imgEl: HTMLImageElement, containerEl: HTMLElement, dispX: number, dispY: number, dispW: number, dispH: number): number | null {
     try {
       const cRect = containerEl.getBoundingClientRect();
       const iRect = imgEl.getBoundingClientRect();
       const natW  = imgEl.naturalWidth  || iRect.width;
       const natH  = imgEl.naturalHeight || iRect.height;
-      // object-contain scale + offset relative to the container
       const scale   = Math.min(iRect.width / natW, iRect.height / natH);
       const offsetX = (iRect.width  - natW * scale) / 2 + (iRect.left - cRect.left);
       const offsetY = (iRect.height - natH * scale) / 2 + (iRect.top  - cRect.top);
@@ -271,13 +226,11 @@
       const data = ctx.getImageData(nx1, ny1, nx2 - nx1, ny2 - ny1).data;
       let sum = 0;
       const n = data.length / 4;
-      for (let i = 0; i < data.length; i += 4)
-        sum += 0.114 * data[i] + 0.587 * data[i + 1] + 0.299 * data[i + 2];
+      for (let i = 0; i < data.length; i += 4) sum += 0.114 * data[i] + 0.587 * data[i + 1] + 0.299 * data[i + 2];
       return Math.round(sum / n);
     } catch { return null; }
   }
 
-  /** Single-pixel sample (kept for segment point-pick fallback). */
   function samplePixelGray(imgEl: HTMLImageElement, clientX: number, clientY: number): number | null {
     try {
       const rect = imgEl.getBoundingClientRect();
@@ -322,9 +275,7 @@
     if (!isDraggingSel || !calibPreviewImg || !calibPreviewContainer) return;
     e.preventDefault();
     isDraggingSel = false;
-
     let gray: number | null = null;
-
     if (selStart && selCurrent) {
       const cRect = calibPreviewContainer.getBoundingClientRect();
       const x1 = Math.min(selStart.clientX, selCurrent.clientX) - cRect.left;
@@ -332,29 +283,18 @@
       const x2 = Math.max(selStart.clientX, selCurrent.clientX) - cRect.left;
       const y2 = Math.max(selStart.clientY, selCurrent.clientY) - cRect.top;
       const w  = x2 - x1, h = y2 - y1;
-      if (w >= 4 && h >= 4) {
-        gray = sampleAreaGray(calibPreviewImg, calibPreviewContainer, x1, y1, w, h);
-      } else {
-        // Tiny drag → treat as point tap
-        gray = samplePixelGray(calibPreviewImg, selStart.clientX, selStart.clientY);
-      }
+      if (w >= 4 && h >= 4) gray = sampleAreaGray(calibPreviewImg, calibPreviewContainer, x1, y1, w, h);
+      else gray = samplePixelGray(calibPreviewImg, selStart.clientX, selStart.clientY);
     }
-
     selStart = selCurrent = null;
     if (gray === null) return;
-
     if (eyedropperActive === 'background') sampledBg = gray;
     else sampledSeg = gray;
     eyedropperActive = null;
-
-    if (sampledBg !== null && sampledSeg !== null)
-      segThreshold = Math.round((sampledBg + sampledSeg) / 2);
+    if (sampledBg !== null && sampledSeg !== null) segThreshold = Math.round((sampledBg + sampledSeg) / 2);
   }
 
-  function onSelPointerCancel() {
-    isDraggingSel = false;
-    selStart = selCurrent = null;
-  }
+  function onSelPointerCancel() { isDraggingSel = false; selStart = selCurrent = null; }
 
   function testSegments() {
     const img = calibPreviewImg;
@@ -365,7 +305,6 @@
     const displayW = img.clientWidth || capW;
     const displayH = img.clientHeight || capH;
     const sx = capW / displayW, sy = capH / displayH;
-
     const scaledDigits = DIGIT_NAMES.map((name) => {
       const segs: Record<string, { x: number; y: number; w: number; h: number }> = {};
       for (const s of SEG_NAMES) {
@@ -374,11 +313,9 @@
       }
       return { name, segments: segs };
     });
-
     wsSend({ command: 'bp_test_segments', digits: scaledDigits, threshold: segThreshold });
   }
 
-  // Stop spinner when test result arrives
   $: if ($bpTestResult) isTesting = false;
 
   function onSegPointerDown(e: PointerEvent, digit: string, seg: string, mode: 'move' | 'resize') {
@@ -401,7 +338,6 @@
 
   function onSegPointerUp() { segDragState = null; }
 
-  // Derived SYS/DIA from the stored bp string (e.g. "120/80")
   $: bpParts = results.bp !== '0/0' ? results.bp.split('/') : ['0', '0'];
   $: bpSys = parseInt(bpParts[0]) || 0;
   $: bpDia = parseInt(bpParts[1]) || 0;
@@ -409,44 +345,25 @@
   type SensorPhase = 'weight' | 'height' | 'temp' | 'spo2' | 'bp';
   type Phase = SensorPhase | 'review';
 
-  // --- LOGIC STATES ---
-  let currentPhase: Phase = 'review'; 
+  let currentPhase: Phase = 'review';
   let isScanning = false;
   let isCountingDown = false;
   let hasCaptured = false;
   let isRedoingSpecific = false;
-  // 'idle'  → sitting on review/home screen, no active session
-  // 'single' → user tapped "Measure" on one sensor; saves only that sensor on completion
-  // 'full'   → "Start Full Checkup" was clicked; goes through all sensors sequentially
   let mode: 'idle' | 'single' | 'full' = 'idle';
   let countdown = 3;
   let progress = 0;
 
-  // --- DATA STORAGE ---
-  let results: CheckupResults = { 
-    weight: 0, 
-    height: 0, 
-    temp: 0, 
-    spo2: 0,
-    heartRate: 0,
-    bp: "0/0" 
-  };
+  let results: CheckupResults = { weight: 0, height: 0, temp: 0, spo2: 0, heartRate: 0, bp: "0/0" };
 
-  // --- ESP32 STORE SUBSCRIPTIONS ---
   const unsubProgress = esp32Progress.subscribe((val) => {
-    if (isScanning) {
-      progress = val;
-      if (val >= 100) {
-        isScanning = false;
-      }
-    }
+    if (isScanning) { progress = val; if (val >= 100) isScanning = false; }
   });
 
   const unsubReading = latestReading.subscribe((reading) => {
     if (!reading) return;
     const sensor = reading.sensor as SensorKey;
     if (sensor !== currentPhase) return;
-
     if (sensor === 'bp') {
       results.bp = String(reading.value);
     } else if (sensor === 'spo2') {
@@ -463,7 +380,6 @@
     } else {
       (results as any)[sensor] = reading.value;
     }
-
     hasCaptured = true;
     isScanning = false;
     progress = 100;
@@ -474,126 +390,89 @@
       isScanning = false;
       isCountingDown = false;
       progress = 0;
-      // For BP, show manual entry instead of just stopping
-      if (currentPhase === 'bp') {
-        bpManualEntry = true;
-      }
+      if (currentPhase === 'bp') bpManualEntry = true;
     }
   });
 
-  // --- LIFECYCLE ---
-  onDestroy(() => {
-    unsubProgress();
-    unsubReading();
-    unsubError();
-  });
+  onDestroy(() => { unsubProgress(); unsubReading(); unsubError(); });
 
-  // --- PHASE CONFIGURATION ---
+  function iconSvg(name: string, size = 28) {
+    const base = `width="${size}" height="${size}" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round"`;
+    switch (name) {
+      case 'weight':
+        return `<svg ${base}><path d="M4 7h16"/><path d="M7 7l-3 6h6l-3-6"/><path d="M17 7l-3 6h6l-3-6"/><path d="M12 7v9"/><rect x="8" y="16" width="8" height="5" rx="2"/></svg>`;
+      case 'height':
+        return `<svg ${base}><rect x="4" y="3" width="6" height="18" rx="1.5"/><path d="M7 6H5"/><path d="M7 9H4"/><path d="M7 12H5"/><path d="M7 15H4"/><path d="M7 18H5"/><path d="M15 6v12"/><path d="M15 6h5"/></svg>`;
+      case 'temp':
+        return `<svg ${base}><path d="M10 14a4 4 0 108 0"/><path d="M14 4v10"/><rect x="12" y="3" width="4" height="11" rx="2"/></svg>`;
+      case 'spo2':
+        return `<svg ${base}><path d="M12 20s-7-4.6-7-10a4 4 0 017-2.3A4 4 0 0119 10c0 5.4-7 10-7 10z"/><path d="M6 12h3l2-3 2 6 2-3h3"/></svg>`;
+      case 'bp':
+        return `<svg ${base}><rect x="3" y="7" width="10" height="8" rx="2"/><path d="M13 11h5"/><circle cx="20" cy="11" r="1.5"/></svg>`;
+      default:
+        return `<svg ${base}><circle cx="12" cy="12" r="9"/></svg>`;
+    }
+  }
+
   const phases = {
-    weight: { title: "Weight", desc: "Step onto the platform", icon: "⚖️", duration: 30, unit: "kg" },
-    height: { title: "Height", desc: "Stand straight", icon: "📏", duration: 30, unit: "m" },
-    temp: { title: "Temperature", desc: "Place forehead near sensor", icon: "🌡️", duration: 40, unit: "°C" },
-    spo2: { title: "HR + SpO2", desc: "Place finger on MAX30102 clip", icon: "🫀", duration: 30, unit: "% / bpm" },
-    bp: { title: "Blood Pressure", desc: "Turn on the monitor and wrap the cuff around your left arm", icon: "💓", duration: 90, unit: "mmHg" }
+    weight: { title: "Weight",      desc: "Step onto the platform",          icon: "weight", duration: 30, unit: "kg"    },
+    height: { title: "Height",      desc: "Stand straight",                  icon: "height", duration: 30, unit: "m"     },
+    temp:   { title: "Temperature", desc: "Place forehead near sensor",       icon: "temp", duration: 40, unit: "°C"   },
+    spo2:   { title: "HR + SpO2",   desc: "Place finger on MAX30102 clip",   icon: "spo2", duration: 30, unit: "% / bpm" },
+    bp:     { title: "Blood Pressure", desc: "Wrap cuff around your left arm", icon: "bp", duration: 90, unit: "mmHg" }
   } as const;
 
   function startSequence() {
-    hasCaptured = false;
-    progress = 0;
-    bpManualEntry = false;
-    bpManualSys = '';
-    bpManualDia = '';
-    isCountingDown = true;
-    countdown = 3;
+    hasCaptured = false; progress = 0; bpManualEntry = false; bpManualSys = ''; bpManualDia = '';
+    isCountingDown = true; countdown = 3;
     const timer = setInterval(() => {
       countdown--;
-      if (countdown <= 0) {
-        clearInterval(timer);
-        isCountingDown = false;
-        startScan();
-      }
+      if (countdown <= 0) { clearInterval(timer); isCountingDown = false; startScan(); }
     }, 1000);
   }
 
   function startScan() {
-    isScanning = true;
-    progress = 0;
+    isScanning = true; progress = 0;
     const sensor = currentPhase as SensorKey;
-
-    // Only send to ESP32 when the bridge is live and sensor is confirmed connected.
-    // If either is missing, abort and show an error — no mock data.
     const bridgeOnline    = $bridgeStatus === 'esp32Ready';
     const sensorConnected = $sensorStatus[sensor] !== 'disconnected';
-
     if (bridgeOnline && sensorConnected) {
       const sent = startMeasurement(sensor);
-      if (!sent) {
-        // WS closed between the check and the send
-        isScanning = false;
-        lastError.set('Connection lost — please retry');
-      }
+      if (!sent) { isScanning = false; lastError.set('Connection lost — please retry'); }
     } else {
       isScanning = false;
-      lastError.set(
-        !bridgeOnline
-          ? 'Bridge not connected — start the serial bridge and retry'
-          : 'Sensor not detected — check wiring and retry'
-      );
+      lastError.set(!bridgeOnline ? 'Bridge not connected — start the serial bridge and retry' : 'Sensor not detected — check wiring and retry');
     }
   }
 
   function handleSave() {
     const hasWeight = results.weight > 0;
     const hasHeight = results.height > 0;
-    const bmiVal = (hasWeight && hasHeight)
-      ? parseFloat((results.weight / (results.height * results.height)).toFixed(1))
-      : null;
-
-    // Send null for skipped/unmeasured sensors. Keeps history calculations clean.
+    const bmiVal = (hasWeight && hasHeight) ? parseFloat((results.weight / (results.height * results.height)).toFixed(1)) : null;
     const payload = {
       user_id:        user?.id,
-      temperature:    results.temp   > 0     ? results.temp   : null,
-      spo2:           results.spo2   > 0     ? results.spo2   : null,
-      heart_rate:     results.heartRate > 0  ? results.heartRate : null,
-      height:         results.height > 0     ? results.height : null,
-      weight:         results.weight > 0     ? results.weight : null,
+      temperature:    results.temp      > 0     ? results.temp      : null,
+      spo2:           results.spo2      > 0     ? results.spo2      : null,
+      heart_rate:     results.heartRate > 0     ? results.heartRate : null,
+      height:         results.height    > 0     ? results.height    : null,
+      weight:         results.weight    > 0     ? results.weight    : null,
       bmi:            bmiVal,
-      blood_pressure: results.bp !== '0/0'   ? results.bp     : null,
+      blood_pressure: results.bp !== '0/0'      ? results.bp        : null,
       created_at:     new Date().toISOString(),
     };
-
     onFinish(payload);
-    // Reset state after saving
-    mode = 'idle';
-    isRedoingSpecific = false;
-    currentPhase = 'review';
+    mode = 'idle'; isRedoingSpecific = false; currentPhase = 'review';
     results = { weight: 0, height: 0, temp: 0, spo2: 0, heartRate: 0, bp: "0/0" };
-    hasCaptured = false;
-    progress = 0;
+    hasCaptured = false; progress = 0;
   }
 
-  // Start a single-sensor measurement from the review screen.
-  // On completion the user will be offered "Save as Reading" (not "Continue").
   function measureSingle(phase: SensorPhase) {
-    mode = 'single';
-    isRedoingSpecific = false;
-    currentPhase = phase;
-    hasCaptured = false;
-    progress = 0;
+    mode = 'single'; isRedoingSpecific = false; currentPhase = phase; hasCaptured = false; progress = 0;
   }
 
   function nextPhase() {
-    hasCaptured = false;
-    progress = 0;
-
-    // Single-sensor mode or redo-specific: always return to review
-    if (mode === 'single' || isRedoingSpecific) {
-      isRedoingSpecific = false;
-      currentPhase = 'review';
-      return;
-    }
-
-    // Full checkup: advance through weight → height → temp → HR+SpO2 → bp → review
+    hasCaptured = false; progress = 0;
+    if (mode === 'single' || isRedoingSpecific) { isRedoingSpecific = false; currentPhase = 'review'; return; }
     const order: Phase[] = ['weight', 'height', 'temp', 'spo2', 'bp', 'review'];
     const currentIndex = order.indexOf(currentPhase);
     currentPhase = currentIndex < order.length - 1 ? order[currentIndex + 1] : 'review';
@@ -603,49 +482,22 @@
     const sys = parseInt(bpManualSys);
     const dia = parseInt(bpManualDia);
     if (!sys || !dia || sys < 60 || sys > 250 || dia < 40 || dia > 150 || sys <= dia) return;
-    results.bp = `${sys}/${dia}`;
-    bpManualEntry = false;
-    hasCaptured = true;
-    progress = 100;
-    lastError.set(null);
+    results.bp = `${sys}/${dia}`; bpManualEntry = false; hasCaptured = true; progress = 100; lastError.set(null);
   }
 
   function redoSpecific(phase: SensorPhase) {
-    // redoSpecific is only used during a full checkup (from review) to re-take one sensor
-    isRedoingSpecific = true;
-    currentPhase = phase;
-    hasCaptured = false;
-    progress = 0;
+    isRedoingSpecific = true; currentPhase = phase; hasCaptured = false; progress = 0;
   }
 
   function skipPhase() {
-    cancelMeasurement();
-    isScanning = false;
-    isCountingDown = false;
-    hasCaptured = false;
-    bpManualEntry = false;
-
-    if (mode === 'single') {
-      // Cancel individual reading → go straight back to review
-      mode = 'idle';
-      currentPhase = 'review';
-      return;
-    }
-
-    // Full checkup: record skip as null then advance
-    if (currentPhase === 'bp') {
-      results.bp = "0/0";
-    } else if (currentPhase === 'spo2') {
-      results.spo2 = 0;
-      results.heartRate = 0;
-    } else if (currentPhase !== 'review') {
-      const key = currentPhase as 'weight' | 'height' | 'temp';
-      results[key] = 0;
-    }
+    cancelMeasurement(); isScanning = false; isCountingDown = false; hasCaptured = false; bpManualEntry = false;
+    if (mode === 'single') { mode = 'idle'; currentPhase = 'review'; return; }
+    if (currentPhase === 'bp') results.bp = "0/0";
+    else if (currentPhase === 'spo2') { results.spo2 = 0; results.heartRate = 0; }
+    else if (currentPhase !== 'review') { const key = currentPhase as 'weight' | 'height' | 'temp'; results[key] = 0; }
     nextPhase();
   }
 
-  // Friendly label for the ESP32 status badge (used in widget + header)
   $: statusLabel = (() => {
     switch ($bridgeStatus) {
       case 'esp32Ready':   return { text: 'ESP32 Connected',   color: 'bg-green-500' };
@@ -656,450 +508,468 @@
     }
   })();
 
-  // Whether the sensor for the current phase is physically connected on the ESP32.
-  // Only meaningful when the bridge is online; falls back to true so mock data runs.
   $: currentSensorAvailable = currentPhase === 'review'
     ? true
-    : $bridgeStatus !== 'esp32Ready'           // bridge offline → use mock, treat as available
-      || $sensorStatus[currentPhase as SensorKey] !== 'disconnected';
+    : $bridgeStatus !== 'esp32Ready' || $sensorStatus[currentPhase as SensorKey] !== 'disconnected';
 </script>
 
-<div class="h-full w-full bg-[#f8fbff] flex flex-col p-10 select-none overflow-hidden text-slate-900">
-  
-  <div class="flex items-center justify-between mb-12">
-    <button on:click={onCancel} class="text-blue-900/30 font-black uppercase tracking-widest text-xs active:scale-95">Exit</button>
-    <div class="flex gap-2">
-      {#each ['weight', 'height', 'temp', 'spo2', 'bp', 'review'] as p}
-        <div class="h-4 w-4 rounded-md {currentPhase === p ? 'bg-blue-600' : 'bg-blue-100'} transition-all duration-500"></div>
-      {/each}
+<!-- ── MAIN SHELL ─────────────────────────────────────────────────────────── -->
+<div class="h-full w-full bg-[#f0f7ff] flex flex-col select-none overflow-hidden text-slate-900">
+
+  <!-- ── HEADER ── -->
+  <div class="relative flex items-center justify-between px-8 pt-8 pb-5 shrink-0">
+    <button
+      on:click={onCancel}
+      class="px-5 py-2.5 bg-white border border-blue-100 text-blue-400 font-black text-xs uppercase tracking-widest rounded-2xl shadow-sm active:scale-95 transition-transform"
+    >
+      ← Exit
+    </button>
+
+    <!-- Step dots -->
+    <div class="absolute inset-0 flex items-center justify-center pointer-events-none">
+      <div class="flex gap-2">
+        {#each ['weight', 'height', 'temp', 'spo2', 'bp', 'review'] as p}
+          <div class="h-3 w-3 rounded-full transition-all duration-500 {currentPhase === p ? 'bg-blue-600 scale-125' : 'bg-blue-200'}"></div>
+        {/each}
+      </div>
     </div>
+
+    <!-- Status badge -->
     <div class="flex flex-col items-end gap-1">
-      <span class="text-blue-600 font-black text-sm uppercase">
+      <span class="text-blue-600 font-black text-xs uppercase tracking-widest">
         {currentPhase === 'review'
           ? 'Summary'
           : mode === 'single'
-            ? `${phases[currentPhase as keyof typeof phases].title} — Single Reading`
+            ? phases[currentPhase as keyof typeof phases].title
             : `Step ${Object.keys(phases).indexOf(currentPhase) + 1} of 5`}
       </span>
-      <span class="inline-flex items-center gap-1.5 px-2 py-0.5 rounded-full text-xs font-black uppercase tracking-widest text-white {statusLabel.color} transition-colors duration-500">
-        <span class="w-1.5 h-1.5 rounded-full bg-white/60 animate-pulse"></span>
+      <span class="inline-flex items-center gap-1.5 px-2.5 py-1 rounded-full text-xs font-black uppercase tracking-widest text-white {statusLabel.color}">
+        <span class="w-1.5 h-1.5 rounded-full bg-white/70 animate-pulse"></span>
         {statusLabel.text}
       </span>
     </div>
   </div>
 
-  {#if $lastError && isScanning === false}
-    <div in:fade out:fade class="mb-4 px-4 py-3 bg-red-50 border border-red-100 rounded-2xl text-red-500 text-xs font-bold uppercase tracking-widest text-center">
-      ⚠ Sensor error: {$lastError}
+  <!-- ── ERROR BANNER ── -->
+  {#if $lastError && !isScanning}
+    <div in:fade out:fade class="mx-8 mb-4 px-5 py-3 bg-red-50 border border-red-100 rounded-2xl text-red-500 text-sm font-bold uppercase tracking-widest text-center shrink-0">
+      Warning: {$lastError}
     </div>
   {/if}
 
+  <!-- ════════════════════════════════════════════════════════════════════════
+       SENSOR PHASES
+  ═══════════════════════════════════════════════════════════════════════════ -->
   {#if currentPhase !== 'review'}
-    <div class="flex-1 flex flex-col items-center justify-center text-center px-4">
-      {#if isCountingDown}
-        <div in:scale={{start: 0.8}} class="flex flex-col items-center">
-          <h2 class="text-2xl font-black text-blue-400 uppercase tracking-widest mb-4">Get Ready</h2>
-          <div class="text-[12rem] font-[1000] text-blue-600 leading-none">{countdown}</div>
-        </div>
-      {:else if isScanning}
-        <div class="relative w-72 h-72 mb-12">
-          <svg class="w-full h-full -rotate-90">
-            <circle cx="144" cy="144" r="120" stroke="#e2e8f0" stroke-width="16" fill="none" />
-            <circle cx="144" cy="144" r="120" stroke="#2563eb" stroke-width="16" fill="none" 
-              stroke-dasharray="754" stroke-dashoffset={754 - (754 * progress / 100)} 
-              class="transition-all duration-200" stroke-linecap="round" />
-          </svg>
-          <div class="absolute inset-0 flex flex-col items-center justify-center">
-            <span class="text-6xl font-black text-blue-950">{progress}%</span>
+    <div class="flex-1 flex flex-col px-8 overflow-hidden">
+
+      <!-- ── CONTENT AREA (scrollable if needed) ── -->
+      <div class="flex-1 flex flex-col items-center justify-center text-center min-h-0">
+
+        {#if isCountingDown}
+          <!-- COUNTDOWN -->
+          <div in:scale={{start: 0.8}} class="flex flex-col items-center gap-4">
+            <h2 class="text-lg font-black text-blue-400 uppercase tracking-[0.3em]">Get Ready</h2>
+            <div class="text-[11rem] font-[1000] text-blue-600 leading-none">{countdown}</div>
           </div>
-        </div>
-        {#if currentPhase === 'bp'}
-          <h2 class="text-3xl font-[1000] text-blue-600 animate-pulse uppercase tracking-tighter">
-            Keep Still &amp; Relax…
-          </h2>
-          <p class="text-sm text-blue-400 font-bold mt-2 uppercase tracking-widest">Reading BP monitor display</p>
-          {#if $bpLiveReading}
-            <div in:fade class="grid grid-cols-2 gap-4 mt-8">
-              <div class="px-5 py-4 rounded-3xl bg-blue-50 min-w-[9rem]">
-                <p class="text-sm font-black uppercase tracking-widest text-blue-400">Systolic</p>
-                <p class="text-4xl font-black text-blue-950 tabular-nums">{$bpLiveReading.sys ?? '--'}</p>
-                <p class="text-sm text-blue-400 font-bold mt-0.5">mmHg</p>
-              </div>
-              <div class="px-5 py-4 rounded-3xl bg-blue-50 min-w-[9rem]">
-                <p class="text-sm font-black uppercase tracking-widest text-blue-400">Diastolic</p>
-                <p class="text-4xl font-black text-blue-950 tabular-nums">{$bpLiveReading.dia ?? '--'}</p>
-                <p class="text-sm text-blue-400 font-bold mt-0.5">mmHg</p>
+
+        {:else if isScanning}
+          <!-- SCANNING -->
+          <div class="flex flex-col items-center gap-6 w-full">
+            <!-- Progress ring -->
+            <div class="relative w-60 h-60">
+              <svg class="w-full h-full -rotate-90" viewBox="0 0 240 240">
+                <circle cx="120" cy="120" r="100" stroke="#dbeafe" stroke-width="14" fill="none" />
+                <circle cx="120" cy="120" r="100" stroke="#2563eb" stroke-width="14" fill="none"
+                  stroke-dasharray="628" stroke-dashoffset={628 - (628 * progress / 100)}
+                  class="transition-all duration-200" stroke-linecap="round" />
+              </svg>
+              <div class="absolute inset-0 flex flex-col items-center justify-center">
+                <span class="text-5xl font-black text-blue-950">{progress}%</span>
               </div>
             </div>
-            <p class="text-sm text-blue-300 font-bold uppercase tracking-widest mt-3">Waiting for reading to finish…</p>
-          {/if}
 
-          <!-- ── Live camera preview during scanning ── -->
-          {#if $bpDebugFrame}
-            <div in:fade class="mt-4 rounded-2xl overflow-hidden border border-blue-200 bg-blue-50 max-w-[280px] mx-auto">
-              {#if $bpDebugFrame.error}
-                <div class="px-3 py-2 text-sm font-bold text-red-600 bg-red-50 border-b border-red-200">
-                  ⚠ {$bpDebugFrame.error}
+            {#if currentPhase === 'bp'}
+              <h2 class="text-2xl font-[1000] text-blue-600 animate-pulse uppercase tracking-tight">Keep Still &amp; Relax…</h2>
+              <p class="text-sm font-bold text-blue-400 uppercase tracking-widest">Reading BP monitor display</p>
+              {#if $bpLiveReading}
+                <div in:fade class="grid grid-cols-2 gap-4 w-full max-w-xs">
+                  <div class="py-5 rounded-3xl bg-white border border-blue-100 flex flex-col items-center gap-1">
+                    <p class="text-xs font-black uppercase tracking-widest text-blue-400">Systolic</p>
+                    <p class="text-4xl font-black text-blue-950 tabular-nums">{$bpLiveReading.sys ?? '--'}</p>
+                    <p class="text-xs font-bold text-blue-300">mmHg</p>
+                  </div>
+                  <div class="py-5 rounded-3xl bg-white border border-blue-100 flex flex-col items-center gap-1">
+                    <p class="text-xs font-black uppercase tracking-widest text-blue-400">Diastolic</p>
+                    <p class="text-4xl font-black text-blue-950 tabular-nums">{$bpLiveReading.dia ?? '--'}</p>
+                    <p class="text-xs font-bold text-blue-300">mmHg</p>
+                  </div>
                 </div>
               {/if}
-              {#if $bpDebugFrame.imageData}
-                <img
-                  src="data:image/jpeg;base64,{$bpDebugFrame.imageData}"
-                  alt="BP camera preview"
-                  class="w-full max-h-40 object-contain"
-                />
+              {#if $bpDebugFrame}
+                <div in:fade class="rounded-2xl overflow-hidden border border-blue-200 bg-blue-50 w-full max-w-xs">
+                  {#if $bpDebugFrame.error}
+                    <div class="px-3 py-2 text-sm font-bold text-red-600 bg-red-50 border-b border-red-200">Error: {$bpDebugFrame.error}</div>
+                  {/if}
+                  {#if $bpDebugFrame.imageData}
+                    <img src="data:image/jpeg;base64,{$bpDebugFrame.imageData}" alt="BP camera preview" class="w-full max-h-36 object-contain" />
+                  {:else}
+                    <div class="w-full h-14 flex items-center justify-center text-blue-300 text-xs font-bold uppercase tracking-widest">Waiting for camera…</div>
+                  {/if}
+                </div>
+              {/if}
+
+            {:else if currentPhase === 'weight'}
+              <h2 class="text-2xl font-[1000] text-blue-600 animate-pulse uppercase tracking-tight">Measuring Weight…</h2>
+              <p class="text-sm font-bold text-blue-400 uppercase tracking-widest">Stand still on the platform</p>
+              {#if $weightLiveReading !== null}
+                {@const lbs = ($weightLiveReading * 2.20462).toFixed(1)}
+                <div in:fade class="py-6 px-10 rounded-3xl bg-white border border-blue-100 flex flex-col items-center gap-1 w-full max-w-xs">
+                  <p class="text-xs font-black uppercase tracking-widest text-blue-400">Live Reading</p>
+                  <p class="text-6xl font-[1000] text-blue-950 tabular-nums leading-none">{$weightLiveReading.toFixed(1)}</p>
+                  <p class="text-lg font-black text-blue-400">kg</p>
+                  <p class="text-sm font-bold text-blue-900/30">{lbs} lbs</p>
+                </div>
               {:else}
-                <div class="w-full h-16 flex items-center justify-center text-blue-300 text-xs font-bold uppercase tracking-widest">
-                  Waiting for camera…
+                <p class="text-sm text-blue-900/30 font-bold uppercase tracking-widest animate-pulse">Waiting for scale…</p>
+              {/if}
+
+            {:else}
+              <h2 class="text-2xl font-[1000] text-blue-600 animate-pulse uppercase tracking-tight">
+                Capturing {phases[currentPhase as keyof typeof phases].title}…
+              </h2>
+            {/if}
+          </div>
+
+        {:else if hasCaptured}
+          <!-- RESULT -->
+          <div in:scale class="flex flex-col items-center gap-5 w-full">
+            <div class="w-24 h-24 bg-green-50 border-2 border-green-100 rounded-full flex items-center justify-center text-5xl">✓</div>
+            <h2 class="text-base font-black text-blue-900/30 uppercase tracking-[0.3em]">Captured</h2>
+
+            {#if currentPhase === 'spo2'}
+              <div class="grid grid-cols-2 gap-4 w-full max-w-xs">
+                <div class="py-5 rounded-3xl bg-white border border-blue-100 flex flex-col items-center gap-1">
+                  <p class="text-xs font-black uppercase tracking-widest text-blue-400">SpO2</p>
+                  <p class="text-4xl font-black text-blue-950">{results.spo2 > 0 ? `${results.spo2}%` : '--'}</p>
                 </div>
-              {/if}
+                <div class="py-5 rounded-3xl bg-white border border-blue-100 flex flex-col items-center gap-1">
+                  <p class="text-xs font-black uppercase tracking-widest text-blue-400">Heart Rate</p>
+                  <p class="text-4xl font-black text-blue-950">{results.heartRate > 0 ? `${results.heartRate}` : '--'}</p>
+                  <p class="text-xs font-bold text-blue-300">bpm</p>
+                </div>
+              </div>
+
+            {:else if currentPhase === 'bp'}
+              <div class="grid grid-cols-2 gap-4 w-full max-w-xs">
+                <div class="py-5 rounded-3xl bg-white border border-blue-100 flex flex-col items-center gap-1">
+                  <p class="text-xs font-black uppercase tracking-widest text-blue-400">Systolic</p>
+                  <p class="text-4xl font-black text-blue-950">{bpSys > 0 ? bpSys : '--'}</p>
+                  <p class="text-xs font-bold text-blue-300">mmHg</p>
+                </div>
+                <div class="py-5 rounded-3xl bg-white border border-blue-100 flex flex-col items-center gap-1">
+                  <p class="text-xs font-black uppercase tracking-widest text-blue-400">Diastolic</p>
+                  <p class="text-4xl font-black text-blue-950">{bpDia > 0 ? bpDia : '--'}</p>
+                  <p class="text-xs font-bold text-blue-300">mmHg</p>
+                </div>
+              </div>
+              <p class="text-xs text-blue-900/30 font-bold uppercase tracking-widest">Remove the cuff and set it aside</p>
+
+            {:else if currentPhase === 'weight'}
+              {@const wKg = results.weight}
+              {@const wLbs = (wKg * 2.20462).toFixed(1)}
+              <div class="py-6 px-10 rounded-3xl bg-white border border-blue-100 flex flex-col items-center gap-1 w-full max-w-xs">
+                <p class="text-xs font-black uppercase tracking-widest text-blue-400">Weight</p>
+                <p class="text-6xl font-[1000] text-blue-950 tabular-nums leading-none">{wKg > 0 ? wKg.toFixed(1) : '--'}</p>
+                <p class="text-lg font-black text-blue-400">kg</p>
+                {#if wKg > 0}<p class="text-sm font-bold text-blue-900/30">{wLbs} lbs</p>{/if}
+              </div>
+              <p class="text-xs text-blue-900/30 font-bold uppercase tracking-widest">You may step off the platform</p>
+
+            {:else}
+              <div class="py-6 px-10 rounded-3xl bg-white border border-blue-100 flex flex-col items-center gap-1 w-full max-w-xs">
+                <p class="text-xs font-black uppercase tracking-widest text-blue-400">{phases[currentPhase as keyof typeof phases].title}</p>
+                <p class="text-6xl font-[1000] text-blue-950 tabular-nums leading-none">{results[currentPhase as keyof CheckupResults]}</p>
+                <p class="text-lg font-black text-blue-400">{phases[currentPhase as keyof typeof phases].unit}</p>
+              </div>
+            {/if}
+
+            {#if currentPhase === 'temp' && typeof results.temp === 'number' && results.temp > 0}
+              {@const t = results.temp}
+              <div class="px-6 py-2.5 rounded-2xl text-sm font-black uppercase tracking-widest
+                {t >= 37.5 ? 'bg-red-50 text-red-500' : t >= 37.0 ? 'bg-amber-50 text-amber-500' : 'bg-green-50 text-green-500'}">
+                {#if t >= 37.5}
+                  <span class="inline-flex items-center gap-2">
+                    <span class="w-2.5 h-2.5 rounded-full bg-red-500"></span>
+                    Fever
+                  </span>
+                {:else if t >= 37.0}
+                  <span class="inline-flex items-center gap-2">
+                    <span class="w-2.5 h-2.5 rounded-full bg-amber-400"></span>
+                    Slightly elevated
+                  </span>
+                {:else}
+                  <span class="inline-flex items-center gap-2">
+                    <span class="w-2.5 h-2.5 rounded-full bg-green-500"></span>
+                    Normal
+                  </span>
+                {/if}
+              </div>
+            {/if}
+          </div>
+
+        {:else if !currentSensorAvailable}
+          <!-- SENSOR DISCONNECTED -->
+          <div in:fade class="flex flex-col items-center gap-5">
+            <div class="w-40 h-40 bg-slate-100 rounded-[3rem] flex items-center justify-center text-blue-400 opacity-40">
+              {@html iconSvg(phases[currentPhase as keyof typeof phases].icon, 96)}
             </div>
-          {/if}
+            <h1 class="text-4xl font-[1000] text-slate-300 uppercase tracking-tight">{phases[currentPhase as keyof typeof phases].title}</h1>
+            <p class="text-sm text-slate-400 font-bold uppercase tracking-widest">Sensor not connected</p>
+          </div>
+
+        {:else if bpManualEntry && currentPhase === 'bp'}
+          <!-- BP MANUAL ENTRY -->
+          <div in:fade class="flex flex-col items-center gap-5 w-full max-w-sm">
+            <div class="w-20 h-20 bg-amber-50 rounded-3xl flex items-center justify-center">
+              <span class="text-4xl font-black text-amber-500">!</span>
+            </div>
+            <div>
+              <h2 class="text-2xl font-[1000] text-blue-950 uppercase tracking-tight">Manual Entry</h2>
+              <p class="text-sm text-blue-900/40 font-bold uppercase tracking-widest mt-1">OCR timed out — enter reading manually</p>
+            </div>
+            <div class="grid grid-cols-2 gap-4 w-full">
+              <div class="flex flex-col gap-2">
+                <label for="bp-sys" class="text-sm font-black uppercase tracking-widest text-blue-400">Systolic</label>
+                <input id="bp-sys" type="number" min="60" max="250" bind:value={bpManualSys} placeholder="120"
+                  class="w-full px-4 py-4 text-2xl font-black text-center bg-white rounded-2xl border-2 border-blue-100 focus:border-blue-400 outline-none" />
+              </div>
+              <div class="flex flex-col gap-2">
+                <label for="bp-dia" class="text-sm font-black uppercase tracking-widest text-blue-400">Diastolic</label>
+                <input id="bp-dia" type="number" min="40" max="150" bind:value={bpManualDia} placeholder="80"
+                  class="w-full px-4 py-4 text-2xl font-black text-center bg-white rounded-2xl border-2 border-blue-100 focus:border-blue-400 outline-none" />
+              </div>
+            </div>
+          </div>
+
+        {:else if currentPhase === 'bp'}
+          <!-- BP INSTRUCTION -->
+          <div in:fade class="flex flex-col items-center gap-6 w-full">
+            <div class="w-36 h-36 bg-blue-50 rounded-[3rem] flex items-center justify-center text-blue-600">
+              {@html iconSvg('bp', 80)}
+            </div>
+            <h1 class="text-4xl font-[1000] text-blue-950 uppercase tracking-tight">Blood Pressure</h1>
+            <div class="text-left space-y-3 w-full max-w-xs">
+              {#each ['Turn on the BP monitor', 'Wrap the cuff around your left arm', 'Sit still, then press Start'] as step, i}
+                <div class="flex items-start gap-3">
+                  <span class="w-7 h-7 bg-blue-600 text-white rounded-full flex items-center justify-center text-sm font-black shrink-0">{i + 1}</span>
+                  <p class="text-base text-blue-900/60 font-bold pt-0.5">{step}</p>
+                </div>
+              {/each}
+            </div>
+            <button on:click={openSegCalib}
+              class="px-6 py-3 rounded-2xl border-2 border-orange-200 bg-orange-50 text-orange-500 text-sm font-black uppercase tracking-widest active:scale-95 transition-transform">
+              Calibrate Camera
+            </button>
+          </div>
+
         {:else if currentPhase === 'weight'}
-          <h2 class="text-3xl font-[1000] text-blue-600 animate-pulse uppercase tracking-tighter">
-            Measuring Weight…
-          </h2>
-          <p class="text-sm text-blue-400 font-bold mt-2 uppercase tracking-widest">Stand still on the platform</p>
-          {#if $weightLiveReading !== null}
-            {@const lbs = ($weightLiveReading * 2.20462).toFixed(1)}
-            <div in:fade class="mt-8 flex flex-col items-center gap-2">
-              <div class="px-8 py-6 rounded-3xl bg-blue-50 text-center min-w-[14rem]">
-                <p class="text-sm font-black uppercase tracking-widest text-blue-400 mb-1">Live Reading</p>
-                <p class="text-6xl font-[1000] text-blue-950 tabular-nums leading-none">{$weightLiveReading.toFixed(1)}</p>
-                <p class="text-lg font-black text-blue-400 mt-1">kg</p>
-              </div>
-              <p class="text-sm font-bold text-blue-900/30 tabular-nums">{lbs} lbs</p>
+          <!-- WEIGHT INSTRUCTION -->
+          <div in:fade class="flex flex-col items-center gap-6 w-full">
+            <div class="w-36 h-36 bg-blue-50 rounded-[3rem] flex items-center justify-center text-blue-600">
+              {@html iconSvg('weight', 80)}
             </div>
-          {:else}
-            <p class="text-sm text-blue-900/30 font-bold mt-8 uppercase tracking-widest animate-pulse">Waiting for scale…</p>
-          {/if}
-          <!-- Tare button -->
-          <button
-            on:click={() => wsSend({ command: 'tare', sensor: 'weight' })}
-            class="mt-6 px-6 py-3 rounded-2xl border-2 border-blue-200 bg-white text-blue-400 text-sm font-black uppercase tracking-widest active:bg-blue-50 transition-colors"
-            title="Zero out the scale if it shows a non-zero reading when empty"
-          >
-            ⚖️ Tare / Zero Scale
-          </button>
-        {:else}
-          <h2 class="text-3xl font-[1000] text-blue-600 animate-pulse uppercase tracking-tighter">
-            Capturing {phases[currentPhase as keyof typeof phases].title}
-          </h2>
-        {/if}
-      {:else if hasCaptured}
-        <div in:scale class="flex flex-col items-center">
-          <div class="w-40 h-40 bg-green-50 text-green-500 rounded-full flex items-center justify-center text-6xl mb-6 shadow-sm">✓</div>
-          <h2 class="text-2xl font-black text-blue-900/40 uppercase tracking-widest mb-2">Result</h2>
-          {#if currentPhase === 'spo2'}
-            <div class="grid grid-cols-2 gap-4 mt-2">
-              <div class="px-5 py-4 rounded-3xl bg-blue-50 min-w-[11rem]">
-                <p class="text-sm font-black uppercase tracking-widest text-blue-400">SpO2</p>
-                <p class="text-3xl font-black text-blue-950">{results.spo2 > 0 ? `${results.spo2}%` : '--'}</p>
-              </div>
-              <div class="px-5 py-4 rounded-3xl bg-blue-50 min-w-[11rem]">
-                <p class="text-sm font-black uppercase tracking-widest text-blue-400">Heart Rate</p>
-                <p class="text-3xl font-black text-blue-950">{results.heartRate > 0 ? `${results.heartRate} bpm` : '--'}</p>
-              </div>
+            <h1 class="text-4xl font-[1000] text-blue-950 uppercase tracking-tight">Weight</h1>
+            <div class="text-left space-y-3 w-full max-w-xs">
+              {#each ['Remove shoes and heavy items', 'Step onto the platform and stand still', 'Press Start and hold steady until done'] as step, i}
+                <div class="flex items-start gap-3">
+                  <span class="w-7 h-7 bg-blue-600 text-white rounded-full flex items-center justify-center text-sm font-black shrink-0">{i + 1}</span>
+                  <p class="text-base text-blue-900/60 font-bold pt-0.5">{step}</p>
+                </div>
+              {/each}
             </div>
-          {:else if currentPhase === 'bp'}
-            <div class="grid grid-cols-2 gap-4 mt-2">
-              <div class="px-5 py-4 rounded-3xl bg-blue-50 min-w-[11rem]">
-                <p class="text-sm font-black uppercase tracking-widest text-blue-400">Systolic</p>
-                <p class="text-3xl font-black text-blue-950">{bpSys > 0 ? bpSys : '--'}</p>
-                <p class="text-sm text-blue-400 font-bold mt-0.5">mmHg</p>
-              </div>
-              <div class="px-5 py-4 rounded-3xl bg-blue-50 min-w-[11rem]">
-                <p class="text-sm font-black uppercase tracking-widest text-blue-400">Diastolic</p>
-                <p class="text-3xl font-black text-blue-950">{bpDia > 0 ? bpDia : '--'}</p>
-                <p class="text-sm text-blue-400 font-bold mt-0.5">mmHg</p>
-              </div>
-            </div>
-            <p class="mt-4 text-xs text-blue-900/30 font-bold uppercase tracking-widest">Remove the cuff and set it aside</p>
-          {:else if currentPhase === 'weight'}
-            {@const wKg = results.weight}
-            {@const wLbs = (wKg * 2.20462).toFixed(1)}
-            <div class="flex flex-col items-center gap-2 mt-2">
-              <div class="px-8 py-5 rounded-3xl bg-blue-50 text-center min-w-[14rem]">
-                <p class="text-sm font-black uppercase tracking-widest text-blue-400 mb-1">Weight</p>
-                <p class="text-5xl font-[1000] text-blue-950 tabular-nums leading-none">{wKg > 0 ? wKg.toFixed(1) : '--'}</p>
-                <p class="text-lg font-black text-blue-400 mt-1">kg</p>
-              </div>
-              {#if wKg > 0}
-                <p class="text-base font-bold text-blue-900/30 tabular-nums">{wLbs} lbs</p>
-              {/if}
-            </div>
-            <p class="mt-4 text-xs text-blue-900/30 font-bold uppercase tracking-widest">You may step off the platform</p>
-          {:else}
-            <div class="text-7xl font-[1000] text-blue-950 mb-2">
-              {results[currentPhase as keyof CheckupResults]}
-              <span class="text-2xl">{phases[currentPhase as keyof typeof phases].unit}</span>
-            </div>
-          {/if}
-          {#if currentPhase === 'temp' && typeof results.temp === 'number' && results.temp > 0}
-            {@const t = results.temp}
-            <div class="mt-3 px-5 py-2 rounded-2xl text-sm font-black uppercase tracking-widest
-              {t >= 37.5 ? 'bg-red-50 text-red-500' : t >= 37.0 ? 'bg-amber-50 text-amber-500' : 'bg-green-50 text-green-500'}">
-              {t >= 37.5 ? '🔴 Fever' : t >= 37.0 ? '🟡 Slightly elevated' : '🟢 Normal'}
-            </div>
-          {/if}
-        </div>
-      {:else if !currentSensorAvailable}
-        <!-- Sensor is physically disconnected from the ESP32 -->
-        <div in:fade class="flex flex-col items-center">
-          <div class="w-48 h-48 bg-slate-50 rounded-[4rem] flex items-center justify-center text-8xl mb-10 shadow-inner opacity-40">
-            {phases[currentPhase as keyof typeof phases].icon}
+            <button on:click={() => { weightCalibMode = true; }}
+              class="px-6 py-3 rounded-2xl border-2 border-blue-200 bg-blue-50 text-blue-500 text-sm font-black uppercase tracking-widest active:scale-95 transition-transform">
+              Calibrate Scale
+            </button>
           </div>
-          <h1 class="text-4xl font-[1000] text-slate-300 uppercase tracking-tighter mb-4">
-            {phases[currentPhase as keyof typeof phases].title}
-          </h1>
-          <p class="text-sm text-slate-400 font-bold uppercase tracking-widest">
-            Sensor not connected
-          </p>
-        </div>
-      {:else if bpManualEntry && currentPhase === 'bp'}
-        <!-- BP OCR timed out — manual entry fallback -->
-        <div in:fade class="flex flex-col items-center w-full max-w-sm">
-          <div class="w-24 h-24 bg-amber-50 rounded-[2rem] flex items-center justify-center text-5xl mb-6">⚠️</div>
-          <h2 class="text-2xl font-[1000] text-blue-950 uppercase tracking-tighter mb-1">Manual Entry</h2>
-          <p class="text-sm text-blue-900/40 font-bold uppercase tracking-widest mb-8">OCR timed out — enter reading manually</p>
-          <div class="grid grid-cols-2 gap-4 w-full">
-            <div class="flex flex-col gap-2">
-              <label for="bp-sys" class="text-sm font-black uppercase tracking-widest text-blue-400">Systolic (SYS)</label>
-              <input
-                id="bp-sys"
-                type="number" min="60" max="250"
-                bind:value={bpManualSys}
-                placeholder="e.g. 120"
-                class="w-full px-4 py-4 text-2xl font-black text-center bg-blue-50 rounded-2xl border-2 border-blue-100 focus:border-blue-400 outline-none"
-              />
-            </div>
-            <div class="flex flex-col gap-2">
-              <label for="bp-dia" class="text-sm font-black uppercase tracking-widest text-blue-400">Diastolic (DIA)</label>
-              <input
-                id="bp-dia"
-                type="number" min="40" max="150"
-                bind:value={bpManualDia}
-                placeholder="e.g. 80"
-                class="w-full px-4 py-4 text-2xl font-black text-center bg-blue-50 rounded-2xl border-2 border-blue-100 focus:border-blue-400 outline-none"
-              />
-            </div>
-          </div>
-        </div>
-      {:else if currentPhase === 'bp'}
-        <!-- BP-specific instruction screen -->
-        <div in:fade class="flex flex-col items-center text-center">
-          <div class="w-48 h-48 bg-blue-50 rounded-[4rem] flex items-center justify-center text-8xl mb-10 shadow-inner">💓</div>
-          <h1 class="text-5xl font-[1000] text-blue-950 uppercase tracking-tighter mb-6">Blood Pressure</h1>
-          <div class="text-left space-y-3 w-full max-w-xs">
-            <div class="flex items-start gap-3">
-              <span class="w-6 h-6 bg-blue-600 text-white rounded-full flex items-center justify-center text-xs font-black flex-shrink-0 mt-0.5">1</span>
-              <p class="text-base text-blue-900/60 font-bold">Turn on the BP monitor</p>
-            </div>
-            <div class="flex items-start gap-3">
-              <span class="w-6 h-6 bg-blue-600 text-white rounded-full flex items-center justify-center text-xs font-black flex-shrink-0 mt-0.5">2</span>
-              <p class="text-base text-blue-900/60 font-bold">Wrap the cuff around your left arm</p>
-            </div>
-            <div class="flex items-start gap-3">
-              <span class="w-6 h-6 bg-blue-600 text-white rounded-full flex items-center justify-center text-xs font-black flex-shrink-0 mt-0.5">3</span>
-              <p class="text-base text-blue-900/60 font-bold">Sit still, then press Start</p>
-            </div>
-          </div>
-          <!-- Calibrate shortcut -->
-          <button
-            on:click={openSegCalib}
-            class="mt-8 px-5 py-2.5 rounded-2xl border-2 border-orange-300 bg-orange-50 text-orange-600 text-sm font-black uppercase tracking-widest active:scale-95 transition-transform"
-          >
-            🎯 Calibrate Camera
-          </button>
-        </div>
-      {:else if currentPhase === 'weight'}
-        <!-- Weight-specific instruction screen -->
-        <div in:fade class="flex flex-col items-center text-center">
-          <div class="w-48 h-48 bg-blue-50 rounded-[4rem] flex items-center justify-center text-8xl mb-10 shadow-inner">⚖️</div>
-          <h1 class="text-5xl font-[1000] text-blue-950 uppercase tracking-tighter mb-6">Weight</h1>
-          <div class="text-left space-y-3 w-full max-w-xs">
-            <div class="flex items-start gap-3">
-              <span class="w-6 h-6 bg-blue-600 text-white rounded-full flex items-center justify-center text-xs font-black flex-shrink-0 mt-0.5">1</span>
-              <p class="text-base text-blue-900/60 font-bold">Remove shoes and heavy items</p>
-            </div>
-            <div class="flex items-start gap-3">
-              <span class="w-6 h-6 bg-blue-600 text-white rounded-full flex items-center justify-center text-xs font-black flex-shrink-0 mt-0.5">2</span>
-              <p class="text-base text-blue-900/60 font-bold">Step onto the platform and stand still</p>
-            </div>
-            <div class="flex items-start gap-3">
-              <span class="w-6 h-6 bg-blue-600 text-white rounded-full flex items-center justify-center text-xs font-black flex-shrink-0 mt-0.5">3</span>
-              <p class="text-base text-blue-900/60 font-bold">Press Start and hold steady until done</p>
-            </div>
-          </div>
-          <!-- Calibrate shortcut -->
-          <button
-            on:click={() => { weightCalibMode = true; }}
-            class="mt-8 px-5 py-2.5 rounded-2xl border-2 border-blue-300 bg-blue-50 text-blue-600 text-sm font-black uppercase tracking-widest active:scale-95 transition-transform"
-          >
-            ⚙️ Calibrate Scale
-          </button>
-        </div>
-      {:else}
-        <div in:fade class="flex flex-col items-center">
-          <div class="w-48 h-48 bg-blue-50 rounded-[4rem] flex items-center justify-center text-8xl mb-10 shadow-inner">
-            {phases[currentPhase as keyof typeof phases].icon}
-          </div>
-          <h1 class="text-5xl font-[1000] text-blue-950 uppercase tracking-tighter mb-4">
-            {phases[currentPhase as keyof typeof phases].title}
-          </h1>
-          <p class="text-xl text-blue-900/40 font-bold max-w-xs uppercase">
-            {phases[currentPhase as keyof typeof phases].desc}
-          </p>
-        </div>
-      {/if}
-    </div>
 
-    <div class="space-y-4 pt-10">
-      {#if hasCaptured}
-        {#if mode === 'single'}
-          <!-- Single-sensor mode: offer to save just this reading -->
-          <button on:click={handleSave} class="w-full py-8 bg-green-500 text-white rounded-[2.5rem] text-2xl font-black uppercase shadow-xl shadow-green-100 active:scale-[0.98] transition-transform">
-            Save as Reading
-          </button>
-          <button on:click={nextPhase} class="w-full py-4 text-blue-900/30 font-black uppercase text-xs tracking-widest active:text-blue-600">
-            Back to Summary
-          </button>
         {:else}
-          <!-- Full checkup / redo mode: advance to next sensor -->
-          <button on:click={nextPhase} class="w-full py-8 bg-blue-600 text-white rounded-[2.5rem] text-2xl font-black uppercase shadow-xl active:scale-[0.98] transition-transform">
-            Confirm & {isRedoingSpecific ? 'Back to Summary' : 'Continue'}
+          <!-- GENERIC INSTRUCTION -->
+          <div in:fade class="flex flex-col items-center gap-6">
+            <div class="w-36 h-36 bg-blue-50 rounded-[3rem] flex items-center justify-center text-blue-600">
+              {@html iconSvg(phases[currentPhase as keyof typeof phases].icon, 80)}
+            </div>
+            <h1 class="text-4xl font-[1000] text-blue-950 uppercase tracking-tight">
+              {phases[currentPhase as keyof typeof phases].title}
+            </h1>
+            <p class="text-lg text-blue-900/40 font-bold uppercase tracking-wide max-w-xs">
+              {phases[currentPhase as keyof typeof phases].desc}
+            </p>
+          </div>
+        {/if}
+
+        <!-- Tare button for weight scanning -->
+        {#if currentPhase === 'weight' && isScanning}
+          <button on:click={() => wsSend({ command: 'tare', sensor: 'weight' })}
+            class="mt-6 px-6 py-3 rounded-2xl border-2 border-blue-200 bg-white text-blue-400 text-sm font-black uppercase tracking-widest active:bg-blue-50 transition-colors">
+            Tare / Zero Scale
           </button>
         {/if}
-      {:else if bpManualEntry && currentPhase === 'bp'}
-        <!-- Manual BP entry confirmation -->
-        {@const sysNum = parseInt(bpManualSys)}
-        {@const diaNum = parseInt(bpManualDia)}
-        {@const manualValid = sysNum >= 60 && sysNum <= 250 && diaNum >= 40 && diaNum <= 150 && sysNum > diaNum}
-        <button on:click={confirmManualBp} disabled={!manualValid}
-          class="w-full py-8 bg-blue-600 text-white rounded-[2.5rem] text-2xl font-black uppercase shadow-xl active:scale-[0.98] transition-transform disabled:opacity-40 disabled:scale-100">
-          Confirm Reading
-        </button>
-        <div class="grid grid-cols-2 gap-4">
-          <button on:click={startSequence} class="py-6 bg-white border-2 border-blue-50 text-blue-900/40 rounded-4xl font-black uppercase text-xs tracking-widest active:bg-blue-50">
-            Retry Camera
-          </button>
-          <button on:click={skipPhase} class="py-6 bg-red-50 text-red-400 rounded-4xl font-black uppercase text-xs tracking-widest active:bg-red-100">
-            {mode === 'single' ? 'Cancel' : 'Skip Step'}
-          </button>
-        </div>
-      {:else if !isScanning && !isCountingDown && currentSensorAvailable}
-        <button on:click={startSequence} class="w-full py-8 bg-blue-600 text-white rounded-[2.5rem] text-2xl font-black uppercase shadow-xl active:scale-[0.98] transition-transform">
-          Start Reading
-        </button>
-      {/if}
+      </div>
 
-      <div class="grid grid-cols-2 gap-4">
+      <!-- ── ACTION BUTTONS ── -->
+      <div class="shrink-0 pb-8 pt-4 space-y-3">
+
         {#if hasCaptured}
-          <button on:click={startSequence} class="py-6 bg-white border-2 border-blue-50 text-blue-900/40 rounded-4xl font-black uppercase text-xs tracking-widest active:bg-blue-50">
+          {#if mode === 'single'}
+            <button on:click={handleSave}
+              class="w-full py-7 bg-green-500 text-white rounded-[2.5rem] text-2xl font-black uppercase shadow-xl shadow-green-900/20 active:scale-[0.98] transition-transform">
+              Save as Reading
+            </button>
+          {:else}
+            <button on:click={nextPhase}
+              class="w-full py-7 bg-blue-600 text-white rounded-[2.5rem] text-2xl font-black uppercase shadow-xl shadow-blue-900/20 active:scale-[0.98] transition-transform">
+              Confirm &amp; {isRedoingSpecific ? 'Back' : 'Continue'}
+            </button>
+          {/if}
+          <button on:click={startSequence}
+            class="w-full py-5 bg-white border-2 border-blue-100 text-blue-400 rounded-[2rem] font-black uppercase text-sm tracking-widest active:bg-blue-50 transition-colors">
             Retake
           </button>
-          <!-- Skip is irrelevant once captured; spacer keeps layout balanced -->
-          <div></div>
-        {:else if currentSensorAvailable}
-          <button on:click={startSequence} disabled={isScanning || isCountingDown} class="py-6 bg-white border-2 border-blue-50 text-blue-900/40 rounded-4xl font-black uppercase text-xs tracking-widest active:bg-blue-50 disabled:opacity-50">
-            Retry
+
+        {:else if bpManualEntry && currentPhase === 'bp'}
+          {@const sysNum = parseInt(bpManualSys)}
+          {@const diaNum = parseInt(bpManualDia)}
+          {@const manualValid = sysNum >= 60 && sysNum <= 250 && diaNum >= 40 && diaNum <= 150 && sysNum > diaNum}
+          <button on:click={confirmManualBp} disabled={!manualValid}
+            class="w-full py-7 bg-blue-600 text-white rounded-[2.5rem] text-2xl font-black uppercase shadow-xl shadow-blue-900/20 active:scale-[0.98] transition-transform disabled:opacity-40 disabled:scale-100">
+            Confirm Reading
           </button>
-          <button on:click={skipPhase} disabled={isScanning || isCountingDown} class="py-6 bg-red-50 text-red-400 rounded-4xl font-black uppercase text-xs tracking-widest active:bg-red-100 disabled:opacity-50">
-            {mode === 'single' ? 'Cancel' : 'Skip Step'}
+          <div class="grid grid-cols-2 gap-3">
+            <button on:click={startSequence}
+              class="py-5 bg-white border-2 border-blue-100 text-blue-400 rounded-[2rem] font-black uppercase text-sm tracking-widest active:bg-blue-50">
+              Retry Camera
+            </button>
+            <button on:click={skipPhase}
+              class="py-5 bg-red-50 text-red-400 rounded-[2rem] font-black uppercase text-sm tracking-widest active:bg-red-100">
+              {mode === 'single' ? 'Cancel' : 'Skip Step'}
+            </button>
+          </div>
+
+        {:else if !isScanning && !isCountingDown && currentSensorAvailable}
+          <button on:click={startSequence}
+            class="w-full py-7 bg-blue-600 text-white rounded-[2.5rem] text-2xl font-black uppercase shadow-xl shadow-blue-900/20 active:scale-[0.98] transition-transform">
+            Start Reading
           </button>
-        {:else}
-          <div class="py-6 bg-slate-50 rounded-4xl"></div>
-          <button on:click={skipPhase} disabled={isScanning || isCountingDown} class="py-6 bg-red-50 text-red-400 rounded-4xl font-black uppercase text-xs tracking-widest active:bg-red-100 disabled:opacity-50">
+          <div class="grid grid-cols-2 gap-3">
+            <div></div>
+            <button on:click={skipPhase}
+              class="py-5 bg-red-50 text-red-400 rounded-[2rem] font-black uppercase text-sm tracking-widest active:bg-red-100">
+              {mode === 'single' ? 'Cancel' : 'Skip Step'}
+            </button>
+          </div>
+
+        {:else if !currentSensorAvailable}
+          <button on:click={skipPhase}
+            class="w-full py-7 bg-blue-100 text-blue-400 rounded-[2.5rem] text-2xl font-black uppercase active:scale-[0.98] transition-transform">
             Next →
           </button>
+
+        {:else}
+          <!-- scanning / countdown — no CTA, but keep skip visible -->
+          <div class="grid grid-cols-2 gap-3">
+            <div></div>
+            <button on:click={skipPhase} disabled={isScanning || isCountingDown}
+              class="py-5 bg-red-50 text-red-400 rounded-[2rem] font-black uppercase text-sm tracking-widest active:bg-red-100 disabled:opacity-40">
+              {mode === 'single' ? 'Cancel' : 'Skip Step'}
+            </button>
+          </div>
         {/if}
       </div>
     </div>
 
+  <!-- ════════════════════════════════════════════════════════════════════════
+       REVIEW / SUMMARY SCREEN
+  ═══════════════════════════════════════════════════════════════════════════ -->
   {:else}
-    <div class="flex-1 flex flex-col" in:slide>
-      <h1 class="text-5xl font-[1000] text-blue-950 uppercase tracking-tighter mb-2">Checkup</h1>
-      <p class="text-blue-900/30 font-bold uppercase text-sm mb-6 tracking-widest">
-        {mode === 'idle' ? 'Tap a sensor to take an individual reading, or start a full session' : 'Review your measurements'}
-      </p>
-      
-      <div class="grid grid-cols-2 gap-4 overflow-y-auto pr-2 custom-scrollbar">
+    <div class="flex-1 flex flex-col px-8 pb-8 overflow-hidden" in:slide>
+
+      <!-- Title -->
+      <div class="mb-5 shrink-0">
+        <h1 class="text-5xl font-[1000] text-blue-950 uppercase tracking-tighter leading-none">Checkup</h1>
+        <p class="text-sm text-blue-900/30 font-bold uppercase tracking-widest mt-1">
+          {mode === 'idle' ? 'Tap a sensor to take an individual reading' : 'Review your measurements below'}
+        </p>
+      </div>
+
+      <!-- Sensor grid -->
+      <div class="flex-1 grid grid-cols-2 gap-5 overflow-y-auto pr-1 custom-scrollbar min-h-0">
         {#each Object.entries(phases) as [key, config]}
           {@const k = key as SensorPhase}
           {@const hasResult = k === 'spo2'
             ? (results.spo2 > 0 || results.heartRate > 0)
             : (results[k] !== 0 && results[k] !== "0/0")}
-          <div class="aspect-square flex flex-col justify-between p-5 bg-white rounded-4xl border border-blue-50 shadow-sm {!hasResult ? 'opacity-60' : ''}">
-            <!-- Top: icon + label -->
-            <div>
-              <span class="text-3xl">{config.icon}</span>
-              <span class="block font-black text-blue-400 uppercase text-xs tracking-widest mt-1">{config.title}</span>
+
+          <div class="flex flex-col justify-between p-6 bg-white rounded-[2rem] border border-blue-100 shadow-sm min-h-[190px] text-center
+            last:col-span-2 last:justify-self-center last:w-[calc((100%-1.25rem)/2)]
+            {!hasResult ? 'opacity-55' : ''}">
+
+            <!-- Top -->
+            <div class="flex justify-center items-center gap-2">
+              <span class="text-blue-500">{@html iconSvg(config.icon, 26)}</span>
+              <span class="font-black text-blue-400 uppercase text-xl tracking-widest">{config.title}</span>
+              {#if hasResult}
+                <span class="w-6 h-6 bg-green-100 text-green-500 rounded-full flex items-center justify-center text-sm font-black">✓</span>
+              {/if}
             </div>
 
-            <!-- Middle: value -->
-            <div class="flex-1 flex items-center">
+            <!-- Value -->
+            <div class="flex-1 flex flex-col justify-center py-2">
               {#if k === 'spo2'}
-                <div class="flex flex-col leading-tight">
-                  <span class="text-2xl font-black text-blue-950">
-                    {hasResult ? `${results.spo2 || '--'}%` : '--'}
-                  </span>
-                  <span class="text-sm font-black text-blue-900/40">
-                    {hasResult ? `${results.heartRate || '--'} bpm` : ''}
-                  </span>
-                </div>
+                <span class="text-5xl font-black text-blue-950 leading-tight">{hasResult ? `${results.spo2 || '--'}%` : '--'}</span>
+                <span class="text-xl font-black text-blue-900/40">{hasResult ? `${results.heartRate || '--'} bpm` : ''}</span>
               {:else}
-                <span class="text-2xl font-black text-blue-950 leading-tight">
-                  {hasResult ? results[k] : '--'}
-                  <span class="text-sm text-blue-900/30 font-black"> {config.unit}</span>
+                <span class="text-5xl font-black text-blue-950 leading-tight">
+                  {hasResult ? results[k] : '--'}<span class="text-xxl text-blue-900/30 font-bold"> {config.unit}</span>
                 </span>
               {/if}
             </div>
 
-            <!-- Bottom: button -->
-            <div>
-              {#if mode === 'idle'}
-                <button
-                  type="button"
-                  on:click={() => measureSingle(k)}
-                  aria-label="Measure {config.title}"
-                  class="w-full py-2.5 bg-blue-600 text-white rounded-2xl font-black uppercase text-xs tracking-widest active:scale-90 transition-transform"
-                >
-                  Measure
-                </button>
-              {:else}
-                <button
-                  type="button"
-                  on:click={() => redoSpecific(k)}
-                  aria-label="Redo {config.title} test"
-                  class="w-full flex items-center justify-center py-2.5 bg-blue-50 text-blue-600 rounded-2xl active:scale-90 transition-transform"
-                >
-                  <svg xmlns="http://www.w3.org/2000/svg" class="w-5 h-5" fill="none" viewBox="0 0 24 24" stroke="currentColor">
-                    <path stroke-linecap="round" stroke-linejoin="round" stroke-width="3" d="M4 4v5h.582m15.356 2A8.001 8.001 0 004.582 9m0 0H9m11 11v-5h-.581m0 0a8.003 8.003 0 01-15.357-2m15.357 2H15" />
-                  </svg>
-                </button>
-              {/if}
-            </div>
+            <!-- Action -->
+            {#if mode === 'idle'}
+              <button type="button" on:click={() => measureSingle(k)}
+                class="w-full py-3.5 bg-blue-600 text-white rounded-2xl font-black uppercase text-base tracking-widest active:scale-90 transition-transform">
+                Measure
+              </button>
+            {:else}
+              <button type="button" on:click={() => redoSpecific(k)}
+                class="w-full py-3.5 bg-blue-50 text-blue-500 rounded-2xl font-black uppercase text-base tracking-widest active:scale-90 transition-transform flex items-center justify-center gap-1">
+                <svg xmlns="http://www.w3.org/2000/svg" class="w-5 h-5" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                  <path stroke-linecap="round" stroke-linejoin="round" stroke-width="3" d="M4 4v5h.582m15.356 2A8.001 8.001 0 004.582 9m0 0H9m11 11v-5h-.581m0 0a8.003 8.003 0 01-15.357-2m15.357 2H15" />
+                </svg>
+                Redo
+              </button>
+            {/if}
           </div>
         {/each}
       </div>
 
-      <div class="mt-auto pt-6 space-y-4">
+      <!-- Bottom CTA -->
+      <div class="shrink-0 pt-5 space-y-3">
         {#if mode === 'idle'}
           <button
             on:click={() => { mode = 'full'; currentPhase = 'weight'; hasCaptured = false; progress = 0; }}
-            class="w-full py-8 bg-blue-600 text-white rounded-[2.5rem] text-2xl font-black uppercase shadow-xl active:scale-[0.98] transition-all"
-          >
+            class="w-full py-7 bg-blue-600 text-white rounded-[2.5rem] text-2xl font-black uppercase shadow-xl shadow-blue-900/20 active:scale-[0.98] transition-all">
             Start Full Checkup
           </button>
         {:else}
-          <!-- Full checkup mode: save all measurements -->
-          <button on:click={handleSave} class="w-full py-8 bg-green-500 text-white rounded-[2.5rem] text-2xl font-black uppercase shadow-xl shadow-green-100 active:scale-[0.98] transition-all">
-            Save & Exit
+          <button on:click={handleSave}
+            class="w-full py-7 bg-green-500 text-white rounded-[2.5rem] text-2xl font-black uppercase shadow-xl shadow-green-900/20 active:scale-[0.98] transition-all">
+            Save &amp; Exit
           </button>
-          <button on:click={() => {
-            results = { weight: 0, height: 0, temp: 0, spo2: 0, heartRate: 0, bp: "0/0" };
-            mode = 'idle';
-          }} class="w-full py-4 text-blue-900/20 font-black uppercase text-xs tracking-widest active:text-red-400">
+          <button on:click={() => { results = { weight: 0, height: 0, temp: 0, spo2: 0, heartRate: 0, bp: "0/0" }; mode = 'idle'; }}
+            class="w-full py-4 text-blue-900/20 font-black uppercase text-xs tracking-widest active:text-red-400 transition-colors">
             Clear All Data
           </button>
         {/if}
@@ -1108,62 +978,44 @@
   {/if}
 </div>
 
-<!-- ── BP Segment Calibration Overlay ─────────────────────────────────────── -->
+<!-- ── BP SEGMENT CALIBRATION OVERLAY ─────────────────────────────────────── -->
 {#if segCalibMode}
   <!-- svelte-ignore a11y-no-static-element-interactions -->
-  <div
-    class="fixed inset-0 bg-black/95 z-50 flex flex-col overflow-hidden"
-    in:fade out:fade
-    on:pointermove={onSegPointerMove}
-    on:pointerup={onSegPointerUp}
-  >
-    <!-- Header -->
-    <div class="flex items-center justify-between p-4 flex-shrink-0">
+  <div class="fixed inset-0 bg-black/95 z-50 flex flex-col overflow-hidden" in:fade out:fade
+    on:pointermove={onSegPointerMove} on:pointerup={onSegPointerUp}>
+
+    <div class="flex items-center justify-between px-4 pt-4 pb-2 shrink-0">
       <div class="flex items-center gap-2 flex-wrap">
-        <span class="rounded-full bg-orange-500 px-2.5 py-0.5 text-[10px] font-black uppercase tracking-widest text-white">📐 Segment Calibration</span>
-        <span class="text-white/50 text-[10px] font-bold">Place each segment rect on its display segment</span>
+        <span class="rounded-full bg-orange-500 px-3 py-1 text-xs font-black uppercase tracking-widest text-white">Segment Calibration</span>
+        <span class="text-white/40 text-xs font-bold">Place each rect on its display segment</span>
       </div>
-      <button on:click={closeSegCalib} class="text-white/50 font-black text-sm uppercase tracking-widest px-3 py-1 rounded-xl active:bg-white/10">✕</button>
+      <button on:click={closeSegCalib} class="text-white/50 font-black text-sm uppercase px-3 py-1 rounded-xl active:bg-white/10">✕</button>
     </div>
 
-    <!-- Camera preview with segment overlays -->
-    <div
-      bind:this={calibPreviewContainer}
+    <div bind:this={calibPreviewContainer}
       class="relative flex-1 mx-4 mb-3 touch-none select-none overflow-hidden rounded-xl border border-white/10"
       style="min-height:0"
-      on:pointerdown={onSelPointerDown}
-      on:pointermove={onSelPointerMove}
-      on:pointerup={onSelPointerUp}
-      on:pointercancel={onSelPointerCancel}
-    >
+      on:pointerdown={onSelPointerDown} on:pointermove={onSelPointerMove}
+      on:pointerup={onSelPointerUp} on:pointercancel={onSelPointerCancel}>
+
       {#if $bpDebugFrame?.imageData}
         <!-- svelte-ignore a11y-no-noninteractive-element-interactions -->
-        <img
-          bind:this={calibPreviewImg}
-          src="data:image/jpeg;base64,{$bpDebugFrame.imageData}"
-          alt="BP camera preview"
-          class="w-full h-full object-contain block {eyedropperActive ? 'cursor-crosshair' : ''}"
-          draggable="false"
-        />
+        <img bind:this={calibPreviewImg} src="data:image/jpeg;base64,{$bpDebugFrame.imageData}" alt="BP camera preview"
+          class="w-full h-full object-contain block {eyedropperActive ? 'cursor-crosshair' : ''}" draggable="false" />
 
-        <!-- Area-select overlay while dragging -->
         {#if isDraggingSel && selStart && selCurrent && calibPreviewContainer}
           {@const cRect = calibPreviewContainer.getBoundingClientRect()}
           {@const sx = Math.min(selStart.clientX, selCurrent.clientX) - cRect.left}
           {@const sy = Math.min(selStart.clientY, selCurrent.clientY) - cRect.top}
           {@const sw = Math.abs(selCurrent.clientX - selStart.clientX)}
           {@const sh = Math.abs(selCurrent.clientY - selStart.clientY)}
-          <div
-            class="absolute pointer-events-none border-2 rounded"
-            style="
-              left:{sx}px; top:{sy}px; width:{sw}px; height:{sh}px;
-              border-color: {eyedropperActive === 'background' ? '#34d399' : '#f97316'};
-              background: {eyedropperActive === 'background' ? 'rgba(52,211,153,0.15)' : 'rgba(249,115,22,0.15)'};
-            "
-          ></div>
+          <div class="absolute pointer-events-none border-2 rounded"
+            style="left:{sx}px; top:{sy}px; width:{sw}px; height:{sh}px;
+              border-color:{eyedropperActive === 'background' ? '#34d399' : '#f97316'};
+              background:{eyedropperActive === 'background' ? 'rgba(52,211,153,0.15)' : 'rgba(249,115,22,0.15)'};">
+          </div>
         {/if}
 
-        <!-- Segment overlays for all 6 digits -->
         {#each DIGIT_NAMES as dname}
           {@const isActive = dname === activeDigit}
           {@const color = SEG_COLOR[dname]}
@@ -1177,32 +1029,23 @@
             {@const hasLiveData = !!liveDigit}
             {@const segOn = testDigit ? segOnTest : (hasLiveData ? segOnLive : undefined)}
             <!-- svelte-ignore a11y-no-static-element-interactions -->
-            <div
-              class="absolute touch-none"
-              style="
-                left:{r.x}px; top:{r.y}px; width:{r.w}px; height:{r.h}px;
-                border: 2px solid {isActive ? (segOn !== undefined ? (segOn ? '#22c55e' : '#ef4444') : color) : 'rgba(255,255,255,0.2)'};
-                background: {isActive ? (segOn !== undefined ? (segOn ? 'rgba(34,197,94,0.35)' : 'rgba(239,68,68,0.2)') : color + '33') : 'rgba(255,255,255,0.05)'};
-                cursor: {isActive ? 'move' : 'default'};
-                box-shadow: {isSelectedSeg ? '0 0 0 2px white' : 'none'};
-                z-index: {isActive ? 10 : 5};
-              "
-              on:pointerdown={(e) => isActive && onSegPointerDown(e, dname, sname, 'move')}
-            >
+            <div class="absolute touch-none"
+              style="left:{r.x}px; top:{r.y}px; width:{r.w}px; height:{r.h}px;
+                border:2px solid {isActive ? (segOn !== undefined ? (segOn ? '#22c55e' : '#ef4444') : color) : 'rgba(255,255,255,0.2)'};
+                background:{isActive ? (segOn !== undefined ? (segOn ? 'rgba(34,197,94,0.35)' : 'rgba(239,68,68,0.2)') : color + '33') : 'rgba(255,255,255,0.05)'};
+                cursor:{isActive ? 'move' : 'default'};
+                box-shadow:{isSelectedSeg ? '0 0 0 2px white' : 'none'};
+                z-index:{isActive ? 10 : 5};"
+              on:pointerdown={(e) => isActive && onSegPointerDown(e, dname, sname, 'move')}>
               {#if isActive}
                 <span class="absolute top-0 left-0.5 text-[8px] font-black leading-none pointer-events-none" style="color:{color}">{sname.toUpperCase()}</span>
-                <!-- resize handle -->
-                <div
-                  class="absolute bottom-0 right-0 w-3 h-3 touch-none"
-                  style="background:{color}; cursor:se-resize; opacity:0.9"
-                  on:pointerdown|stopPropagation={(e) => onSegPointerDown(e, dname, sname, 'resize')}
-                ></div>
+                <div class="absolute bottom-0 right-0 w-3 h-3 touch-none" style="background:{color}; cursor:se-resize; opacity:0.9"
+                  on:pointerdown|stopPropagation={(e) => onSegPointerDown(e, dname, sname, 'resize')}></div>
               {/if}
             </div>
           {/each}
         {/each}
 
-        <!-- Test result decoded digit labels -->
         {#if $bpTestResult}
           {#each $bpTestResult.digits as dr}
             {@const segs = allSegs[dr.name]}
@@ -1210,42 +1053,36 @@
             {@const allY = Object.values(segs).flatMap(r => [r.y, r.y + r.h])}
             {@const lx = Math.min(...allX)}
             {@const ty = Math.min(...allY)}
-            <div
-              class="absolute pointer-events-none px-1.5 py-0.5 rounded text-[11px] font-black"
-              style="left:{lx}px; top:{Math.max(0, ty - 20)}px; background:rgba(0,0,0,0.7); color:{dr.decoded ? '#22c55e' : '#ef4444'}"
-            >
+            <div class="absolute pointer-events-none px-1.5 py-0.5 rounded text-xs font-black"
+              style="left:{lx}px; top:{Math.max(0, ty - 20)}px; background:rgba(0,0,0,0.7); color:{dr.decoded ? '#22c55e' : '#ef4444'}">
               {dr.decoded ?? '?'}
             </div>
           {/each}
         {/if}
-
       {:else}
-        <div class="w-full h-full flex items-center justify-center text-white/30 text-xs font-bold uppercase tracking-widest">
-          {$bpDebugFrame?.error ? `⚠ ${$bpDebugFrame.error}` : 'Waiting for camera…'}
+        <div class="w-full h-full flex items-center justify-center text-white/30 text-sm font-bold uppercase tracking-widest">
+          {$bpDebugFrame?.error ? `Error: ${$bpDebugFrame.error}` : 'Waiting for camera…'}
         </div>
       {/if}
     </div>
 
-    <!-- Live segment status panel (shows ON/OFF per segment + decoded digits from streaming) -->
     {#if $bpDebugFrame?.segStatus && $bpDebugFrame.segStatus.length > 0}
       {@const ss = $bpDebugFrame.segStatus}
       {@const sysDigits = ss.filter(d => d.name.startsWith('sys'))}
       {@const diaDigits = ss.filter(d => d.name.startsWith('dia'))}
       {@const sysReading = sysDigits.map(d => d.decoded ?? '').join('').replace(/^0+(?=\d)/, '') || '---'}
       {@const diaReading = diaDigits.map(d => d.decoded ?? '').join('').replace(/^0+(?=\d)/, '') || '---'}
-      <div class="mx-4 mb-3 flex-shrink-0 bg-black/60 border border-white/10 rounded-xl p-2">
-        <!-- Live SYS / DIA reading summary -->
+      <div class="mx-4 mb-3 shrink-0 bg-black/60 border border-white/10 rounded-xl p-2">
         <div class="flex justify-around mb-2">
           <div class="text-center">
-            <span class="text-[8px] font-black uppercase tracking-widest text-red-400 block">SYS</span>
-            <span class="text-lg font-black font-mono {sysReading === '---' ? 'text-white/30' : 'text-green-400'}">{sysReading}</span>
+            <span class="text-[9px] font-black uppercase tracking-widest text-red-400 block">SYS</span>
+            <span class="text-xl font-black font-mono {sysReading === '---' ? 'text-white/30' : 'text-green-400'}">{sysReading}</span>
           </div>
           <div class="text-center">
-            <span class="text-[8px] font-black uppercase tracking-widest text-green-400 block">DIA</span>
-            <span class="text-lg font-black font-mono {diaReading === '---' ? 'text-white/30' : 'text-green-400'}">{diaReading}</span>
+            <span class="text-[9px] font-black uppercase tracking-widest text-green-400 block">DIA</span>
+            <span class="text-xl font-black font-mono {diaReading === '---' ? 'text-white/30' : 'text-green-400'}">{diaReading}</span>
           </div>
         </div>
-        <!-- Per-digit per-segment grid -->
         <div class="grid grid-cols-6 gap-1">
           {#each ss as digSt}
             {@const isSys = digSt.name.startsWith('sys')}
@@ -1253,181 +1090,103 @@
               <span class="text-[7px] font-black uppercase tracking-widest {isSys ? 'text-red-400' : 'text-green-400'} mb-0.5">
                 {digSt.name === 'sys0' ? 'S1' : digSt.name === 'sys1' ? 'S2' : digSt.name === 'sys2' ? 'S3' : digSt.name === 'dia0' ? 'D1' : digSt.name === 'dia1' ? 'D2' : 'D3'}
               </span>
-              <!-- 7 segment dots (a–g) -->
               {#each ['a','b','c','d','e','f','g'] as seg}
                 <div class="flex items-center gap-0.5 w-full justify-between px-0.5">
                   <span class="text-[6px] text-white/30 font-mono">{seg}</span>
                   <div class="w-3 h-1.5 rounded-sm {digSt.on[seg] ? 'bg-green-400' : 'bg-white/10'}"></div>
                 </div>
               {/each}
-              <!-- decoded digit -->
-              <div class="mt-0.5 text-sm font-black font-mono {digSt.decoded !== null ? 'text-green-400' : 'text-white/20'}">
-                {digSt.decoded ?? '?'}
-              </div>
+              <div class="mt-0.5 text-sm font-black font-mono {digSt.decoded !== null ? 'text-green-400' : 'text-white/20'}">{digSt.decoded ?? '?'}</div>
             </div>
           {/each}
         </div>
       </div>
     {/if}
 
-    <!-- Digit selector tabs -->
-    <div class="flex gap-1.5 px-4 mb-3 flex-shrink-0">
+    <div class="flex gap-1.5 px-4 mb-3 shrink-0">
       {#each DIGIT_NAMES as dname}
         {@const isSys = dname.startsWith('sys')}
-        <button
-          on:click={() => activeDigit = dname}
+        <button on:click={() => activeDigit = dname}
           class="flex-1 py-2 rounded-xl text-[10px] font-black uppercase tracking-wider transition-all
-            {activeDigit === dname
-              ? (isSys ? 'bg-red-500 text-white' : 'bg-green-500 text-white')
-              : 'bg-white/10 text-white/50 active:bg-white/20'}"
-        >
+            {activeDigit === dname ? (isSys ? 'bg-red-500 text-white' : 'bg-green-500 text-white') : 'bg-white/10 text-white/50 active:bg-white/20'}">
           {dname === 'sys0' ? 'S-1' : dname === 'sys1' ? 'S-2' : dname === 'sys2' ? 'S-3' : dname === 'dia0' ? 'D-1' : dname === 'dia1' ? 'D-2' : 'D-3'}
         </button>
       {/each}
-      <button
-        on:click={copyDigitToNext}
-        disabled={(DIGIT_NAMES as readonly string[]).indexOf(activeDigit) >= DIGIT_NAMES.length - 1}
-        class="px-3 py-2 rounded-xl bg-blue-600 text-white text-[10px] font-black uppercase tracking-wider disabled:opacity-30 active:bg-blue-700"
-        title="Copy current digit layout to next digit (shifted right)"
-      >
+      <button on:click={copyDigitToNext} disabled={(DIGIT_NAMES as readonly string[]).indexOf(activeDigit) >= DIGIT_NAMES.length - 1}
+        class="px-3 py-2 rounded-xl bg-blue-600 text-white text-[10px] font-black uppercase tracking-wider disabled:opacity-30 active:bg-blue-700">
         Copy→
       </button>
-      <button
-        on:click={resetActiveDigit}
-        class="px-3 py-2 rounded-xl bg-white/10 text-white/60 text-[10px] font-black uppercase tracking-wider active:bg-white/20"
-        title="Reset active digit to default position"
-      >
-        ↺ Reset
-      </button>
+      <button on:click={resetActiveDigit} class="px-3 py-2 rounded-xl bg-white/10 text-white/60 text-[10px] font-black uppercase tracking-wider active:bg-white/20">↺</button>
     </div>
 
-    <!-- Camera sliders + threshold + actions -->
-    <div class="px-4 pb-4 flex-shrink-0 space-y-3">
-
-      <!-- Eyedropper row -->
+    <div class="px-4 pb-4 shrink-0 space-y-3">
       <div class="flex items-center gap-2">
         <span class="text-[9px] font-black uppercase tracking-widest text-white/50 shrink-0">Eyedropper</span>
-        <!-- Background picker -->
-        <button
-          on:click={() => eyedropperActive = eyedropperActive === 'background' ? null : 'background'}
-          class="flex items-center gap-1.5 px-2.5 py-1.5 rounded-lg text-[9px] font-black uppercase tracking-wider transition-all
-            {eyedropperActive === 'background'
-              ? 'bg-emerald-500 text-white ring-2 ring-white/40'
-              : 'bg-white/10 text-white/60 active:bg-white/20'}"
-          title="Click to pick background color from preview"
-        >
-          🎯 Background
-          {#if sampledBg !== null}
-            <span class="font-mono text-[8px] opacity-70">{sampledBg}</span>
-          {/if}
+        <button on:click={() => eyedropperActive = eyedropperActive === 'background' ? null : 'background'}
+          class="flex items-center gap-1 px-2.5 py-1.5 rounded-lg text-[9px] font-black uppercase tracking-wider transition-all
+            {eyedropperActive === 'background' ? 'bg-emerald-500 text-white ring-2 ring-white/40' : 'bg-white/10 text-white/60'}">
+          BG {#if sampledBg !== null}<span class="font-mono opacity-70">{sampledBg}</span>{/if}
         </button>
-        <!-- Segment picker -->
-        <button
-          on:click={() => eyedropperActive = eyedropperActive === 'segment' ? null : 'segment'}
-          class="flex items-center gap-1.5 px-2.5 py-1.5 rounded-lg text-[9px] font-black uppercase tracking-wider transition-all
-            {eyedropperActive === 'segment'
-              ? 'bg-orange-500 text-white ring-2 ring-white/40'
-              : 'bg-white/10 text-white/60 active:bg-white/20'}"
-          title="Click to pick segment (dark) color from preview"
-        >
-          🎯 Segment
-          {#if sampledSeg !== null}
-            <span class="font-mono text-[8px] opacity-70">{sampledSeg}</span>
-          {/if}
+        <button on:click={() => eyedropperActive = eyedropperActive === 'segment' ? null : 'segment'}
+          class="flex items-center gap-1 px-2.5 py-1.5 rounded-lg text-[9px] font-black uppercase tracking-wider transition-all
+            {eyedropperActive === 'segment' ? 'bg-orange-500 text-white ring-2 ring-white/40' : 'bg-white/10 text-white/60'}">
+          Seg {#if sampledSeg !== null}<span class="font-mono opacity-70">{sampledSeg}</span>{/if}
         </button>
-        {#if eyedropperActive}
-          <span class="text-[8px] text-yellow-300 font-bold animate-pulse">← drag area on preview</span>
-        {/if}
+        {#if eyedropperActive}<span class="text-[8px] text-yellow-300 font-bold animate-pulse">← drag on preview</span>{/if}
         {#if sampledBg !== null && sampledSeg !== null}
-          <button
-            on:click={() => { sampledBg = null; sampledSeg = null; }}
-            class="ml-auto text-[8px] text-white/30 font-bold uppercase tracking-wider active:text-white/60"
-          >Clear</button>
+          <button on:click={() => { sampledBg = null; sampledSeg = null; }} class="ml-auto text-[8px] text-white/30 font-bold uppercase active:text-white/60">Clear</button>
         {/if}
       </div>
 
       <div class="grid grid-cols-2 gap-x-5 gap-y-2">
-        <div>
-          <div class="flex justify-between">
-            <span class="text-[9px] font-black uppercase tracking-widest text-white/50">
-              Threshold
-              {#if sampledBg !== null && sampledSeg !== null}
-                <span class="text-yellow-400 ml-1">auto</span>
-              {/if}
-            </span>
-            <span class="text-[9px] text-white/40 font-mono">{segThreshold}</span>
-          </div>
-          <input type="range" min="5" max="220" step="1" bind:value={segThreshold} class="w-full accent-orange-400" />
-          {#if sampledBg !== null && sampledSeg !== null}
-            <div class="flex gap-1 mt-0.5 text-[7px] font-mono">
-              <span class="text-emerald-400">bg:{sampledBg}</span>
-              <span class="text-white/30">·</span>
-              <span class="text-orange-400">seg:{sampledSeg}</span>
-              <span class="text-white/30">·</span>
-              <span class="text-yellow-300">mid:{Math.round((sampledBg+sampledSeg)/2)}</span>
+        {#each [
+          { label: 'Threshold', bind: 'segThreshold', min: 5, max: 220, step: 1, val: segThreshold, color: 'accent-orange-400' },
+          { label: 'Brightness', bind: 'camBrightness', min: -1, max: 1, step: 0.05, val: camBrightness, color: 'accent-blue-500' },
+          { label: 'Contrast', bind: 'camContrast', min: 0, max: 10, step: 0.1, val: camContrast, color: 'accent-blue-500' },
+          { label: 'Sharpness', bind: 'camSharpness', min: 0, max: 16, step: 0.5, val: camSharpness, color: 'accent-blue-500' },
+        ] as sl}
+          <div>
+            <div class="flex justify-between">
+              <span class="text-[9px] font-black uppercase tracking-widest text-white/50">{sl.label}</span>
+              <span class="text-[9px] text-white/40 font-mono">{sl.val}</span>
             </div>
-          {/if}
-        </div>
-        <div>
-          <div class="flex justify-between">
-            <span class="text-[9px] font-black uppercase tracking-widest text-white/50">Brightness</span>
-            <span class="text-[9px] text-white/40 font-mono">{camBrightness.toFixed(2)}</span>
+            {#if sl.label === 'Threshold'}
+              <input type="range" min={sl.min} max={sl.max} step={sl.step} bind:value={segThreshold} class="w-full {sl.color}" />
+            {:else if sl.label === 'Brightness'}
+              <input type="range" min={sl.min} max={sl.max} step={sl.step} bind:value={camBrightness} class="w-full {sl.color}" />
+            {:else if sl.label === 'Contrast'}
+              <input type="range" min={sl.min} max={sl.max} step={sl.step} bind:value={camContrast} class="w-full {sl.color}" />
+            {:else}
+              <input type="range" min={sl.min} max={sl.max} step={sl.step} bind:value={camSharpness} class="w-full {sl.color}" />
+            {/if}
           </div>
-          <input type="range" min="-1" max="1" step="0.05" bind:value={camBrightness} class="w-full accent-blue-500" />
-        </div>
-        <div>
-          <div class="flex justify-between">
-            <span class="text-[9px] font-black uppercase tracking-widest text-white/50">Contrast</span>
-            <span class="text-[9px] text-white/40 font-mono">{camContrast.toFixed(1)}</span>
-          </div>
-          <input type="range" min="0" max="10" step="0.1" bind:value={camContrast} class="w-full accent-blue-500" />
-        </div>
-        <div>
-          <div class="flex justify-between">
-            <span class="text-[9px] font-black uppercase tracking-widest text-white/50">Sharpness</span>
-            <span class="text-[9px] text-white/40 font-mono">{camSharpness.toFixed(1)}</span>
-          </div>
-          <input type="range" min="0" max="16" step="0.5" bind:value={camSharpness} class="w-full accent-blue-500" />
-        </div>
+        {/each}
       </div>
 
       <div class="flex gap-2">
-        <button
-          on:click={testSegments}
-          disabled={isTesting}
-          class="flex-1 py-3 rounded-2xl border-2 border-yellow-400 text-yellow-300 font-black uppercase text-[10px] tracking-widest active:scale-95 transition-transform disabled:opacity-40"
-        >
-          {isTesting ? '⏳ Testing…' : '🔍 Test Segments'}
+        <button on:click={testSegments} disabled={isTesting}
+          class="flex-1 py-3 rounded-2xl border-2 border-yellow-400 text-yellow-300 font-black uppercase text-xs tracking-widest active:scale-95 disabled:opacity-40">
+          {isTesting ? 'Testing…' : 'Test'}
         </button>
-        <button
-          on:click={closeSegCalib}
-          class="flex-1 py-3 rounded-2xl border-2 border-white/20 text-white/60 font-black uppercase text-[10px] tracking-widest active:scale-95 transition-transform"
-        >
+        <button on:click={closeSegCalib}
+          class="flex-1 py-3 rounded-2xl border-2 border-white/20 text-white/60 font-black uppercase text-xs tracking-widest active:scale-95">
           Discard
         </button>
-        <button
-          on:click={saveSegCalib}
-          class="flex-1 py-3 rounded-2xl bg-blue-600 text-white font-black uppercase text-[10px] tracking-widest active:scale-95 transition-transform"
-        >
-          💾 Save
+        <button on:click={saveSegCalib}
+          class="flex-1 py-3 rounded-2xl bg-blue-600 text-white font-black uppercase text-xs tracking-widest active:scale-95">
+          Save
         </button>
       </div>
     </div>
   </div>
 {/if}
 
-<!-- ── Weight Scale Calibration Overlay ──────────────────────────────────── -->
+<!-- ── WEIGHT CALIBRATION OVERLAY ──────────────────────────────────────────── -->
 {#if weightCalibMode}
   <WeightCalibration onClose={() => { weightCalibMode = false; }} />
 {/if}
 
-
 <style>
-  .custom-scrollbar::-webkit-scrollbar {
-    width: 4px;
-  }
-  .custom-scrollbar::-webkit-scrollbar-thumb {
-    background: #e2e8f0;
-    border-radius: 10px;
-  }
+  .custom-scrollbar::-webkit-scrollbar { width: 4px; }
+  .custom-scrollbar::-webkit-scrollbar-thumb { background: #dbeafe; border-radius: 10px; }
 </style>

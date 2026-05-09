@@ -130,22 +130,22 @@
   class="relative h-full w-full flex flex-col bg-linear-to-b from-[#f0f7ff] to-[#9fc5f8] overflow-hidden"
   role="presentation"
 >
-  <div class="flex-1 flex flex-col items-center justify-center max-w-lg mx-auto w-full px-6" on:click|stopPropagation role="presentation">
+  <div class="flex-1 flex flex-col items-center justify-center max-w-2xl mx-auto w-full px-6" on:click|stopPropagation role="presentation">
     
-    <button on:click={onBack} class="absolute top-16 left-12 text-blue-900/40 font-black tracking-widest text-sm flex items-center gap-2 z-20">
-      <svg xmlns="http://www.w3.org/2000/svg" class="w-5 h-5" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+    <button on:click={onBack} class="absolute top-16 left-12 text-blue-900/40 font-black tracking-widest text-base flex items-center gap-2 z-20">
+      <svg xmlns="http://www.w3.org/2000/svg" class="w-6 h-6" fill="none" viewBox="0 0 24 24" stroke="currentColor">
         <path stroke-linecap="round" stroke-linejoin="round" stroke-width="3" d="M15 19l-7-7 7-7" />
       </svg>
       BACK
     </button>
 
     <div class="text-center mb-16">
-      <h1 class="text-8xl font-[1000] tracking-tighter leading-none mb-4 uppercase">
+      <h1 class="text-[6.5rem] font-[1000] tracking-tighter leading-none mb-4 uppercase">
         <span class="text-blue-950">LOG</span><span class="text-blue-500">IN</span>
       </h1>
-      <p class="text-blue-900/50 font-bold uppercase tracking-[0.2em] text-xs">Access HealthSense Portal</p>
+      <p class="text-blue-900/50 font-bold uppercase tracking-[0.2em] text-sm">Access HealthSense Portal</p>
       {#if !$isOnline}
-        <p class="mt-2 text-xs font-bold uppercase tracking-widest text-amber-600 bg-amber-50 border border-amber-200 rounded-full px-3 py-1 inline-block">
+        <p class="mt-2 text-sm font-bold uppercase tracking-widest text-amber-600 bg-amber-50 border border-amber-200 rounded-full px-4 py-1.5 inline-block">
           📶 Offline Mode
         </p>
       {/if}
@@ -154,26 +154,26 @@
     <div class="w-full space-y-6">
       <div class="space-y-2">
         <div class="space-y-2">
-          <span class="ml-4 text-sm font-black uppercase tracking-widest text-blue-400">Username</span>
+          <span class="ml-4 text-base font-black uppercase tracking-widest text-blue-400">Username</span>
           <input
             type="text"
             bind:value={username}
             placeholder="firstname.lastname"
             autocomplete="username"
-            class="w-full h-20 px-8 rounded-3xl bg-white border border-blue-100 shadow-sm text-xl font-bold text-blue-900 placeholder:text-blue-900/20 outline-none focus:border-blue-500 focus:ring-4 focus:ring-blue-500/10 transition-all"
+            class="w-full h-22 px-9 rounded-3xl bg-white border border-blue-100 shadow-sm text-2xl font-bold text-blue-900 placeholder:text-blue-900/20 outline-none focus:border-blue-500 focus:ring-4 focus:ring-blue-500/10 transition-all"
           />
         </div>
       </div>
 
       <div class="space-y-2">
-        <span class="ml-4 text-sm font-black uppercase tracking-widest text-blue-400">Password</span>
-        <div class="relative w-full h-20">
+        <span class="ml-4 text-base font-black uppercase tracking-widest text-blue-400">Password</span>
+        <div class="relative w-full h-22">
           <input
             type={showPassword ? 'text' : 'password'}
             bind:value={password}
             placeholder="••••••••"
             autocomplete="current-password"
-            class="w-full h-full px-8 pr-24 rounded-3xl bg-white border border-blue-100 shadow-sm text-xl font-bold text-blue-900 placeholder:text-blue-900/20 outline-none focus:border-blue-500 focus:ring-4 focus:ring-blue-500/10 transition-all"
+            class="w-full h-full px-9 pr-24 rounded-3xl bg-white border border-blue-100 shadow-sm text-2xl font-bold text-blue-900 placeholder:text-blue-900/20 outline-none focus:border-blue-500 focus:ring-4 focus:ring-blue-500/10 transition-all"
           />
           <button
             type="button"
@@ -181,11 +181,11 @@
             class="absolute right-6 top-1/2 -translate-y-1/2 text-blue-900/30 p-2 z-10 hover:text-blue-600 active:scale-90 transition-all"
           >
             {#if showPassword}
-              <svg xmlns="http://www.w3.org/2000/svg" class="w-6 h-6" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="2">
+              <svg xmlns="http://www.w3.org/2000/svg" class="w-7 h-7" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="2">
                 <path d="M13.875 18.825A10.05 10.05 0 0112 19c-4.478 0-8.268-2.943-9.543-7a9.97 9.97 0 011.563-3.029m5.858.908a3 3 0 114.243 4.243M9.878 9.878l4.242 4.242M9.88 9.88l-3.29-3.29m7.532 7.532l3.29 3.29M3 3l3.59 3.59m0 0A9.956 9.956 0 0112 5c4.478 0 8.268-2.943 9.543 7a10.025 10.025 0 01-4.132 5.411m0 0L21 21" />
               </svg>
             {:else}
-              <svg xmlns="http://www.w3.org/2000/svg" class="w-6 h-6" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="2">
+              <svg xmlns="http://www.w3.org/2000/svg" class="w-7 h-7" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="2">
                 <path d="M15 12a3 3 0 11-6 0 3 3 0 016 0z" /><path d="M2.458 12C3.732 7.943 7.523 5 12 5c4.478 0 8.268-2.943 9.542 7-1.274 4.057-5.064 7-9.542 7-4.477 0-8.268-2.943-9.542-7z" />
               </svg>
             {/if}
@@ -196,7 +196,7 @@
       <button 
         on:click|stopPropagation={handleSignIn} 
         disabled={isSubmitting}
-        class="w-full h-20 bg-blue-950 rounded-3xl text-white font-black text-xl uppercase tracking-widest shadow-xl shadow-blue-900/20 active:scale-[0.98] transition-transform disabled:opacity-50"
+        class="w-full h-22 bg-blue-950 rounded-3xl text-white font-black text-2xl uppercase tracking-widest shadow-xl shadow-blue-900/20 active:scale-[0.98] transition-transform disabled:opacity-50"
       >
         {isSubmitting ? "Verifying..." : "Sign In"}
       </button>
@@ -204,21 +204,21 @@
 
     <div class="flex items-center gap-4 w-full my-12">
       <div class="h-px flex-1 bg-blue-900/10"></div>
-      <span class="text-sm font-black text-blue-900/30 uppercase tracking-widest">OR</span>
+      <span class="text-base font-black text-blue-900/30 uppercase tracking-widest">OR</span>
       <div class="h-px flex-1 bg-blue-900/10"></div>
     </div>
 
     <button 
       on:click|stopPropagation={toggleFingerprint}
-      class="w-full h-24 rounded-3xl bg-white/50 border-2 border-dashed border-blue-200 flex items-center justify-center gap-4 group active:bg-white transition-colors"
+      class="w-full h-26 rounded-3xl bg-white/50 border-2 border-dashed border-blue-200 flex items-center justify-center gap-4 group active:bg-white transition-colors"
     >
-      <img src={fingerprintIcon} alt="Fingerprint" class="w-10 h-10 opacity-80" style="filter: invert(33%) sepia(87%) saturate(1915%) hue-rotate(202deg) brightness(91%) contrast(92%);" />
-      <span class="text-blue-900 font-bold uppercase tracking-widest">Use Fingerprint</span>
+      <img src={fingerprintIcon} alt="Fingerprint" class="w-12 h-12 opacity-80" style="filter: invert(33%) sepia(87%) saturate(1915%) hue-rotate(202deg) brightness(91%) contrast(92%);" />
+      <span class="text-blue-900 font-bold uppercase tracking-widest text-base">Use Fingerprint</span>
     </button>
 
-    <div class="mt-16 flex flex-col items-center gap-4">
-      <p class="text-blue-900/40 font-bold text-sm">Don't have an account?</p>
-      <button on:click={onCreateAccount} class="text-blue-600 font-black uppercase tracking-[0.2em] text-lg hover:underline">
+    <div class="mt-18 flex flex-col items-center gap-4">
+      <p class="text-blue-900/40 font-bold text-base">Don't have an account?</p>
+      <button on:click={onCreateAccount} class="text-blue-600 font-black uppercase tracking-[0.2em] text-xl hover:underline">
         Create Account
       </button>
     </div>
@@ -233,24 +233,24 @@
     >
       <div 
         transition:scale={{ start: 0.9, duration: 300 }}
-        class="bg-white w-full max-w-sm rounded-[3rem] p-12 flex flex-col items-center text-center shadow-2xl border border-blue-100/20"
+        class="bg-white w-full max-w-md rounded-[3rem] p-14 flex flex-col items-center text-center shadow-2xl border border-blue-100/20"
         on:click|stopPropagation
         role="presentation"
       >
         <button 
           on:click={startScan}
           disabled={scanStatus === 'scanning' || scanStatus === 'matching' || scanStatus === 'success'}
-          class="relative w-48 h-48 rounded-full flex items-center justify-center mb-10 transition-all duration-500 overflow-hidden bg-slate-50 border border-blue-50 shadow-inner group disabled:cursor-default"
+          class="relative w-52 h-52 rounded-full flex items-center justify-center mb-10 transition-all duration-500 overflow-hidden bg-slate-50 border border-blue-50 shadow-inner group disabled:cursor-default"
         >
           {#if scanStatus === 'success'}
             <div class="absolute inset-0 bg-green-500 flex items-center justify-center z-50" in:fade>
-              <svg in:scale xmlns="http://www.w3.org/2000/svg" class="w-24 h-24 text-white" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="3">
+              <svg in:scale xmlns="http://www.w3.org/2000/svg" class="w-28 h-28 text-white" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="3">
                 <path stroke-linecap="round" stroke-linejoin="round" d="M5 13l4 4L19 7" />
               </svg>
             </div>
           {:else if scanStatus === 'noMatch' || scanStatus === 'error'}
             <div class="absolute inset-0 bg-red-50 flex items-center justify-center z-50" in:fade>
-              <svg xmlns="http://www.w3.org/2000/svg" class="w-20 h-20 text-red-400" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="2.5">
+              <svg xmlns="http://www.w3.org/2000/svg" class="w-24 h-24 text-red-400" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="2.5">
                 <path stroke-linecap="round" stroke-linejoin="round" d="M6 18L18 6M6 6l12 12" />
               </svg>
             </div>
@@ -265,11 +265,11 @@
               ></div>
             {/if}
 
-            <div class="relative w-32 h-32 rounded-full overflow-hidden flex items-center justify-center">
+            <div class="relative w-36 h-36 rounded-full overflow-hidden flex items-center justify-center">
               <img 
                 src={fingerprintIcon} 
                 alt="Scanning" 
-                class="w-20 h-20 z-10 transition-all duration-500 {scanStatus === 'scanning' || scanStatus === 'matching' ? 'opacity-100 scale-105' : 'opacity-20'}" 
+                class="w-24 h-24 z-10 transition-all duration-500 {scanStatus === 'scanning' || scanStatus === 'matching' ? 'opacity-100 scale-105' : 'opacity-20'}" 
                 style="filter: {scanStatus === 'scanning' || scanStatus === 'matching' ? 'brightness(0) saturate(100%) invert(48%) sepia(79%) saturate(2500%) hue-rotate(200deg) brightness(100%) contrast(105%)' : 'grayscale(100%)'};" 
               />
               
@@ -283,7 +283,7 @@
           {/if}
         </button>
 
-        <h3 class="text-3xl font-[1000] uppercase tracking-tighter mb-2 
+        <h3 class="text-4xl font-[1000] uppercase tracking-tighter mb-3 
           {scanStatus === 'success' ? 'text-green-600' : scanStatus === 'noMatch' || scanStatus === 'error' ? 'text-red-500' : 'text-blue-950'}">
           {#if scanStatus === 'idle'} Tap To Scan
           {:else if scanStatus === 'scanning'} Place Finger
@@ -294,7 +294,7 @@
           {/if}
         </h3>
 
-        <p class="text-blue-900/40 font-bold text-sm uppercase tracking-[0.2em] mb-10">
+        <p class="text-blue-900/40 font-bold text-base uppercase tracking-[0.2em] mb-10">
           {#if scanMessage}
             {scanMessage}
           {:else}
@@ -304,15 +304,15 @@
 
         {#if scanStatus === 'noMatch' || scanStatus === 'error'}
           <div class="flex gap-3">
-            <button on:click={startScan} class="px-6 py-2 rounded-full bg-blue-600 text-white font-black uppercase text-sm tracking-widest active:bg-blue-700">
+            <button on:click={startScan} class="px-7 py-2.5 rounded-full bg-blue-600 text-white font-black uppercase text-base tracking-widest active:bg-blue-700">
               Try Again
             </button>
-            <button on:click={closeFingerprint} class="px-6 py-2 rounded-full bg-slate-100 text-slate-400 font-black uppercase text-sm tracking-widest active:bg-red-50 active:text-red-400">
+            <button on:click={closeFingerprint} class="px-7 py-2.5 rounded-full bg-slate-100 text-slate-400 font-black uppercase text-base tracking-widest active:bg-red-50 active:text-red-400">
               Cancel
             </button>
           </div>
         {:else if scanStatus !== 'success'}
-          <button on:click={closeFingerprint} class="px-6 py-2 rounded-full bg-slate-100 text-slate-400 font-black uppercase text-sm tracking-widest active:bg-red-50 active:text-red-400 transition-colors">
+          <button on:click={closeFingerprint} class="px-7 py-2.5 rounded-full bg-slate-100 text-slate-400 font-black uppercase text-base tracking-widest active:bg-red-50 active:text-red-400 transition-colors">
             Cancel
           </button>
         {/if}
