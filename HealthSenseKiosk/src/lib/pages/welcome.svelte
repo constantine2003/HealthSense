@@ -68,21 +68,21 @@
         <div class="flex items-center gap-8 relative z-10">
           <div class="w-16 h-16 rounded-full bg-white border border-blue-100 shadow-sm flex items-center justify-center text-xl font-black text-blue-600 shrink-0">01</div>
           <div class="flex flex-col">
-            <span class="text-[11px] font-black uppercase tracking-[0.25em] text-blue-400 mb-0.5">Step One</span>
+            <span class="text-sm font-black uppercase tracking-[0.25em] text-blue-400 mb-0.5">Step One</span>
             <span class="text-3xl font-bold text-blue-900 leading-tight">Identify</span>
           </div>
         </div>
         <div class="flex items-center gap-8 relative z-10">
           <div class="w-16 h-16 rounded-full bg-white border border-blue-100 shadow-sm flex items-center justify-center text-xl font-black text-blue-600 shrink-0">02</div>
           <div class="flex flex-col">
-            <span class="text-[11px] font-black uppercase tracking-[0.25em] text-blue-400 mb-0.5">Step Two</span>
+            <span class="text-sm font-black uppercase tracking-[0.25em] text-blue-400 mb-0.5">Step Two</span>
             <span class="text-3xl font-bold text-blue-900 leading-tight">Measure</span>
           </div>
         </div>
         <div class="flex items-center gap-8 relative z-10">
           <div class="w-16 h-16 rounded-full bg-white border border-blue-100 shadow-sm flex items-center justify-center text-xl font-black text-blue-600 shrink-0">03</div>
           <div class="flex flex-col">
-            <span class="text-[11px] font-black uppercase tracking-[0.25em] text-blue-400 mb-0.5">Step Three</span>
+            <span class="text-sm font-black uppercase tracking-[0.25em] text-blue-400 mb-0.5">Step Three</span>
             <span class="text-3xl font-bold text-blue-900 leading-tight">Complete</span>
           </div>
         </div>
@@ -104,10 +104,10 @@
     <div class="flex items-center gap-2 transition-opacity duration-500">
       <div class="w-2.5 h-2.5 rounded-full {isOnline ? 'bg-green-500 animate-pulse' : 'bg-red-500'} transition-colors duration-300"></div>
       
-      <span class="text-[10px] font-bold uppercase tracking-widest {isOnline ? 'text-blue-900' : 'text-red-600'}">
+      <span class="text-sm font-bold uppercase tracking-widest {isOnline ? 'text-blue-900' : 'text-red-600'}">
         {isOnline ? 'System Ready' : 'Offline Mode'}
       </span>
     </div>
-    <span class="text-[10px] font-black uppercase tracking-widest text-blue-900/30">HealthSense v1.0</span>
+    <span class="text-sm font-black uppercase tracking-widest text-blue-900/30">HealthSense v1.0</span>
   </div>
 </div>

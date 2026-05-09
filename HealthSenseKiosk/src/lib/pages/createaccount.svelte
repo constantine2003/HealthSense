@@ -234,12 +234,12 @@
       <h1 class="text-6xl font-[1000] tracking-tighter leading-none mb-4 text-blue-950 uppercase">
         Create <span class="text-blue-500">Profile</span>
       </h1>
-      <p class="text-blue-900/50 font-bold uppercase tracking-[0.2em] text-[10px]">Enter your personal health details</p>
+      <p class="text-blue-900/50 font-bold uppercase tracking-[0.2em] text-sm">Enter your personal health details</p>
     </div>
 
     <div class="w-full space-y-5">
       <div class="space-y-1">
-        <span class="ml-4 text-[10px] font-black uppercase tracking-widest text-blue-400">First Name</span>
+        <span class="ml-4 text-sm font-black uppercase tracking-widest text-blue-400">First Name</span>
         <input
           type="text"
           bind:value={firstName}
@@ -250,7 +250,7 @@
       </div>
 
       <div class="space-y-1">
-        <span class="ml-4 text-[10px] font-black uppercase tracking-widest text-blue-400">Middle Name (Optional)</span>
+        <span class="ml-4 text-sm font-black uppercase tracking-widest text-blue-400">Middle Name (Optional)</span>
         <input
           type="text"
           bind:value={middleName}
@@ -261,7 +261,7 @@
       </div>
 
       <div class="space-y-1">
-        <span class="ml-4 text-[10px] font-black uppercase tracking-widest text-blue-400">Last Name</span>
+        <span class="ml-4 text-sm font-black uppercase tracking-widest text-blue-400">Last Name</span>
         <input
           type="text"
           bind:value={lastName}
@@ -273,8 +273,8 @@
 
       <div class="w-full space-y-1">
         <div class="flex justify-between items-center px-4">
-          <span class="text-[10px] font-black uppercase tracking-widest text-blue-400">Birthday</span>
-          <span class="text-[9px] font-black text-blue-500 bg-blue-50 px-2 py-0.5 rounded-full">{age} YEARS OLD</span>
+          <span class="text-sm font-black uppercase tracking-widest text-blue-400">Birthday</span>
+          <span class="text-xs font-black text-blue-500 bg-blue-50 px-2 py-0.5 rounded-full">{age} YEARS OLD</span>
         </div>
         
         <div class="relative h-40 bg-white rounded-2xl border border-blue-100 shadow-sm overflow-hidden flex p-1 cursor-grab">
@@ -313,7 +313,7 @@
       </div>
 
       <div class="w-full space-y-1">
-        <span class="ml-4 text-[10px] font-black uppercase tracking-widest text-blue-400">Sex / Gender</span>
+        <span class="ml-4 text-sm font-black uppercase tracking-widest text-blue-400">Sex / Gender</span>
         <div class="flex h-16 bg-white rounded-2xl border border-blue-100 p-1 shadow-sm gap-1">
           <button
             type="button"
@@ -328,7 +328,7 @@
           <button
             type="button"
             on:click={() => sex = 'Other'}
-            class="flex-1 rounded-xl font-bold text-[9px] transition-all {sex === 'Other' ? 'bg-purple-500 text-white shadow-lg' : 'text-blue-400 active:bg-purple-50'}"
+            class="flex-1 rounded-xl font-bold text-xs transition-all {sex === 'Other' ? 'bg-purple-500 text-white shadow-lg' : 'text-blue-400 active:bg-purple-50'}"
           >OTHER / PREFER NOT TO SAY</button>
         </div>
       </div>
@@ -336,8 +336,8 @@
       <!-- Password -->
       <div class="w-full space-y-1">
         <div class="flex justify-between items-center px-4">
-          <span class="text-[10px] font-black uppercase tracking-widest text-blue-400">Password</span>
-          <span class="text-[8px] font-black text-red-400 bg-red-50 px-2 py-0.5 rounded-full tracking-widest">REQUIRED</span>
+          <span class="text-sm font-black uppercase tracking-widest text-blue-400">Password</span>
+          <span class="text-xs font-black text-red-400 bg-red-50 px-2 py-0.5 rounded-full tracking-widest">REQUIRED</span>
         </div>
         <div class="relative w-full h-16">
           <input
@@ -357,8 +357,8 @@
       <!-- Confirm Password -->
       <div class="w-full space-y-1">
         <div class="flex justify-between items-center px-4">
-          <span class="text-[10px] font-black uppercase tracking-widest text-blue-400">Confirm Password</span>
-          <span class="text-[8px] font-black text-red-400 bg-red-50 px-2 py-0.5 rounded-full tracking-widest">REQUIRED</span>
+          <span class="text-sm font-black uppercase tracking-widest text-blue-400">Confirm Password</span>
+          <span class="text-xs font-black text-red-400 bg-red-50 px-2 py-0.5 rounded-full tracking-widest">REQUIRED</span>
         </div>
         <div class="relative w-full h-16">
           <input
@@ -375,20 +375,20 @@
           </button>
         </div>
         {#if confirmPassword && confirmPassword !== password}
-          <p class="ml-4 text-[9px] font-bold uppercase tracking-tighter text-red-400">⚠ Passwords do not match</p>
+          <p class="ml-4 text-xs font-bold uppercase tracking-tighter text-red-400">⚠ Passwords do not match</p>
         {:else if confirmPassword && confirmPassword === password}
-          <p class="ml-4 text-[9px] font-bold uppercase tracking-tighter text-green-500">✓ Passwords match</p>
+          <p class="ml-4 text-xs font-bold uppercase tracking-tighter text-green-500">✓ Passwords match</p>
         {/if}
       </div>
 
       <!-- Recovery Email -->
       <div class="w-full space-y-1">
         <div class="flex justify-between items-center px-4">
-          <span class="text-[10px] font-black uppercase tracking-widest text-blue-400">
+          <span class="text-sm font-black uppercase tracking-widest text-blue-400">
             Recovery Email (Personal)
           </span>
           {#if !recoveryEmail}
-            <span class="text-[8px] font-black text-blue-300 bg-blue-50 px-2 py-0.5 rounded-full tracking-widest">OPTIONAL</span>
+            <span class="text-xs font-black text-blue-300 bg-blue-50 px-2 py-0.5 rounded-full tracking-widest">OPTIONAL</span>
           {/if}
         </div>
 
@@ -400,7 +400,7 @@
           class="w-full h-16 px-8 rounded-2xl bg-white border border-blue-100 shadow-sm text-lg font-bold text-blue-950 placeholder:text-blue-900/20 outline-none focus:border-blue-500 focus:ring-4 focus:ring-blue-500/10 transition-all"
         />
 
-        <p class="ml-4 text-[9px] font-bold uppercase tracking-tighter transition-colors {recoveryEmail ? 'text-blue-500' : 'text-red-400/60'}">
+        <p class="ml-4 text-xs font-bold uppercase tracking-tighter transition-colors {recoveryEmail ? 'text-blue-500' : 'text-red-400/60'}">
           {#if recoveryEmail}
             ✓ Link will be sent here if you forget your password
           {:else}
@@ -412,8 +412,8 @@
       <!-- Fingerprint — mandatory -->
       <div class="w-full space-y-3">
         <div class="flex justify-between items-center px-4">
-          <span class="text-[10px] font-black uppercase tracking-widest text-blue-400">Fingerprint Registration</span>
-          <span class="text-[8px] font-black text-red-400 bg-red-50 px-2 py-0.5 rounded-full tracking-widest">REQUIRED</span>
+          <span class="text-sm font-black uppercase tracking-widest text-blue-400">Fingerprint Registration</span>
+          <span class="text-xs font-black text-red-400 bg-red-50 px-2 py-0.5 rounded-full tracking-widest">REQUIRED</span>
         </div>
 
         <button
@@ -427,14 +427,14 @@
           {#if fingerprintRegistered}
             <svg class="w-7 h-7 text-green-600" fill="currentColor" viewBox="0 0 20 20"><path d="M10 18a8 8 0 100-16 8 8 0 000 16zm3.707-9.293a1 1 0 00-1.414-1.414L9 10.586 7.707 9.293a1 1 0 00-1.414 1.414l2 2a1 1 0 001.414 0l4-4z"/></svg>
             <div class="text-left">
-              <p class="text-green-600 font-black uppercase tracking-widest text-[10px]">Fingerprint Registered</p>
-              <p class="text-green-500/70 text-[9px] font-semibold mt-0.5">Tap to re-scan</p>
+              <p class="text-green-600 font-black uppercase tracking-widest text-sm">Fingerprint Registered</p>
+              <p class="text-green-500/70 text-xs font-semibold mt-0.5">Tap to re-scan</p>
             </div>
           {:else}
             <img src={fingerprintIcon} alt="" class="w-8 h-8" style="filter: invert(1)" />
             <div class="text-left">
-              <p class="text-white font-black uppercase tracking-widest text-[10px]">Scan Fingerprint</p>
-              <p class="text-white/70 text-[9px] font-semibold mt-0.5">Required to complete registration</p>
+              <p class="text-white font-black uppercase tracking-widest text-sm">Scan Fingerprint</p>
+              <p class="text-white/70 text-xs font-semibold mt-0.5">Required to complete registration</p>
             </div>
           {/if}
         </button>
@@ -495,11 +495,11 @@
         </div>
         {#if scanStatus === 'error'}
           <div class="flex gap-3">
-            <button on:click={startFingerprintScan} class="px-5 py-2 rounded-full bg-blue-600 text-white font-black uppercase text-[10px] tracking-widest">Retry</button>
-            <button on:click={() => { showBiometricModal = false; cancelFingerprint(); }} class="px-5 py-2 rounded-full bg-slate-100 text-slate-400 font-black uppercase text-[10px] tracking-widest">Cancel</button>
+            <button on:click={startFingerprintScan} class="px-5 py-2 rounded-full bg-blue-600 text-white font-black uppercase text-sm tracking-widest">Retry</button>
+            <button on:click={() => { showBiometricModal = false; cancelFingerprint(); }} class="px-5 py-2 rounded-full bg-slate-100 text-slate-400 font-black uppercase text-sm tracking-widest">Cancel</button>
           </div>
         {:else if scanStatus !== 'success'}
-          <button on:click={() => { showBiometricModal = false; cancelFingerprint(); }} class="px-5 py-2 rounded-full bg-slate-100 text-slate-400 font-black uppercase text-[10px] tracking-widest active:bg-red-50 active:text-red-400">
+          <button on:click={() => { showBiometricModal = false; cancelFingerprint(); }} class="px-5 py-2 rounded-full bg-slate-100 text-slate-400 font-black uppercase text-sm tracking-widest active:bg-red-50 active:text-red-400">
             Cancel
           </button>
         {/if}

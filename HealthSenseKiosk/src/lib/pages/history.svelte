@@ -122,39 +122,39 @@
             <div class="flex justify-between items-start">
               <div>
                 <h3 class="text-2xl font-black text-blue-950">{timeInfo.date}</h3>
-                <p class="text-blue-400 font-bold text-[10px] uppercase tracking-[0.2em]">{timeInfo.time}</p>
+                <p class="text-blue-400 font-bold text-sm uppercase tracking-[0.2em]">{timeInfo.time}</p>
               </div>
-              <button on:click={() => selectedCheckup = item} class="px-5 py-3 bg-blue-600 text-white rounded-2xl font-black text-[10px] uppercase tracking-widest active:scale-95 transition-transform">
+              <button on:click={() => selectedCheckup = item} class="px-5 py-3 bg-blue-600 text-white rounded-2xl font-black text-sm uppercase tracking-widest active:scale-95 transition-transform">
                 Details
               </button>
             </div>
 
             <div class="grid grid-cols-3 gap-4 border-t border-blue-50 pt-6">
                 <div class="flex flex-col">
-                <span class="text-[9px] font-bold text-blue-400 uppercase">HR + SpO2</span>
+                <span class="text-xs font-bold text-blue-400 uppercase">HR + SpO2</span>
                 <span class="font-black text-lg text-blue-950">{readHeartRate(item) || '--'} bpm / {readSpo2(item) || '--'}%</span>
                 </div>
                 <div class="flex flex-col">
-                    <span class="text-[9px] font-bold text-blue-400 uppercase">Temp</span>
+                    <span class="text-xs font-bold text-blue-400 uppercase">Temp</span>
                     <span class="font-black text-lg text-blue-950">{item.temp || item.temperature || '--'}°</span>
                 </div>
                 <div class="flex flex-col">
-                    <span class="text-[9px] font-bold text-blue-400 uppercase">BP</span>
+                    <span class="text-xs font-bold text-blue-400 uppercase">BP</span>
                     <span class="font-black text-lg text-blue-950">{item.bp || item.blood_pressure || '--'}</span>
                 </div>
             </div>
 
             <div class="grid grid-cols-3 gap-4 pt-2">
                 <div class="flex flex-col">
-                    <span class="text-[9px] font-bold text-blue-300 uppercase">Height</span>
+                    <span class="text-xs font-bold text-blue-300 uppercase">Height</span>
                     <span class="font-bold text-md text-blue-950">{item.height || '--'}m</span>
                 </div>
                 <div class="flex flex-col">
-                    <span class="text-[9px] font-bold text-blue-300 uppercase">Weight</span>
+                    <span class="text-xs font-bold text-blue-300 uppercase">Weight</span>
                     <span class="font-bold text-md text-blue-950">{item.weight || '--'}kg</span>
                 </div>
                 <div class="flex flex-col">
-                    <span class="text-[9px] font-bold text-blue-300 uppercase">BMI</span>
+                    <span class="text-xs font-bold text-blue-300 uppercase">BMI</span>
                     <span class="font-bold text-md text-blue-950">{bmi.bmi}</span>
                 </div>
             </div>
@@ -206,45 +206,45 @@
 
         <div class="space-y-4">
           <div class="p-6 bg-blue-50/50 rounded-3xl border border-blue-100 space-y-4">
-            <p class="text-[10px] font-black text-blue-400 uppercase mb-1">HR + SpO2</p>
+            <p class="text-sm font-black text-blue-400 uppercase mb-1">HR + SpO2</p>
             <div class="grid grid-cols-2 gap-4">
               <div class="bg-white rounded-2xl p-4 border border-blue-100">
-                <p class="text-[10px] font-black text-blue-400 uppercase">Heart Rate</p>
+                <p class="text-sm font-black text-blue-400 uppercase">Heart Rate</p>
                 <h4 class="text-3xl font-black text-blue-950">{hrVal || '--'} bpm</h4>
-                <span class="inline-block mt-2 px-3 py-1 rounded-lg text-white font-black text-[10px] uppercase" style="background: {hr.color}">{hr.status}</span>
+                <span class="inline-block mt-2 px-3 py-1 rounded-lg text-white font-black text-sm uppercase" style="background: {hr.color}">{hr.status}</span>
               </div>
               <div class="bg-white rounded-2xl p-4 border border-blue-100">
-                <p class="text-[10px] font-black text-blue-400 uppercase">Blood Oxygen</p>
+                <p class="text-sm font-black text-blue-400 uppercase">Blood Oxygen</p>
                 <h4 class="text-3xl font-black text-blue-950">{spo2Val || '--'}%</h4>
-                <span class="inline-block mt-2 px-3 py-1 rounded-lg text-white font-black text-[10px] uppercase" style="background: {s.color}">{s.status}</span>
+                <span class="inline-block mt-2 px-3 py-1 rounded-lg text-white font-black text-sm uppercase" style="background: {s.color}">{s.status}</span>
               </div>
             </div>
           </div>
 
           <div class="flex justify-between items-center p-6 bg-blue-50/50 rounded-3xl border border-blue-100">
-            <div><p class="text-[10px] font-black text-blue-400 uppercase mb-1">Temperature</p><h4 class="text-3xl font-black text-blue-950">{selectedCheckup.temp || selectedCheckup.temperature || '--'}°C</h4></div>
-            <span class="px-4 py-2 rounded-xl text-white font-black text-[10px] uppercase" style="background: {t.color}">{t.status}</span>
+            <div><p class="text-sm font-black text-blue-400 uppercase mb-1">Temperature</p><h4 class="text-3xl font-black text-blue-950">{selectedCheckup.temp || selectedCheckup.temperature || '--'}°C</h4></div>
+            <span class="px-4 py-2 rounded-xl text-white font-black text-sm uppercase" style="background: {t.color}">{t.status}</span>
           </div>
 
           <div class="flex justify-between items-center p-6 bg-blue-50/50 rounded-3xl border border-blue-100">
-            <div><p class="text-[10px] font-black text-blue-400 uppercase mb-1">Blood Pressure</p><h4 class="text-3xl font-black text-blue-950">{selectedCheckup.bp || selectedCheckup.blood_pressure || '--'}</h4></div>
-            <span class="px-4 py-2 rounded-xl text-white font-black text-[10px] uppercase" style="background: {bp.color}">{bp.status}</span>
+            <div><p class="text-sm font-black text-blue-400 uppercase mb-1">Blood Pressure</p><h4 class="text-3xl font-black text-blue-950">{selectedCheckup.bp || selectedCheckup.blood_pressure || '--'}</h4></div>
+            <span class="px-4 py-2 rounded-xl text-white font-black text-sm uppercase" style="background: {bp.color}">{bp.status}</span>
           </div>
 
           <div class="grid grid-cols-2 gap-4">
              <div class="p-6 bg-blue-50/30 rounded-3xl border border-blue-100">
-                <p class="text-[10px] font-black text-blue-400 uppercase mb-1 text-center">Height</p>
+                <p class="text-sm font-black text-blue-400 uppercase mb-1 text-center">Height</p>
                 <h4 class="text-2xl font-black text-blue-950 text-center">{selectedCheckup.height || '--'} m</h4>
              </div>
              <div class="p-6 bg-blue-50/30 rounded-3xl border border-blue-100">
-                <p class="text-[10px] font-black text-blue-400 uppercase mb-1 text-center">Weight</p>
+                <p class="text-sm font-black text-blue-400 uppercase mb-1 text-center">Weight</p>
                 <h4 class="text-2xl font-black text-blue-950 text-center">{selectedCheckup.weight || '--'} kg</h4>
              </div>
           </div>
 
           <div class="flex justify-between items-center p-6 bg-blue-50/50 rounded-3xl border border-blue-200">
-            <div><p class="text-[10px] font-black text-blue-400 uppercase mb-1">BMI Score</p><h4 class="text-3xl font-black text-blue-950">{bmi.bmi}</h4></div>
-            <span class="px-4 py-2 rounded-xl text-white font-black text-[10px] uppercase" style="background: {bmi.color}">{bmi.status}</span>
+            <div><p class="text-sm font-black text-blue-400 uppercase mb-1">BMI Score</p><h4 class="text-3xl font-black text-blue-950">{bmi.bmi}</h4></div>
+            <span class="px-4 py-2 rounded-xl text-white font-black text-sm uppercase" style="background: {bmi.color}">{bmi.status}</span>
           </div>
         </div>
         

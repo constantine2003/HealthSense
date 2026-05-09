@@ -27,7 +27,7 @@
   
   <div class="flex justify-between items-center mb-16">
     <div class="flex flex-col">
-      <h2 class="text-blue-900/40 font-black tracking-[0.3em] text-[10px] uppercase mb-1">HealthSense Protocol</h2>
+      <h2 class="text-blue-900/40 font-black tracking-[0.3em] text-sm uppercase mb-1">HealthSense Protocol</h2>
       <div class="flex items-center gap-2">
         <div class="w-2 h-2 rounded-full bg-green-500 animate-pulse"></div>
         <span class="text-blue-900 font-bold text-xs uppercase tracking-widest">Active Session</span>
@@ -36,7 +36,7 @@
     
     <button 
       on:click={onLogout}
-      class="px-6 py-3 bg-white border border-blue-100 text-blue-400 font-black text-[10px] uppercase tracking-widest rounded-2xl shadow-sm active:scale-95 transition-transform"
+      class="px-6 py-3 bg-white border border-blue-100 text-blue-400 font-black text-sm uppercase tracking-widest rounded-2xl shadow-sm active:scale-95 transition-transform"
     >
       Logout
     </button>
@@ -89,7 +89,7 @@
   </div>
 
   <div class="pt-10 flex justify-center opacity-30">
-    <span class="text-[10px] font-black uppercase tracking-[0.5em] text-blue-900">HealthSense v1.0</span>
+    <span class="text-sm font-black uppercase tracking-[0.5em] text-blue-900">HealthSense v1.0</span>
   </div>
 
 </div>

@@ -130,7 +130,7 @@
   {/if}
 
   {#if !$isOnline}
-    <div class="fixed top-0 inset-x-0 z-50 flex items-center justify-center gap-2 bg-amber-500 text-amber-950 text-[10px] font-black uppercase tracking-[0.2em] py-1 pointer-events-none">
+    <div class="fixed top-0 inset-x-0 z-50 flex items-center justify-center gap-2 bg-amber-500 text-amber-950 text-sm font-black uppercase tracking-[0.2em] py-1 pointer-events-none">
       <span>📶</span><span>Offline Mode — data will sync when connected</span>
     </div>
   {/if}

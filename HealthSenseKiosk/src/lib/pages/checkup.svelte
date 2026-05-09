@@ -17,6 +17,7 @@
     send as wsSend,
     type SensorKey,
   } from '../stores/esp32Store';
+  import WeightCalibration from './WeightCalibration.svelte';
 
   export let onFinish: (data: any) => void;
   export let onCancel: () => void;
@@ -84,6 +85,7 @@
   }
 
   let segCalibMode = false;
+  let weightCalibMode = false;
   let activeDigit: DigitName = 'sys0';
   let activeSeg: string | null = null;        // "sys0:a" format
   let allSegs: AllSegs = defaultSegPositions();
@@ -666,20 +668,20 @@
   
   <div class="flex items-center justify-between mb-12">
     <button on:click={onCancel} class="text-blue-900/30 font-black uppercase tracking-widest text-xs active:scale-95">Exit</button>
-    <div class="flex gap-1">
+    <div class="flex gap-2">
       {#each ['weight', 'height', 'temp', 'spo2', 'bp', 'review'] as p}
-        <div class="h-1.5 w-8 rounded-full {currentPhase === p ? 'bg-blue-600' : 'bg-blue-100'} transition-all duration-500"></div>
+        <div class="h-4 w-4 rounded-md {currentPhase === p ? 'bg-blue-600' : 'bg-blue-100'} transition-all duration-500"></div>
       {/each}
     </div>
     <div class="flex flex-col items-end gap-1">
-      <span class="text-blue-600 font-black text-[10px] uppercase">
+      <span class="text-blue-600 font-black text-sm uppercase">
         {currentPhase === 'review'
           ? 'Summary'
           : mode === 'single'
             ? `${phases[currentPhase as keyof typeof phases].title} — Single Reading`
             : `Step ${Object.keys(phases).indexOf(currentPhase) + 1} of 5`}
       </span>
-      <span class="inline-flex items-center gap-1.5 px-2 py-0.5 rounded-full text-[9px] font-black uppercase tracking-widest text-white {statusLabel.color} transition-colors duration-500">
+      <span class="inline-flex items-center gap-1.5 px-2 py-0.5 rounded-full text-xs font-black uppercase tracking-widest text-white {statusLabel.color} transition-colors duration-500">
         <span class="w-1.5 h-1.5 rounded-full bg-white/60 animate-pulse"></span>
         {statusLabel.text}
       </span>
@@ -719,24 +721,24 @@
           {#if $bpLiveReading}
             <div in:fade class="grid grid-cols-2 gap-4 mt-8">
               <div class="px-5 py-4 rounded-3xl bg-blue-50 min-w-[9rem]">
-                <p class="text-[10px] font-black uppercase tracking-widest text-blue-400">Systolic</p>
+                <p class="text-sm font-black uppercase tracking-widest text-blue-400">Systolic</p>
                 <p class="text-4xl font-black text-blue-950 tabular-nums">{$bpLiveReading.sys ?? '--'}</p>
-                <p class="text-[10px] text-blue-400 font-bold mt-0.5">mmHg</p>
+                <p class="text-sm text-blue-400 font-bold mt-0.5">mmHg</p>
               </div>
               <div class="px-5 py-4 rounded-3xl bg-blue-50 min-w-[9rem]">
-                <p class="text-[10px] font-black uppercase tracking-widest text-blue-400">Diastolic</p>
+                <p class="text-sm font-black uppercase tracking-widest text-blue-400">Diastolic</p>
                 <p class="text-4xl font-black text-blue-950 tabular-nums">{$bpLiveReading.dia ?? '--'}</p>
-                <p class="text-[10px] text-blue-400 font-bold mt-0.5">mmHg</p>
+                <p class="text-sm text-blue-400 font-bold mt-0.5">mmHg</p>
               </div>
             </div>
-            <p class="text-[10px] text-blue-300 font-bold uppercase tracking-widest mt-3">Waiting for reading to finish…</p>
+            <p class="text-sm text-blue-300 font-bold uppercase tracking-widest mt-3">Waiting for reading to finish…</p>
           {/if}
 
           <!-- ── Live camera preview during scanning ── -->
           {#if $bpDebugFrame}
             <div in:fade class="mt-4 rounded-2xl overflow-hidden border border-blue-200 bg-blue-50 max-w-[280px] mx-auto">
               {#if $bpDebugFrame.error}
-                <div class="px-3 py-2 text-[11px] font-bold text-red-600 bg-red-50 border-b border-red-200">
+                <div class="px-3 py-2 text-sm font-bold text-red-600 bg-red-50 border-b border-red-200">
                   ⚠ {$bpDebugFrame.error}
                 </div>
               {/if}
@@ -762,7 +764,7 @@
             {@const lbs = ($weightLiveReading * 2.20462).toFixed(1)}
             <div in:fade class="mt-8 flex flex-col items-center gap-2">
               <div class="px-8 py-6 rounded-3xl bg-blue-50 text-center min-w-[14rem]">
-                <p class="text-[10px] font-black uppercase tracking-widest text-blue-400 mb-1">Live Reading</p>
+                <p class="text-sm font-black uppercase tracking-widest text-blue-400 mb-1">Live Reading</p>
                 <p class="text-6xl font-[1000] text-blue-950 tabular-nums leading-none">{$weightLiveReading.toFixed(1)}</p>
                 <p class="text-lg font-black text-blue-400 mt-1">kg</p>
               </div>
@@ -774,7 +776,7 @@
           <!-- Tare button -->
           <button
             on:click={() => wsSend({ command: 'tare', sensor: 'weight' })}
-            class="mt-6 px-6 py-3 rounded-2xl border-2 border-blue-200 bg-white text-blue-400 text-[11px] font-black uppercase tracking-widest active:bg-blue-50 transition-colors"
+            class="mt-6 px-6 py-3 rounded-2xl border-2 border-blue-200 bg-white text-blue-400 text-sm font-black uppercase tracking-widest active:bg-blue-50 transition-colors"
             title="Zero out the scale if it shows a non-zero reading when empty"
           >
             ⚖️ Tare / Zero Scale
@@ -791,25 +793,25 @@
           {#if currentPhase === 'spo2'}
             <div class="grid grid-cols-2 gap-4 mt-2">
               <div class="px-5 py-4 rounded-3xl bg-blue-50 min-w-[11rem]">
-                <p class="text-[10px] font-black uppercase tracking-widest text-blue-400">SpO2</p>
+                <p class="text-sm font-black uppercase tracking-widest text-blue-400">SpO2</p>
                 <p class="text-3xl font-black text-blue-950">{results.spo2 > 0 ? `${results.spo2}%` : '--'}</p>
               </div>
               <div class="px-5 py-4 rounded-3xl bg-blue-50 min-w-[11rem]">
-                <p class="text-[10px] font-black uppercase tracking-widest text-blue-400">Heart Rate</p>
+                <p class="text-sm font-black uppercase tracking-widest text-blue-400">Heart Rate</p>
                 <p class="text-3xl font-black text-blue-950">{results.heartRate > 0 ? `${results.heartRate} bpm` : '--'}</p>
               </div>
             </div>
           {:else if currentPhase === 'bp'}
             <div class="grid grid-cols-2 gap-4 mt-2">
               <div class="px-5 py-4 rounded-3xl bg-blue-50 min-w-[11rem]">
-                <p class="text-[10px] font-black uppercase tracking-widest text-blue-400">Systolic</p>
+                <p class="text-sm font-black uppercase tracking-widest text-blue-400">Systolic</p>
                 <p class="text-3xl font-black text-blue-950">{bpSys > 0 ? bpSys : '--'}</p>
-                <p class="text-[10px] text-blue-400 font-bold mt-0.5">mmHg</p>
+                <p class="text-sm text-blue-400 font-bold mt-0.5">mmHg</p>
               </div>
               <div class="px-5 py-4 rounded-3xl bg-blue-50 min-w-[11rem]">
-                <p class="text-[10px] font-black uppercase tracking-widest text-blue-400">Diastolic</p>
+                <p class="text-sm font-black uppercase tracking-widest text-blue-400">Diastolic</p>
                 <p class="text-3xl font-black text-blue-950">{bpDia > 0 ? bpDia : '--'}</p>
-                <p class="text-[10px] text-blue-400 font-bold mt-0.5">mmHg</p>
+                <p class="text-sm text-blue-400 font-bold mt-0.5">mmHg</p>
               </div>
             </div>
             <p class="mt-4 text-xs text-blue-900/30 font-bold uppercase tracking-widest">Remove the cuff and set it aside</p>
@@ -818,7 +820,7 @@
             {@const wLbs = (wKg * 2.20462).toFixed(1)}
             <div class="flex flex-col items-center gap-2 mt-2">
               <div class="px-8 py-5 rounded-3xl bg-blue-50 text-center min-w-[14rem]">
-                <p class="text-[10px] font-black uppercase tracking-widest text-blue-400 mb-1">Weight</p>
+                <p class="text-sm font-black uppercase tracking-widest text-blue-400 mb-1">Weight</p>
                 <p class="text-5xl font-[1000] text-blue-950 tabular-nums leading-none">{wKg > 0 ? wKg.toFixed(1) : '--'}</p>
                 <p class="text-lg font-black text-blue-400 mt-1">kg</p>
               </div>
@@ -862,7 +864,7 @@
           <p class="text-sm text-blue-900/40 font-bold uppercase tracking-widest mb-8">OCR timed out — enter reading manually</p>
           <div class="grid grid-cols-2 gap-4 w-full">
             <div class="flex flex-col gap-2">
-              <label for="bp-sys" class="text-[10px] font-black uppercase tracking-widest text-blue-400">Systolic (SYS)</label>
+              <label for="bp-sys" class="text-sm font-black uppercase tracking-widest text-blue-400">Systolic (SYS)</label>
               <input
                 id="bp-sys"
                 type="number" min="60" max="250"
@@ -872,7 +874,7 @@
               />
             </div>
             <div class="flex flex-col gap-2">
-              <label for="bp-dia" class="text-[10px] font-black uppercase tracking-widest text-blue-400">Diastolic (DIA)</label>
+              <label for="bp-dia" class="text-sm font-black uppercase tracking-widest text-blue-400">Diastolic (DIA)</label>
               <input
                 id="bp-dia"
                 type="number" min="40" max="150"
@@ -905,7 +907,7 @@
           <!-- Calibrate shortcut -->
           <button
             on:click={openSegCalib}
-            class="mt-8 px-5 py-2.5 rounded-2xl border-2 border-orange-300 bg-orange-50 text-orange-600 text-[11px] font-black uppercase tracking-widest active:scale-95 transition-transform"
+            class="mt-8 px-5 py-2.5 rounded-2xl border-2 border-orange-300 bg-orange-50 text-orange-600 text-sm font-black uppercase tracking-widest active:scale-95 transition-transform"
           >
             🎯 Calibrate Camera
           </button>
@@ -929,6 +931,13 @@
               <p class="text-base text-blue-900/60 font-bold">Press Start and hold steady until done</p>
             </div>
           </div>
+          <!-- Calibrate shortcut -->
+          <button
+            on:click={() => { weightCalibMode = true; }}
+            class="mt-8 px-5 py-2.5 rounded-2xl border-2 border-blue-300 bg-blue-50 text-blue-600 text-sm font-black uppercase tracking-widest active:scale-95 transition-transform"
+          >
+            ⚙️ Calibrate Scale
+          </button>
         </div>
       {:else}
         <div in:fade class="flex flex-col items-center">
@@ -1014,47 +1023,57 @@
         {mode === 'idle' ? 'Tap a sensor to take an individual reading, or start a full session' : 'Review your measurements'}
       </p>
       
-      <div class="grid grid-cols-1 gap-3 overflow-y-auto pr-2 custom-scrollbar">
+      <div class="grid grid-cols-2 gap-4 overflow-y-auto pr-2 custom-scrollbar">
         {#each Object.entries(phases) as [key, config]}
           {@const k = key as SensorPhase}
           {@const hasResult = k === 'spo2'
             ? (results.spo2 > 0 || results.heartRate > 0)
             : (results[k] !== 0 && results[k] !== "0/0")}
-          <div class="p-5 bg-white rounded-4xl border border-blue-50 flex justify-between items-center shadow-sm {!hasResult ? 'opacity-60' : ''}">
-            <div class="flex flex-col">
-              <span class="font-black text-blue-400 uppercase text-[10px] tracking-widest">{config.title}</span>
+          <div class="aspect-square flex flex-col justify-between p-5 bg-white rounded-4xl border border-blue-50 shadow-sm {!hasResult ? 'opacity-60' : ''}">
+            <!-- Top: icon + label -->
+            <div>
+              <span class="text-3xl">{config.icon}</span>
+              <span class="block font-black text-blue-400 uppercase text-xs tracking-widest mt-1">{config.title}</span>
+            </div>
+
+            <!-- Middle: value -->
+            <div class="flex-1 flex items-center">
               {#if k === 'spo2'}
-                <span class="text-xl font-black text-blue-950">
-                  {hasResult ? `${results.spo2 || '--'}% / ${results.heartRate || '--'} bpm` : '--'}
-                </span>
+                <div class="flex flex-col leading-tight">
+                  <span class="text-2xl font-black text-blue-950">
+                    {hasResult ? `${results.spo2 || '--'}%` : '--'}
+                  </span>
+                  <span class="text-sm font-black text-blue-900/40">
+                    {hasResult ? `${results.heartRate || '--'} bpm` : ''}
+                  </span>
+                </div>
               {:else}
-                <span class="text-2xl font-black text-blue-950">
+                <span class="text-2xl font-black text-blue-950 leading-tight">
                   {hasResult ? results[k] : '--'}
-                  <span class="text-sm text-blue-900/30 font-black">{config.unit}</span>
+                  <span class="text-sm text-blue-900/30 font-black"> {config.unit}</span>
                 </span>
               {/if}
             </div>
 
-            <div class="flex gap-2">
+            <!-- Bottom: button -->
+            <div>
               {#if mode === 'idle'}
-                <!-- Individual reading mode: each sensor has its own Measure button -->
                 <button
                   type="button"
                   on:click={() => measureSingle(k)}
                   aria-label="Measure {config.title}"
-                  class="px-4 py-3 bg-blue-600 text-white rounded-2xl font-black uppercase text-[10px] tracking-widest active:scale-90 transition-transform"
+                  class="w-full py-2.5 bg-blue-600 text-white rounded-2xl font-black uppercase text-xs tracking-widest active:scale-90 transition-transform"
                 >
                   Measure
                 </button>
               {:else}
-                <!-- Full-checkup mode: redo individual sensor -->
                 <button
                   type="button"
                   on:click={() => redoSpecific(k)}
                   aria-label="Redo {config.title} test"
-                  class="p-4 bg-blue-50 text-blue-600 rounded-2xl active:scale-90 transition-transform"
+                  class="w-full flex items-center justify-center py-2.5 bg-blue-50 text-blue-600 rounded-2xl active:scale-90 transition-transform"
                 >
-                  <svg xmlns="http://www.w3.org/2000/svg" class="w-6 h-6" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                  <svg xmlns="http://www.w3.org/2000/svg" class="w-5 h-5" fill="none" viewBox="0 0 24 24" stroke="currentColor">
                     <path stroke-linecap="round" stroke-linejoin="round" stroke-width="3" d="M4 4v5h.582m15.356 2A8.001 8.001 0 004.582 9m0 0H9m11 11v-5h-.581m0 0a8.003 8.003 0 01-15.357-2m15.357 2H15" />
                   </svg>
                 </button>
@@ -1395,6 +1414,11 @@
       </div>
     </div>
   </div>
+{/if}
+
+<!-- ── Weight Scale Calibration Overlay ──────────────────────────────────── -->
+{#if weightCalibMode}
+  <WeightCalibration onClose={() => { weightCalibMode = false; }} />
 {/if}
 
 

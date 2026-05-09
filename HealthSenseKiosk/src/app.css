@@ -1,6 +1,11 @@
 @import "tailwindcss";
 
 /* Kiosk-specific base styles */
+:global(html) {
+  /* Scale everything 2x for kiosk readability on 1080×1920 display */
+  font-size: 200%;
+}
+
 :global(html), body {
   /* Existing styles */
   @apply bg-slate-950 text-white overflow-hidden select-none;

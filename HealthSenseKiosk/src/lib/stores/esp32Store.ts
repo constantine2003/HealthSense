@@ -96,6 +96,15 @@ export const bpLiveReading = writable<{ sys: number; dia: number } | null>(null)
 /** Live weight reading from scale while measuring (kg, updated from progress packets) */
 export const weightLiveReading = writable<number | null>(null);
 
+/** Raw HX711 value returned by weight_raw calibration command (tared, no scale factor) */
+export const weightRawReading = writable<number | null>(null);
+
+/** Saved weight scale factor loaded from server config */
+export const weightScaleLoaded = writable<number | null>(null);
+
+/** True when a weight_save_config was acknowledged by the server */
+export const weightConfigSaved = writable<boolean>(false);
+
 /** Debug camera frame from BP OCR — annotated JPEG (base64) + per-band raw text */
 export interface SegStatusEntry {
   name:       string;
@@ -313,6 +322,21 @@ function handleMessage(msg: BridgeMessage): void {
 
     case 'bp_segments_loaded': {
       bpSegmentsLoaded.set((msg.config as Record<string, unknown>) ?? null);
+      break;
+    }
+
+    case 'weight_raw': {
+      weightRawReading.set(Number(msg.value));
+      break;
+    }
+
+    case 'weight_config_loaded': {
+      weightScaleLoaded.set(msg.scaleFactor != null ? Number(msg.scaleFactor) : null);
+      break;
+    }
+
+    case 'weight_config_saved': {
+      weightConfigSaved.set(true);
       break;
     }
 

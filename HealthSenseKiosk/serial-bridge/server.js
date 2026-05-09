@@ -34,7 +34,7 @@ import { URL } from 'url';
 import { spawn } from 'child_process';
 import { resolve, dirname } from 'path';
 import { fileURLToPath } from 'url';
-import { readFileSync, writeFileSync, unlinkSync } from 'fs';
+import { readFileSync, writeFileSync, unlinkSync, existsSync } from 'fs';
 import { tmpdir } from 'os';
 import { createInterface as createReadlineInterface } from 'readline';
 import bcrypt from 'bcryptjs';
@@ -77,6 +77,34 @@ const BP_CONFIG = {
   // this ensures the poll loop always continues regardless.
   PROCESS_TIMEOUT_MS: 90000,  // 90s — accommodates EasyOCR first-run model download (~45MB)
 };
+
+// ─── Weight scale config ──────────────────────────────────────────────────────
+
+const WEIGHT_CONFIG_PATH = resolve(__dirname, '../weight_config.json');
+
+/** Read saved weight scale factor (returns null if not yet calibrated). */
+function loadWeightConfig() {
+  try {
+    if (!existsSync(WEIGHT_CONFIG_PATH)) return null;
+    return JSON.parse(readFileSync(WEIGHT_CONFIG_PATH, 'utf8'));
+  } catch { return null; }
+}
+
+/** Persist weight scale factor and push it to the ESP32 if connected. */
+function saveWeightConfig(scaleFactor) {
+  writeFileSync(WEIGHT_CONFIG_PATH, JSON.stringify({ scaleFactor }, null, 2));
+  sendToESP32({ command: 'set_weight_scale', value: scaleFactor });
+  log(`Weight scale factor saved: ${scaleFactor}`);
+}
+
+/** Apply saved weight config to the ESP32 (call after ESP32 connects). */
+function applyWeightConfig() {
+  const cfg = loadWeightConfig();
+  if (cfg && cfg.scaleFactor) {
+    sendToESP32({ command: 'set_weight_scale', value: cfg.scaleFactor });
+    log(`Applied saved weight scale factor: ${cfg.scaleFactor}`);
+  }
+}
 
 // ─── Globals ──────────────────────────────────────────────────────────────────
 
@@ -461,6 +489,8 @@ function connectSerial() {
     serialConnected = true;
     log(`Serial port ${CONFIG.SERIAL_PORT} open.`);
     broadcast({ type: 'bridge', event: 'esp32Connected' });
+    // Re-apply saved weight scale factor so calibration persists across reboots
+    setTimeout(applyWeightConfig, 1500); // small delay to let ESP32 finish setup()
   });
 
   // ── Incoming data from ESP32 ──
@@ -853,6 +883,23 @@ function startWebSocketServer() {
         // Cancel also stops any active BP OCR loop before forwarding to ESP32
         if ((msg.command === 'cancel' || msg.command === 'fp_cancel') && bpActive) {
           stopBpMeasurement();
+        }
+
+        // Weight calibration: load saved config
+        if (msg.command === 'weight_load_config') {
+          const cfg = loadWeightConfig();
+          ws.send(JSON.stringify({ type: 'weight_config_loaded', scaleFactor: cfg?.scaleFactor ?? null }));
+          return;
+        }
+
+        // Weight calibration: save config + push to ESP32
+        if (msg.command === 'weight_save_config') {
+          const scaleFactor = Number(msg.scaleFactor);
+          if (scaleFactor > 0) {
+            saveWeightConfig(scaleFactor);
+            ws.send(JSON.stringify({ type: 'weight_config_saved', scaleFactor }));
+          }
+          return;
         }
 
         const sent = sendToESP32(msg);

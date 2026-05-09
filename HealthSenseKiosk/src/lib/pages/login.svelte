@@ -154,7 +154,7 @@
     <div class="w-full space-y-6">
       <div class="space-y-2">
         <div class="space-y-2">
-          <span class="ml-4 text-[10px] font-black uppercase tracking-widest text-blue-400">Username</span>
+          <span class="ml-4 text-sm font-black uppercase tracking-widest text-blue-400">Username</span>
           <input
             type="text"
             bind:value={username}
@@ -166,7 +166,7 @@
       </div>
 
       <div class="space-y-2">
-        <span class="ml-4 text-[10px] font-black uppercase tracking-widest text-blue-400">Password</span>
+        <span class="ml-4 text-sm font-black uppercase tracking-widest text-blue-400">Password</span>
         <div class="relative w-full h-20">
           <input
             type={showPassword ? 'text' : 'password'}
@@ -204,7 +204,7 @@
 
     <div class="flex items-center gap-4 w-full my-12">
       <div class="h-px flex-1 bg-blue-900/10"></div>
-      <span class="text-[10px] font-black text-blue-900/30 uppercase tracking-widest">OR</span>
+      <span class="text-sm font-black text-blue-900/30 uppercase tracking-widest">OR</span>
       <div class="h-px flex-1 bg-blue-900/10"></div>
     </div>
 
@@ -294,7 +294,7 @@
           {/if}
         </h3>
 
-        <p class="text-blue-900/40 font-bold text-[10px] uppercase tracking-[0.2em] mb-10">
+        <p class="text-blue-900/40 font-bold text-sm uppercase tracking-[0.2em] mb-10">
           {#if scanMessage}
             {scanMessage}
           {:else}
@@ -304,15 +304,15 @@
 
         {#if scanStatus === 'noMatch' || scanStatus === 'error'}
           <div class="flex gap-3">
-            <button on:click={startScan} class="px-6 py-2 rounded-full bg-blue-600 text-white font-black uppercase text-[10px] tracking-widest active:bg-blue-700">
+            <button on:click={startScan} class="px-6 py-2 rounded-full bg-blue-600 text-white font-black uppercase text-sm tracking-widest active:bg-blue-700">
               Try Again
             </button>
-            <button on:click={closeFingerprint} class="px-6 py-2 rounded-full bg-slate-100 text-slate-400 font-black uppercase text-[10px] tracking-widest active:bg-red-50 active:text-red-400">
+            <button on:click={closeFingerprint} class="px-6 py-2 rounded-full bg-slate-100 text-slate-400 font-black uppercase text-sm tracking-widest active:bg-red-50 active:text-red-400">
               Cancel
             </button>
           </div>
         {:else if scanStatus !== 'success'}
-          <button on:click={closeFingerprint} class="px-6 py-2 rounded-full bg-slate-100 text-slate-400 font-black uppercase text-[10px] tracking-widest active:bg-red-50 active:text-red-400 transition-colors">
+          <button on:click={closeFingerprint} class="px-6 py-2 rounded-full bg-slate-100 text-slate-400 font-black uppercase text-sm tracking-widest active:bg-red-50 active:text-red-400 transition-colors">
             Cancel
           </button>
         {/if}
