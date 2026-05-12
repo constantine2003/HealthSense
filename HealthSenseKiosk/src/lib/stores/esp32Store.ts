@@ -96,14 +96,24 @@ export const bpLiveReading = writable<{ sys: number; dia: number } | null>(null)
 /** Live weight reading from scale while measuring (kg, updated from progress packets) */
 export const weightLiveReading = writable<number | null>(null);
 
-/** Raw HX711 value returned by weight_raw calibration command (tared, no scale factor) */
-export const weightRawReading = writable<number | null>(null);
+/** Body composition data from the last Eufy cloud reading */
+export interface EufyBodyComposition {
+  body_fat:      number | null;
+  muscle_mass:   number | null;
+  bmi:           number | null;
+  water:         number | null;
+  bone_mass:     number | null;
+  bmr:           number | null;
+  body_age:      number | null;
+  visceral_fat:  number | null;
+  protein_ratio: number | null;
+  measured_at:   number | null;
+  source:        string | null;
+}
+export const eufyBodyComposition = writable<EufyBodyComposition | null>(null);
 
-/** Saved weight scale factor loaded from server config */
-export const weightScaleLoaded = writable<number | null>(null);
-
-/** True when a weight_save_config was acknowledged by the server */
-export const weightConfigSaved = writable<boolean>(false);
+/** Eufy credentials configured status from bridge */
+export const eufyCredentialsConfigured = writable<boolean | null>(null);
 
 /** Debug camera frame from BP OCR — annotated JPEG (base64) + per-band raw text */
 export interface SegStatusEntry {
@@ -325,24 +335,26 @@ function handleMessage(msg: BridgeMessage): void {
       break;
     }
 
-    case 'weight_raw': {
-      weightRawReading.set(Number(msg.value));
-      break;
-    }
-
-    case 'weight_config_loaded': {
-      weightScaleLoaded.set(msg.scaleFactor != null ? Number(msg.scaleFactor) : null);
-      break;
-    }
-
-    case 'weight_config_saved': {
-      weightConfigSaved.set(true);
-      break;
-    }
-
     case 'reading': {
       measureProgress.set(100);
       const readSensor = msg.sensor as SensorKey;
+
+      // If this is a cloud weight reading, capture body composition extras
+      if (readSensor === 'weight' && msg.source === 'eufy_cloud') {
+        eufyBodyComposition.set({
+          body_fat:      msg.body_fat      ?? null,
+          muscle_mass:   msg.muscle_mass   ?? null,
+          bmi:           msg.bmi           ?? null,
+          water:         msg.water         ?? null,
+          bone_mass:     msg.bone_mass     ?? null,
+          bmr:           msg.bmr           ?? null,
+          body_age:      msg.body_age      ?? null,
+          visceral_fat:  msg.visceral_fat  ?? null,
+          protein_ratio: msg.protein_ratio ?? null,
+          measured_at:   msg.measured_at   ?? null,
+          source:        'eufy_cloud',
+        });
+      }
 
       let value: number | string | { spo2: number; heartRate: number } = msg.value as number | string;
       // MAX30102 emits a combined payload for the 'spo2' key:
@@ -418,6 +430,16 @@ function handleMessage(msg: BridgeMessage): void {
 
     case 'fp_noMatch': {
       fingerprintEvent.set({ type: 'fp_noMatch' });
+      break;
+    }
+
+    case 'eufy_credentials_saved': {
+      if (msg.ok) eufyCredentialsConfigured.set(true);
+      break;
+    }
+
+    case 'eufy_credentials_status': {
+      eufyCredentialsConfigured.set(!!(msg.configured));
       break;
     }
 

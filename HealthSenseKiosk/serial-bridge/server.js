@@ -66,45 +66,47 @@ const CONFIG = {
 
 // ─── BP Camera OCR configuration ─────────────────────────────────────────────
 
+const BP_USE_OPENAI = process.env.BP_USE_OPENAI === '1';
+
 const BP_CONFIG = {
-  // Path to the Python OCR script (relative to this file's directory)
+  // When BP_USE_OPENAI=1 use the Vision API script; otherwise use 7-seg OCR.
   OCR_SCRIPT: process.env.BP_OCR_SCRIPT
-    || resolve(__dirname, '../bp-camera/bp_ocr.py'),
-  POLL_INTERVAL_MS: 100,    // reschedule almost immediately after each OCR result
+    || resolve(__dirname, BP_USE_OPENAI ? '../bp-camera/bp_openai.py' : '../bp-camera/bp_ocr.py'),
+  // OpenAI Vision: 4 s between calls to avoid excessive API spend.
+  // Legacy 7-seg OCR: near-immediate reschedule.
+  POLL_INTERVAL_MS: BP_USE_OPENAI ? 4000 : 100,
   TIMEOUT_MS: 90000,         // give up after 90 s
-  // Hard cap on how long a single OCR invocation may run. Camera capture
-  // (picamera2) can hang indefinitely if the sensor is misconfigured;
-  // this ensures the poll loop always continues regardless.
-  PROCESS_TIMEOUT_MS: 90000,  // 90s — accommodates EasyOCR first-run model download (~45MB)
+  PROCESS_TIMEOUT_MS: 30000, // 30 s per invocation (Vision is fast; no model download needed)
 };
 
-// ─── Weight scale config ──────────────────────────────────────────────────────
+// ─── Height sensor platform offset ───────────────────────────────────────────
+// The kiosk platform was raised 5 cm. Add this offset (in meters) to every
+// height reading from the ESP32 so reported values match the user's real height.
+const HEIGHT_PLATFORM_OFFSET_M = -0.10;
 
-const WEIGHT_CONFIG_PATH = resolve(__dirname, '../weight_config.json');
+// ─── Eufy BLE script path ─────────────────────────────────────────────────────
 
-/** Read saved weight scale factor (returns null if not yet calibrated). */
-function loadWeightConfig() {
+const EUFY_SCRIPT       = resolve(__dirname, 'eufy_scale.py');
+const EUFY_CLOUD_SCRIPT = resolve(__dirname, 'eufy_cloud.py');
+const EUFY_CREDS_PATH   = resolve(__dirname, 'eufy_credentials.json');
+
+/** Read eufy credentials file. Returns {} if missing/corrupt. */
+function loadEufyCredentials() {
   try {
-    if (!existsSync(WEIGHT_CONFIG_PATH)) return null;
-    return JSON.parse(readFileSync(WEIGHT_CONFIG_PATH, 'utf8'));
-  } catch { return null; }
+    if (!existsSync(EUFY_CREDS_PATH)) return {};
+    return JSON.parse(readFileSync(EUFY_CREDS_PATH, 'utf8'));
+  } catch { return {}; }
 }
 
-/** Persist weight scale factor and push it to the ESP32 if connected. */
-function saveWeightConfig(scaleFactor) {
-  writeFileSync(WEIGHT_CONFIG_PATH, JSON.stringify({ scaleFactor }, null, 2));
-  sendToESP32({ command: 'set_weight_scale', value: scaleFactor });
-  log(`Weight scale factor saved: ${scaleFactor}`);
+/** Persist partial credential fields (merges with existing). */
+function saveEufyCredentials(fields) {
+  const existing = loadEufyCredentials();
+  const merged = { ...existing, ...fields };
+  writeFileSync(EUFY_CREDS_PATH, JSON.stringify(merged, null, 2));
 }
 
-/** Apply saved weight config to the ESP32 (call after ESP32 connects). */
-function applyWeightConfig() {
-  const cfg = loadWeightConfig();
-  if (cfg && cfg.scaleFactor) {
-    sendToESP32({ command: 'set_weight_scale', value: cfg.scaleFactor });
-    log(`Applied saved weight scale factor: ${cfg.scaleFactor}`);
-  }
-}
+// ─── Weight scale config ──────────────────────────────────────────────────────
+// (Load cell / HX711 support removed; weight is now handled by Eufy BLE/Cloud)
 
 // ─── Globals ──────────────────────────────────────────────────────────────────
 
@@ -134,6 +136,18 @@ let bpCalibrateActive  = false;
 let bpCalibrateTimer   = null;
 /** @type {import('child_process').ChildProcess | null} */
 let bpCalibrateProcess = null;
+
+// ─── Eufy BLE scale state ─────────────────────────────────────────────────────
+
+/** @type {import('child_process').ChildProcess | null} */
+let eufyProcess = null;
+let eufyActive  = false;
+
+// ─── Eufy Cloud scale state ───────────────────────────────────────────────────
+
+/** @type {import('child_process').ChildProcess | null} */
+let eufyCloudProcess = null;
+let eufyCloudActive  = false;
 
 const ENV_PATH = resolve(__dirname, '.env');
 
@@ -234,7 +248,9 @@ function runBpOcr() {
 
   emitProgress();
 
-  const proc = spawn('python3', [BP_CONFIG.OCR_SCRIPT]);
+  const proc = spawn('python3', [BP_CONFIG.OCR_SCRIPT], {
+    env: { ...process.env, OPENAI_API_KEY: process.env.OPENAI_API_KEY ?? '' },
+  });
   bpOcrProcess = proc;
   let stdout = '';
 
@@ -432,6 +448,157 @@ function stopBpCalibrate() {
   log('BP calibration: stopped');
 }
 
+// ─── Eufy BLE scale helpers ───────────────────────────────────────────────────
+
+/**
+ * Spawn eufy_scale.py, pipe its stdout JSON lines to broadcast(), and stop
+ * automatically once a {"type":"reading"} or {"type":"error"} line arrives.
+ * @param {string|null} macOverride  Optional MAC address (skip scan).
+ */
+function startEufyMeasurement(macOverride = null) {
+  stopEufyMeasurement();  // clean up any stale process
+
+  eufyActive = true;
+  const args = ['python3', EUFY_SCRIPT];
+  if (macOverride) args.push('--mac', macOverride);
+
+  log(`Eufy BLE: starting measurement (${macOverride ? macOverride : 'scan mode'})`);
+  broadcast({ type: 'progress', sensor: 'eufy_weight', progress: 0 });
+
+  const proc = spawn('python3', [EUFY_SCRIPT, ...(macOverride ? ['--mac', macOverride] : [])]);
+  eufyProcess = proc;
+
+  const rl = createReadlineInterface({ input: proc.stdout, crlfDelay: Infinity });
+  rl.on('line', (line) => {
+    let msg;
+    try { msg = JSON.parse(line); } catch { return; }
+    // Re-broadcast as-is — progress/reading/error/log all use standard format
+    broadcast(msg);
+    // Auto-stop after terminal message
+    if (msg.type === 'reading' || msg.type === 'error') {
+      stopEufyMeasurement();
+    }
+  });
+
+  proc.stderr.on('data', (d) => warn(`Eufy BLE stderr: ${d.toString().trim()}`));
+
+  proc.on('close', (code) => {
+    eufyProcess = null;
+    if (eufyActive) {
+      eufyActive = false;
+      if (code !== 0) {
+        broadcast({ type: 'error', sensor: 'eufy_weight', message: `BLE process exited (code ${code})` });
+      }
+    }
+    log(`Eufy BLE: process exited (code ${code})`);
+  });
+
+  proc.on('error', (e) => {
+    eufyProcess = null;
+    eufyActive = false;
+    warn(`Eufy BLE process error: ${e.message}`);
+    broadcast({ type: 'error', sensor: 'eufy_weight', message: `Could not start BLE script: ${e.message}` });
+  });
+}
+
+function stopEufyMeasurement() {
+  eufyActive = false;
+  if (eufyProcess) {
+    try { eufyProcess.kill(); } catch (_) {}
+    eufyProcess = null;
+    log('Eufy BLE: measurement stopped');
+  }
+}
+
+// ─── Eufy Cloud helpers ───────────────────────────────────────────────────────
+
+/**
+ * Start a cloud weight measurement via eufy_cloud.py.
+ * @param {boolean} pollOnly  If true, just fetch last stored reading (no wait).
+ */
+function startEufyCloudMeasurement(pollOnly = false) {
+  stopEufyCloudMeasurement();  // clean up any stale process
+
+  const creds = loadEufyCredentials();
+  if (!creds.email || !creds.password) {
+    broadcast({
+      type: 'error', sensor: 'eufy_cloud_weight',
+      message: 'EufyLife credentials not set. Go to Settings → Eufy Account and enter your email and password.',
+    });
+    return;
+  }
+
+  eufyCloudActive = true;
+  broadcast({ type: 'progress', sensor: 'eufy_cloud_weight', progress: 0 });
+
+  const args = ['python3', EUFY_CLOUD_SCRIPT];
+  if (pollOnly) args.push('--poll-only');
+
+  const proc = spawn('python3', [EUFY_CLOUD_SCRIPT, ...(pollOnly ? ['--poll-only'] : [])]);
+  eufyCloudProcess = proc;
+
+  const rl = createReadlineInterface({ input: proc.stdout });
+  rl.on('line', (line) => {
+    if (!line.trim()) return;
+    try {
+      const msg = JSON.parse(line);
+      if (msg.type === 'reading') {
+        eufyCloudActive = false;
+        broadcast({ type: 'progress', sensor: 'eufy_cloud_weight', progress: 100 });
+        // Emit as standard weight reading + body composition extras
+        broadcast({
+          type:       'reading',
+          sensor:     'weight',
+          value:      msg.value,
+          body_fat:   msg.body_fat   ?? null,
+          muscle_mass: msg.muscle_mass ?? null,
+          bmi:        msg.bmi        ?? null,
+          water:      msg.water      ?? null,
+          bone_mass:  msg.bone_mass  ?? null,
+          bmr:        msg.bmr        ?? null,
+          body_age:   msg.body_age   ?? null,
+          visceral_fat: msg.visceral_fat ?? null,
+          protein_ratio: msg.protein_ratio ?? null,
+          measured_at: msg.measured_at ?? null,
+          source:     'eufy_cloud',
+        });
+      } else if (msg.type === 'progress') {
+        broadcast({ type: 'progress', sensor: 'eufy_cloud_weight', progress: msg.value });
+      } else if (msg.type === 'log') {
+        broadcast({ type: 'log', sensor: 'eufy_cloud_weight', message: msg.message });
+        log(`[Eufy Cloud] ${msg.message}`);
+      } else if (msg.type === 'error') {
+        eufyCloudActive = false;
+        broadcast({ type: 'error', sensor: 'eufy_cloud_weight', message: msg.message });
+      }
+    } catch { /* not JSON — ignore */ }
+  });
+
+  proc.stderr.on('data', (d) => warn(`[Eufy Cloud stderr] ${d.toString().trim()}`));
+
+  proc.on('close', (code) => {
+    eufyCloudActive = false;
+    eufyCloudProcess = null;
+    log(`Eufy Cloud: process exited (code ${code})`);
+  });
+
+  proc.on('error', (e) => {
+    eufyCloudProcess = null;
+    eufyCloudActive = false;
+    warn(`Eufy Cloud process error: ${e.message}`);
+    broadcast({ type: 'error', sensor: 'eufy_cloud_weight', message: `Could not start cloud script: ${e.message}` });
+  });
+}
+
+function stopEufyCloudMeasurement() {
+  eufyCloudActive = false;
+  if (eufyCloudProcess) {
+    try { eufyCloudProcess.kill(); } catch (_) {}
+    eufyCloudProcess = null;
+    log('Eufy Cloud: measurement stopped');
+  }
+}
+
 /**
  * Update key=value pairs in the .env file and apply them to process.env
  * so the next OCR invocation picks them up without a server restart.
@@ -489,8 +656,6 @@ function connectSerial() {
     serialConnected = true;
     log(`Serial port ${CONFIG.SERIAL_PORT} open.`);
     broadcast({ type: 'bridge', event: 'esp32Connected' });
-    // Re-apply saved weight scale factor so calibration persists across reboots
-    setTimeout(applyWeightConfig, 1500); // small delay to let ESP32 finish setup()
   });
 
   // ── Incoming data from ESP32 ──
@@ -505,6 +670,10 @@ function connectSerial() {
       if (msg.type === 'sensorStatus') {
         injectBpAvailable(msg);
         lastSensorStatus = msg;
+      }
+      // Apply platform height offset to height readings
+      if (msg.type === 'reading' && msg.sensor === 'height' && typeof msg.value === 'number') {
+        msg.value = Math.round((msg.value + HEIGHT_PLATFORM_OFFSET_M) * 1000) / 1000;
       }
       // Forward the validated JSON object directly to all WS clients
       broadcast(msg);
@@ -885,20 +1054,64 @@ function startWebSocketServer() {
           stopBpMeasurement();
         }
 
-        // Weight calibration: load saved config
-        if (msg.command === 'weight_load_config') {
-          const cfg = loadWeightConfig();
-          ws.send(JSON.stringify({ type: 'weight_config_loaded', scaleFactor: cfg?.scaleFactor ?? null }));
+        // Eufy Smart Scale C1 BLE measurement
+        if (msg.command === 'start' && msg.sensor === 'eufy_weight') {
+          startEufyMeasurement(msg.mac ?? null);
           return;
         }
 
-        // Weight calibration: save config + push to ESP32
-        if (msg.command === 'weight_save_config') {
-          const scaleFactor = Number(msg.scaleFactor);
-          if (scaleFactor > 0) {
-            saveWeightConfig(scaleFactor);
-            ws.send(JSON.stringify({ type: 'weight_config_saved', scaleFactor }));
+        // Cancel also stops Eufy BLE if active
+        if (msg.command === 'cancel' && eufyActive) {
+          stopEufyMeasurement();
+          broadcast({ type: 'error', sensor: 'eufy_weight', message: 'Measurement cancelled' });
+          return;
+        }
+
+        // ── Eufy Cloud weight measurement ──────────────────────────────────────
+
+        // Start cloud measurement (wait for a new reading from phone sync)
+        if (msg.command === 'start' && msg.sensor === 'eufy_cloud_weight') {
+          startEufyCloudMeasurement(false);
+          return;
+        }
+
+        // Fetch last stored cloud reading without waiting for a new one
+        if (msg.command === 'eufy_cloud_poll') {
+          startEufyCloudMeasurement(true);
+          return;
+        }
+
+        // Cancel cloud measurement
+        if (msg.command === 'cancel' && eufyCloudActive) {
+          stopEufyCloudMeasurement();
+          broadcast({ type: 'error', sensor: 'eufy_cloud_weight', message: 'Measurement cancelled' });
+          return;
+        }
+
+        // Save EufyLife credentials (email + password)
+        if (msg.command === 'eufy_save_credentials') {
+          const { email, password } = msg;
+          if (!email || !password) {
+            ws.send(JSON.stringify({ type: 'eufy_credentials_saved', ok: false, error: 'Email and password required' }));
+            return;
           }
+          // Save and clear any cached token so next run re-auths with new creds
+          saveEufyCredentials({ email, password, access_token: '', user_id: '', token_expires_at: 0 });
+          log(`Eufy credentials saved for ${email}`);
+          ws.send(JSON.stringify({ type: 'eufy_credentials_saved', ok: true }));
+          return;
+        }
+
+        // Check whether Eufy credentials are configured
+        if (msg.command === 'eufy_credentials_status') {
+          const creds = loadEufyCredentials();
+          ws.send(JSON.stringify({
+            type:          'eufy_credentials_status',
+            configured:    !!(creds.email && creds.password),
+            email:         creds.email || '',
+            has_token:     !!(creds.access_token),
+            token_expires: creds.token_expires_at || 0,
+          }));
           return;
         }
 
