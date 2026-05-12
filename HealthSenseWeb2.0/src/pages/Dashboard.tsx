@@ -6,6 +6,7 @@ import {
   Tooltip, ResponsiveContainer
 } from "recharts";
 import { supabase } from "../supabaseClient";
+import AIHealthInsights from "../components/AIHealthInsights";
 
 const Dashboard: React.FC = () => {
   const navigate = useNavigate();
@@ -280,6 +281,9 @@ const Dashboard: React.FC = () => {
             <div className="text-[8px] text-[#139dc7]/50 font-medium mt-0.5">Accessibility</div>
           </div>
         </div>
+
+        {/* ── AI HEALTH INSIGHTS ── */}
+        <AIHealthInsights language={language} />
 
         {/* ── TRENDS SECTION ── */}
         <div className="mt-10">
