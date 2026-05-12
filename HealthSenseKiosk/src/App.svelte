@@ -21,7 +21,38 @@
 
   // Connect the bridge immediately on app startup so the fingerprint sensor
   // is available on the login and signup screens (not just after login).
-  onMount(() => { esp32Connect(); });
+  onMount(() => {
+    esp32Connect();
+
+    // ── On-screen keyboard: open when an <input> receives focus ──────────
+    const openKb = (e: FocusEvent) => {
+      const el = e.target as HTMLElement;
+      if (
+        el instanceof HTMLInputElement &&
+        el.type !== 'hidden' &&
+        !el.readOnly &&
+        !el.disabled &&
+        el.getAttribute('aria-hidden') !== 'true'
+      ) {
+        kbTarget.set(el);
+      }
+    };
+
+    // Close keyboard when user taps outside any input and outside the keyboard
+    const closeKb = (e: PointerEvent) => {
+      const t = e.target as HTMLElement;
+      if (t instanceof HTMLInputElement) return; // focusin will handle it
+      if (t.closest('[data-osk]')) return;        // tap inside keyboard panel
+      kbTarget.set(null);
+    };
+
+    document.addEventListener('focusin', openKb);
+    document.addEventListener('pointerdown', closeKb);
+    return () => {
+      document.removeEventListener('focusin', openKb);
+      document.removeEventListener('pointerdown', closeKb);
+    };
+  });
 
   const startKiosk = (): void => { currentScreen = 'login' };
   const goBack = (): void => { currentScreen = 'welcome' };
@@ -67,6 +98,8 @@
   };
 
   import { BRIDGE_BASE } from './lib/stores/connectivity';
+  import { kbTarget } from './lib/stores/keyboard';
+  import OSKeyboard from './lib/components/OSKeyboard.svelte';
 
   // Whether the user is logged in (show the ESP32 widget on these screens)
   $: loggedIn = user !== null && ['home', 'history', 'checkup'].includes(currentScreen);
@@ -181,6 +214,9 @@
 {#if loggedIn}
   <ESP32StatusWidget />
 {/if}
+
+<!-- Global on-screen keyboard — renders as a fixed overlay above everything -->
+<OSKeyboard />
 
 <style>
   :global(body, html) {

@@ -10,6 +10,7 @@
   import { isOnline } from '../stores/connectivity';
   import { login, loginByFingerprint } from '../db/index';
   import fingerprintIcon from '../../assets/fingerprint-svgrepo-com.svg';
+  import { kbVisible } from '../stores/keyboard';
 
   export let onBack: () => void;
   export let onLogin: (user: any) => void; // Pass the user data back
@@ -130,7 +131,9 @@
   class="relative h-full w-full flex flex-col bg-linear-to-b from-[#f0f7ff] to-[#9fc5f8] overflow-hidden"
   role="presentation"
 >
-  <div class="flex-1 flex flex-col items-center justify-center max-w-2xl mx-auto w-full px-6" on:click|stopPropagation role="presentation">
+  <div class="flex-1 flex flex-col items-center justify-center max-w-2xl mx-auto w-full px-6 overflow-y-auto"
+    style="padding-bottom: {$kbVisible ? '460px' : '0px'}"
+    on:click|stopPropagation role="presentation">
     
     <button on:click={onBack} class="absolute top-16 left-12 text-blue-900/40 font-black tracking-widest text-base flex items-center gap-2 z-20">
       <svg xmlns="http://www.w3.org/2000/svg" class="w-6 h-6" fill="none" viewBox="0 0 24 24" stroke="currentColor">

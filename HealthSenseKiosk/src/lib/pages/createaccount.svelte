@@ -10,6 +10,7 @@
   import { isOnline, BRIDGE_BASE } from '../stores/connectivity';
   import { createAccount } from '../db/index';
   import fingerprintIcon from '../../assets/fingerprint-svgrepo-com.svg';
+  import { kbVisible } from '../stores/keyboard';
 
   const bridgeUrl = BRIDGE_BASE;
   const bridgeToken = import.meta.env.VITE_HS_TOKEN ?? '';
@@ -29,26 +30,32 @@
   let showPassword = false;
   let showConfirmPassword = false;
 
-  // --- BIRTHDAY DATE PICKER ---
-  let birthDateInput = '1990-01-01';
-  let datePickerRef: HTMLInputElement;
+  // --- BIRTHDAY TEXT INPUT (MM/DD/YYYY) ---
+  let birthdayInput = '01/01/1990';
+  let dateTextRef: HTMLInputElement;
+
+  function handleBirthdayInput(e: Event) {
+    const el = e.target as HTMLInputElement;
+    // Strip non-digits and cap at 8 digits
+    const raw = el.value.replace(/\D/g, '').slice(0, 8);
+    let formatted = raw;
+    if (raw.length > 2) formatted = raw.slice(0, 2) + '/' + raw.slice(2);
+    if (raw.length > 4) formatted = raw.slice(0, 2) + '/' + raw.slice(2, 4) + '/' + raw.slice(4);
+    birthdayInput = formatted;
+    el.value = formatted;
+    el.setSelectionRange(formatted.length, formatted.length);
+  }
 
   $: age = (() => {
-    if (!birthDateInput) return 0;
-    const [y, m, d] = birthDateInput.split('-').map(Number);
-    const birthDate = new Date(y, m - 1, d);
+    const parts = birthdayInput.split('/');
+    if (parts.length !== 3 || parts[2].length !== 4) return 0;
+    const [mm, dd, yyyy] = parts.map(Number);
+    const birthDate = new Date(yyyy, mm - 1, dd);
     const today = new Date();
     let calculatedAge = today.getFullYear() - birthDate.getFullYear();
     const mo = today.getMonth() - birthDate.getMonth();
     if (mo < 0 || (mo === 0 && today.getDate() < birthDate.getDate())) calculatedAge--;
     return calculatedAge >= 0 ? calculatedAge : 0;
-  })();
-
-  $: birthdayDisplay = (() => {
-    if (!birthDateInput) return 'Select a date';
-    const [y, m, d] = birthDateInput.split('-').map(Number);
-    const months = ['Jan','Feb','Mar','Apr','May','Jun','Jul','Aug','Sep','Oct','Nov','Dec'];
-    return `${months[m - 1]} ${d}, ${y}`;
   })();
 
   // --- SUCCESS MODAL ---
@@ -143,7 +150,15 @@
 
     isSubmitting = true;
 
-    const dbDate = birthDateInput; // already in YYYY-MM-DD format
+    // Parse MM/DD/YYYY → YYYY-MM-DD
+    const bParts = birthdayInput.split('/');
+    if (bParts.length !== 3 || bParts[2].length !== 4) {
+      alert("Please enter a valid birthday in MM/DD/YYYY format.");
+      isSubmitting = false;
+      return;
+    }
+    const [mm, dd, yyyy] = bParts;
+    const dbDate = `${yyyy}-${mm.padStart(2, '0')}-${dd.padStart(2, '0')}`;
 
     try {
       const profile = await createAccount({
@@ -187,7 +202,8 @@
     BACK TO LOGIN
   </button>
 
-  <div class="flex-1 flex flex-col items-center justify-start pt-32 max-w-lg mx-auto w-full px-6 overflow-y-auto pb-40">
+  <div class="flex-1 flex flex-col items-center justify-start pt-32 max-w-lg mx-auto w-full px-6 overflow-y-auto"
+    style="padding-bottom: {$kbVisible ? '460px' : '160px'}">
 
     <div class="text-center mb-12">
       <h1 class="text-6xl font-[1000] tracking-tighter leading-none mb-4 text-blue-950 uppercase">
@@ -236,28 +252,16 @@
           <span class="text-xs font-black text-blue-500 bg-blue-50 px-2 py-0.5 rounded-full">{age} YEARS OLD</span>
         </div>
 
-        <!-- Hidden native date input — triggered by the button below -->
         <input
-          type="date"
-          bind:this={datePickerRef}
-          bind:value={birthDateInput}
-          max={new Date().toISOString().slice(0, 10)}
-          min="1900-01-01"
-          class="sr-only"
-          tabindex="-1"
-          aria-hidden="true"
+          type="text"
+          inputmode="numeric"
+          bind:this={dateTextRef}
+          value={birthdayInput}
+          on:input={handleBirthdayInput}
+          placeholder="MM/DD/YYYY"
+          autocomplete="off"
+          class="w-full h-16 px-8 rounded-2xl bg-white border border-blue-100 shadow-sm text-lg font-bold text-blue-950 placeholder:text-blue-900/20 outline-none focus:border-blue-500 focus:ring-4 focus:ring-blue-500/10 transition-all tracking-widest"
         />
-
-        <button
-          type="button"
-          on:click={() => datePickerRef.showPicker?.() ?? datePickerRef.click()}
-          class="w-full h-16 px-8 rounded-2xl bg-white border border-blue-100 shadow-sm flex items-center justify-between text-blue-950 font-bold active:border-blue-500 transition-all"
-        >
-          <span class="text-lg">{birthdayDisplay}</span>
-          <svg xmlns="http://www.w3.org/2000/svg" class="w-5 h-5 text-blue-400" fill="none" viewBox="0 0 24 24" stroke="currentColor">
-            <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M8 7V3m8 4V3m-9 8h10M5 21h14a2 2 0 002-2V7a2 2 0 00-2-2H5a2 2 0 00-2 2v12a2 2 0 002 2z"/>
-          </svg>
-        </button>
       </div>
 
       <div class="w-full space-y-1">
