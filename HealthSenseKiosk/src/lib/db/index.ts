@@ -271,13 +271,23 @@ export async function saveCheckup(data: any): Promise<void> {
     const { data: sessionData } = await supabase.auth.getSession();
     if (sessionData?.session) {
       try {
-        const { error } = await supabase.from('health_checkups').insert([record]);
+        // Abort if Supabase doesn't respond within 6 s (unstable connection guard).
+        const ctrl = new AbortController();
+        const timer = setTimeout(() => ctrl.abort(), 6000);
+        const { error } = await (supabase.from('health_checkups').insert([record]) as any)
+          .abortSignal(ctrl.signal);
+        clearTimeout(timer);
+
         if (!error) {
-          // Mirror to local DB (fire-and-forget).
-          bridgeFetch('/api/checkups', {
-            method: 'POST',
-            body: JSON.stringify({ ...record, synced: 1 }),
-          }).catch(() => {});
+          // Mirror to local DB so history is available offline too.
+          try {
+            await bridgeFetch('/api/checkups', {
+              method: 'POST',
+              body: JSON.stringify({ ...record, synced: 1 }),
+            });
+          } catch {
+            console.warn('Supabase insert succeeded but local mirror failed — record only in cloud.');
+          }
           return;
         }
         // Supabase insert failed for any reason → fall through to local save.

@@ -10,7 +10,7 @@
   import { isOnline, BRIDGE_BASE } from '../stores/connectivity';
   import { createAccount } from '../db/index';
   import fingerprintIcon from '../../assets/fingerprint-svgrepo-com.svg';
-  import { kbVisible } from '../stores/keyboard';
+  import { kbVisible, kbTarget } from '../stores/keyboard';
 
   const bridgeUrl = BRIDGE_BASE;
   const bridgeToken = import.meta.env.VITE_HS_TOKEN ?? '';
@@ -30,20 +30,75 @@
   let showPassword = false;
   let showConfirmPassword = false;
 
-  // --- BIRTHDAY TEXT INPUT (MM/DD/YYYY) ---
-  let birthdayInput = '01/01/1990';
-  let dateTextRef: HTMLInputElement;
+  // --- BIRTHDAY STEPPED NUMPAD ---
+  let bdStep: 0 | 1 | 2 = 0;   // 0 = month, 1 = day, 2 = year
+  let bdMonthStr = '01';
+  let bdDayStr   = '01';
+  let bdYearStr  = '1990';
+  let bdActive   = false;       // whether the numpad is open
 
-  function handleBirthdayInput(e: Event) {
-    const el = e.target as HTMLInputElement;
-    // Strip non-digits and cap at 8 digits
-    const raw = el.value.replace(/\D/g, '').slice(0, 8);
-    let formatted = raw;
-    if (raw.length > 2) formatted = raw.slice(0, 2) + '/' + raw.slice(2);
-    if (raw.length > 4) formatted = raw.slice(0, 2) + '/' + raw.slice(2, 4) + '/' + raw.slice(4);
-    birthdayInput = formatted;
-    el.value = formatted;
-    el.setSelectionRange(formatted.length, formatted.length);
+  // Legacy string used by handleSubmit validation + age computation
+  $: birthdayInput = `${bdMonthStr.padStart(2,'0')}/${bdDayStr.padStart(2,'0')}/${bdYearStr}`;
+
+  function bdTap(seg: 0 | 1 | 2) {
+    // Close global OSK if open
+    kbTarget.set(null);
+    bdActive = true;
+    bdStep = seg;
+    // Clear the tapped segment for fresh entry
+    if (seg === 0) bdMonthStr = '';
+    else if (seg === 1) bdDayStr = '';
+    else bdYearStr = '';
+  }
+
+  function bdKey(key: string) {
+    if (key === '⌫') {
+      if (bdStep === 0) bdMonthStr = bdMonthStr.slice(0, -1);
+      else if (bdStep === 1) bdDayStr = bdDayStr.slice(0, -1);
+      else bdYearStr = bdYearStr.slice(0, -1);
+      return;
+    }
+    if (key === 'Next' || key === 'Done') {
+      bdFinalizeSegment();
+      if (key === 'Next') { bdStep = (bdStep + 1) as 0 | 1 | 2; bdClearSegment(bdStep); }
+      else bdActive = false;
+      return;
+    }
+    if (bdStep === 0) {
+      if (bdMonthStr.length < 2) {
+        bdMonthStr += key;
+        if (bdMonthStr.length === 2) { bdFinalizeSegment(); bdStep = 1; bdDayStr = ''; }
+      }
+    } else if (bdStep === 1) {
+      if (bdDayStr.length < 2) {
+        bdDayStr += key;
+        if (bdDayStr.length === 2) { bdFinalizeSegment(); bdStep = 2; bdYearStr = ''; }
+      }
+    } else {
+      if (bdYearStr.length < 4) {
+        bdYearStr += key;
+        if (bdYearStr.length === 4) { bdActive = false; }
+      }
+    }
+  }
+
+  function bdClearSegment(seg: 0 | 1 | 2) {
+    if (seg === 0) bdMonthStr = '';
+    else if (seg === 1) bdDayStr = '';
+    else bdYearStr = '';
+  }
+
+  function bdFinalizeSegment() {
+    if (bdStep === 0) {
+      const m = Math.min(12, Math.max(1, parseInt(bdMonthStr || '1')));
+      bdMonthStr = String(m).padStart(2, '0');
+    } else if (bdStep === 1) {
+      const d = Math.min(31, Math.max(1, parseInt(bdDayStr || '1')));
+      bdDayStr = String(d).padStart(2, '0');
+    } else {
+      const y = parseInt(bdYearStr || '2000');
+      if (bdYearStr.length === 4) bdYearStr = String(Math.max(1900, Math.min(new Date().getFullYear(), y)));
+    }
   }
 
   $: age = (() => {
@@ -246,22 +301,54 @@
         />
       </div>
 
-      <div class="w-full space-y-1">
+      <div class="w-full space-y-2">
         <div class="flex justify-between items-center px-4">
           <span class="text-sm font-black uppercase tracking-widest text-blue-400">Birthday</span>
           <span class="text-xs font-black text-blue-500 bg-blue-50 px-2 py-0.5 rounded-full">{age} YEARS OLD</span>
         </div>
 
-        <input
-          type="text"
-          inputmode="numeric"
-          bind:this={dateTextRef}
-          value={birthdayInput}
-          on:input={handleBirthdayInput}
-          placeholder="MM/DD/YYYY"
-          autocomplete="off"
-          class="w-full h-16 px-8 rounded-2xl bg-white border border-blue-100 shadow-sm text-lg font-bold text-blue-950 placeholder:text-blue-900/20 outline-none focus:border-blue-500 focus:ring-4 focus:ring-blue-500/10 transition-all tracking-widest"
-        />
+        <!-- Segment display row -->
+        <div class="flex items-stretch gap-2">
+          {#each ([0,1,2] as const) as seg}
+            {@const label   = ['Month','Day','Year'][seg]}
+            {@const val     = [bdMonthStr, bdDayStr, bdYearStr][seg]}
+            {@const maxLen  = seg === 2 ? 4 : 2}
+            {@const display = val.padStart(seg === 2 ? 4 : 2, '·')}
+            {@const active  = bdActive && bdStep === seg}
+            <button
+              type="button"
+              on:click={() => bdTap(seg)}
+              class="flex-1 flex flex-col items-center justify-center py-3 rounded-2xl border-2 font-black transition-all
+                {active
+                  ? 'bg-blue-600 border-blue-600 text-white shadow-lg'
+                  : 'bg-white border-blue-100 text-blue-950 active:bg-blue-50'}"
+            >
+              <span class="text-2xl tracking-widest">{display || '·'.repeat(maxLen)}</span>
+              <span class="text-[10px] font-black uppercase tracking-widest mt-1 opacity-60">{label}</span>
+            </button>
+            {#if seg < 2}
+              <div class="flex items-center text-2xl font-black text-blue-300 px-1">/</div>
+            {/if}
+          {/each}
+        </div>
+
+        <!-- Inline numpad -->
+        {#if bdActive}
+          <div class="w-full bg-white rounded-2xl border border-blue-100 shadow-sm p-3 grid grid-cols-3 gap-2">
+            {#each ['1','2','3','4','5','6','7','8','9','⌫','0', bdStep < 2 ? 'Next' : 'Done'] as k}
+              <button
+                type="button"
+                on:click={() => bdKey(k)}
+                class="h-14 rounded-xl font-black text-lg transition-all select-none
+                  {k === '⌫'
+                    ? 'bg-red-50 text-red-400 active:bg-red-100'
+                    : (k === 'Next' || k === 'Done')
+                      ? 'bg-blue-600 text-white active:bg-blue-700 shadow'
+                      : 'bg-blue-50 text-blue-900 active:bg-blue-100'}"
+              >{k}</button>
+            {/each}
+          </div>
+        {/if}
       </div>
 
       <div class="w-full space-y-1">

@@ -397,13 +397,15 @@
       const validHr   = !Number.isNaN(hrVal)   && hrVal   >= 40 && hrVal   <= 200;
       if (!validSpo2 || !validHr) return; // ignore this reading
 
-      // Add to buffer and prune entries older than 6 seconds
+      // Add to buffer and prune entries older than 10 seconds
       const now = Date.now();
       spo2Buffer.push({ spo2: spo2Val, hr: hrVal, ts: now });
-      spo2Buffer = spo2Buffer.filter(s => now - s.ts <= 6000);
+      spo2Buffer = spo2Buffer.filter(s => now - s.ts <= 10000);
 
-      // Stability check: need ≥ 5 samples, spo2 spread ≤ 2, HR spread ≤ 10
-      if (spo2Buffer.length >= 5) {
+      // Stability check: need ≥ 7 samples, spo2 spread ≤ 2, HR spread ≤ 10,
+      // AND at least 15 s of collection time (let the sensor warm up).
+      const enoughTime = now - spo2ScanStart >= 15000;
+      if (enoughTime && spo2Buffer.length >= 7) {
         const spo2s = spo2Buffer.map(s => s.spo2);
         const hrs   = spo2Buffer.map(s => s.hr);
         const spo2Spread = Math.max(...spo2s) - Math.min(...spo2s);
@@ -486,6 +488,7 @@
   // SpO2/HR stability buffer — only accept reading after values settle for ~5 seconds
   interface Spo2Sample { spo2: number; hr: number; ts: number; }
   let spo2Buffer: Spo2Sample[] = [];
+  let spo2ScanStart = 0; // timestamp (ms) when the SpO2 scan began collecting
 
   function saveEufyCredentials() {
     if (!eufyEmailInput.trim() || !eufyPasswordInput.trim()) return;
@@ -527,7 +530,7 @@
     weight: { title: "Weight",      desc: "Step onto the platform",          icon: "weight", duration: 30, unit: "kg"    },
     height: { title: "Height",      desc: "Stand straight",                  icon: "height", duration: 30, unit: "m"     },
     temp:   { title: "Temperature", desc: "Place forehead near sensor",       icon: "temp", duration: 80, unit: "°C"   },
-    spo2:   { title: "HR + SpO2",   desc: "Place finger on MAX30102 clip",   icon: "spo2", duration: 60, unit: "% / bpm" },
+    spo2:   { title: "HR + SpO2",   desc: "Place finger on MAX30102 clip",   icon: "spo2", duration: 90, unit: "% / bpm" },
     bp:     { title: "Blood Pressure", desc: "Wrap cuff around your left arm", icon: "bp", duration: 90, unit: "mmHg" }
   } as const;
 
@@ -541,7 +544,7 @@
   }
 
   function startScan() {
-    isScanning = true; progress = 0; spo2Buffer = [];
+    isScanning = true; progress = 0; spo2Buffer = []; spo2ScanStart = Date.now();
     const sensor = currentPhase as SensorKey;
     const bridgeOnline    = $bridgeStatus === 'esp32Ready' || $bridgeStatus === 'esp32Missing' || $bridgeStatus === 'connected';
     const sensorConnected = $sensorStatus[sensor] !== 'disconnected';

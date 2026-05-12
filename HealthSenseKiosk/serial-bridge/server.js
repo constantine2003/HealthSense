@@ -1165,6 +1165,7 @@ function startWebSocketServer() {
 // ─── Cloud sync engine ────────────────────────────────────────────────────────
 
 let supabaseClient = null;
+let supabaseAdminClient = null;
 
 function getSupabaseClient() {
   if (supabaseClient) return supabaseClient;
@@ -1173,6 +1174,26 @@ function getSupabaseClient() {
   if (!url || !key) return null;
   supabaseClient = createClient(url, key);
   return supabaseClient;
+}
+
+/**
+ * Returns a Supabase client using the service role key (bypasses RLS).
+ * Required for server-side sync operations that insert/upsert into tables
+ * protected by Row Level Security. Falls back to the anon client with a
+ * warning if SUPABASE_SERVICE_ROLE_KEY is not configured.
+ */
+function getAdminClient() {
+  if (supabaseAdminClient) return supabaseAdminClient;
+  const url     = process.env.SUPABASE_URL ?? process.env.VITE_SUPABASE_URL ?? '';
+  const svcKey  = process.env.SUPABASE_SERVICE_ROLE_KEY ?? '';
+  if (url && svcKey) {
+    supabaseAdminClient = createClient(url, svcKey, {
+      auth: { persistSession: false, autoRefreshToken: false },
+    });
+    return supabaseAdminClient;
+  }
+  warn('Sync: SUPABASE_SERVICE_ROLE_KEY not set — falling back to anon key (may fail RLS)');
+  return getSupabaseClient();
 }
 
 async function isInternetAvailable() {
@@ -1191,7 +1212,8 @@ async function syncToCloud() {
   const online = await isInternetAvailable();
   if (!online) return;
 
-  const supa = getSupabaseClient();
+  const supa      = getSupabaseClient();
+  const supaAdmin = getAdminClient();
   if (!supa) { warn('Sync: SUPABASE_URL / SUPABASE_ANON_KEY not set in .env — skipping'); return; }
 
   const items = localDb.getPendingSyncItems();
@@ -1229,7 +1251,7 @@ async function syncToCloud() {
         if (!profile) throw new Error(`Profile ${realId} not found locally`);
 
         const { password_hash, offline_created, synced, ...cloudPayload } = profile;
-        const { error } = await supa.from('profiles').upsert(cloudPayload);
+        const { error } = await supaAdmin.from('profiles').upsert(cloudPayload);
         if (error) throw error;
 
       } else if (item.operation === 'checkup_insert' && item.table_name === 'health_checkups') {
@@ -1239,7 +1261,7 @@ async function syncToCloud() {
           remapped.user_id = idMap.get(payload.user_id);
         }
         const { synced, ...cloudPayload } = remapped;
-        const { error } = await supa.from('health_checkups').upsert(cloudPayload);
+        const { error } = await supaAdmin.from('health_checkups').upsert(cloudPayload);
         if (error) throw error;
         localDb.markCheckupSynced(remapped.id);
       }
