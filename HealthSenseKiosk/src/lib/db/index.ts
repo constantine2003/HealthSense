@@ -58,7 +58,20 @@ export async function login(username: string, password: string): Promise<any> {
       email: authEmail,
       password,
     });
-    if (authError) throw authError;
+    if (authError) {
+      // 400 / "Invalid login credentials" may mean the account was created offline
+      // and the Supabase auth user doesn't exist yet. Fall back to offline bridge.
+      if (
+        authError.status === 400 ||
+        authError.message?.toLowerCase().includes('invalid login credentials')
+      ) {
+        return await bridgeFetch('/api/auth/login', {
+          method: 'POST',
+          body: JSON.stringify({ username: userInput, password }),
+        });
+      }
+      throw authError;
+    }
 
     const { data: profile, error: profileError } = await supabase
       .from('profiles')
@@ -123,6 +136,40 @@ export async function loginByFingerprint(slot: number): Promise<any> {
 // ─── Create account ────────────────────────────────────────────────────────────
 
 /**
+ * Finds a unique username starting from `base` (e.g. "john.doe").
+ * If taken, tries "john.doe1", "john.doe2", … until one is free.
+ * Checks local bridge DB and Supabase (when online).
+ */
+async function resolveUniqueUsername(base: string): Promise<string> {
+  const online = get(isOnline);
+
+  async function isTaken(candidate: string): Promise<boolean> {
+    try {
+      const local = await bridgeFetch(`/api/profiles?username=${encodeURIComponent(candidate)}`);
+      if (local) return true;
+    } catch { /* bridge unreachable */ }
+
+    if (online) {
+      const { data } = await supabase
+        .from('profiles')
+        .select('id')
+        .eq('username', candidate)
+        .maybeSingle();
+      if (data) return true;
+    }
+    return false;
+  }
+
+  if (!(await isTaken(base))) return base;
+
+  for (let n = 1; n <= 100; n++) {
+    const candidate = `${base}${n}`;
+    if (!(await isTaken(candidate))) return candidate;
+  }
+  throw new Error('Could not find a unique username. Please contact an administrator.');
+}
+
+/**
  * Create a new user account.
  * Online:  Supabase auth.signUp → profiles.insert → mirror to local DB.
  * Offline: bridge creates profile with temp UUID + queues cloud sync.
@@ -139,7 +186,7 @@ export async function createAccount(payload: {
 }): Promise<any> {
   const cleanFirst = payload.firstName.toLowerCase().trim().replace(/\s+/g, '');
   const cleanLast  = payload.lastName.toLowerCase().trim().replace(/\s+/g, '');
-  const username   = `${cleanFirst}.${cleanLast}`;
+  const username   = await resolveUniqueUsername(`${cleanFirst}.${cleanLast}`);
   const hasEmail   = payload.recoveryEmail?.trim().length > 0;
   const authEmail  = hasEmail ? payload.recoveryEmail.trim() : `${username}@kiosk.local`;
 
@@ -149,7 +196,15 @@ export async function createAccount(payload: {
       password: payload.password,
       options: { data: { display_name: payload.firstName, username } },
     });
-    if (authError) throw authError;
+    if (authError) {
+      if (
+        authError.status === 422 ||
+        authError.message?.toLowerCase().includes('already registered')
+      ) {
+        throw new Error('An account with this email or username already exists. Please log in instead.');
+      }
+      throw authError;
+    }
 
     const profilePayload = {
       id:              authData.user!.id,
@@ -210,21 +265,35 @@ export async function saveCheckup(data: any): Promise<void> {
   };
 
   if (get(isOnline)) {
-    const { error } = await supabase.from('health_checkups').insert([record]);
-    if (error) throw error;
-
-    // Mirror to local DB.
-    bridgeFetch('/api/checkups', {
-      method: 'POST',
-      body: JSON.stringify({ ...record, synced: 1 }),
-    }).catch(() => {});
-  } else {
-    // Save locally with synced=0; sync engine will push when online.
-    await bridgeFetch('/api/checkups', {
-      method: 'POST',
-      body: JSON.stringify({ ...record, synced: 0 }),
-    });
+    // Only attempt a direct Supabase insert when there is an active auth session.
+    // Fingerprint login and offline/bridge login never call signInWithPassword,
+    // so the Supabase client has no JWT — inserting without one returns 401.
+    const { data: sessionData } = await supabase.auth.getSession();
+    if (sessionData?.session) {
+      try {
+        const { error } = await supabase.from('health_checkups').insert([record]);
+        if (!error) {
+          // Mirror to local DB (fire-and-forget).
+          bridgeFetch('/api/checkups', {
+            method: 'POST',
+            body: JSON.stringify({ ...record, synced: 1 }),
+          }).catch(() => {});
+          return;
+        }
+        // Supabase insert failed for any reason → fall through to local save.
+        console.warn('Supabase insert failed, saving locally:', error.message);
+      } catch (e) {
+        console.warn('Supabase insert threw, saving locally:', e);
+      }
+    }
   }
+
+  // No session, offline, or Supabase insert failed — save locally.
+  // The bridge sync engine will push records with synced=0 to the cloud automatically.
+  await bridgeFetch('/api/checkups', {
+    method: 'POST',
+    body: JSON.stringify({ ...record, synced: 0 }),
+  });
 }
 
 // ─── Get checkups (history) ────────────────────────────────────────────────────

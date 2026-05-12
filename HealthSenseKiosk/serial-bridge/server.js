@@ -789,6 +789,14 @@ async function handleHttpRequest(req, res) {
       return jsonOk(res, { online });
     }
 
+    // ── POST /api/restart ──────────────────────────────────────────────────────
+    if (req.method === 'POST' && path === '/api/restart') {
+      jsonOk(res, { ok: true });
+      log('Restart requested via /api/restart — exiting for process manager to restart…');
+      setTimeout(() => process.exit(0), 200);
+      return;
+    }
+
     // ── POST /api/auth/login ───────────────────────────────────────────────────
     if (req.method === 'POST' && path === '/api/auth/login') {
       const { username, password } = await readBody(req);
@@ -1246,6 +1254,88 @@ async function syncToCloud() {
   }
 }
 
+// ─── Cloud → local deletion sync ─────────────────────────────────────────────
+
+/**
+ * Pulls the current set of profile/checkup IDs from Supabase and removes any
+ * local records that no longer exist in the cloud.
+ *
+ * Safety rules:
+ *  - Never deletes profiles where offline_created = 1 (not yet pushed to cloud).
+ *  - Only checks synced=1 checkups (unsynced local records are untouched).
+ */
+async function syncDeletionsFromCloud() {
+  const online = await isInternetAvailable();
+  if (!online) return;
+
+  const supa = getSupabaseClient();
+  if (!supa) return;
+
+  try {
+    // ── 1. Profile deletions ──────────────────────────────────────────────────
+    // Fetch all profile IDs currently in Supabase.
+    const cloudProfileIds = new Set();
+    let from = 0;
+    while (true) {
+      const { data, error } = await supa.from('profiles').select('id').range(from, from + 999);
+      if (error) throw error;
+      if (!data || data.length === 0) break;
+      for (const row of data) cloudProfileIds.add(row.id);
+      if (data.length < 1000) break;
+      from += 1000;
+    }
+
+    // Compare with local profiles that are confirmed cloud records.
+    const localProfiles = localDb.getAllLocalProfiles();
+    let deletedProfiles = 0;
+    for (const local of localProfiles) {
+      if (local.offline_created) continue; // Not yet synced — skip.
+      if (!cloudProfileIds.has(local.id)) {
+        localDb.deleteCheckupsByUserId(local.id);
+        localDb.deleteProfile(local.id);
+        deletedProfiles++;
+        log(`Sync-delete: removed profile ${local.id} (deleted from Supabase)`);
+      }
+    }
+    if (deletedProfiles > 0) log(`Sync-delete: pruned ${deletedProfiles} profile(s)`);
+
+    // ── 2. Checkup deletions ──────────────────────────────────────────────────
+    // For each surviving synced profile, prune checkups that were deleted in Supabase.
+    const survivingProfiles = localDb.getAllLocalProfiles().filter(p => !p.offline_created);
+    let deletedCheckups = 0;
+    for (const p of survivingProfiles) {
+      const localIds = localDb.getLocalCheckupIdsByUserId(p.id);
+      if (localIds.length === 0) continue;
+
+      const cloudCheckupIds = new Set();
+      let cfrom = 0;
+      while (true) {
+        const { data, error } = await supa
+          .from('health_checkups')
+          .select('id')
+          .eq('user_id', p.id)
+          .range(cfrom, cfrom + 999);
+        if (error) throw error;
+        if (!data || data.length === 0) break;
+        for (const row of data) cloudCheckupIds.add(row.id);
+        if (data.length < 1000) break;
+        cfrom += 1000;
+      }
+
+      for (const localId of localIds) {
+        if (!cloudCheckupIds.has(localId)) {
+          localDb.deleteCheckup(localId);
+          deletedCheckups++;
+        }
+      }
+    }
+    if (deletedCheckups > 0) log(`Sync-delete: pruned ${deletedCheckups} checkup(s)`);
+
+  } catch (e) {
+    warn(`Sync-delete: ${e.message}`);
+  }
+}
+
 // ─── One-time seed from Supabase ──────────────────────────────────────────────
 
 /**
@@ -1333,4 +1423,6 @@ connectSerial();
 // Run seed on first start (no-op if DB already has data), then sync every 30 s.
 setTimeout(seedFromCloud, 5000);
 setTimeout(syncToCloud, 6000);
+setTimeout(syncDeletionsFromCloud, 12000);
 setInterval(syncToCloud, 30_000);
+setInterval(syncDeletionsFromCloud, 30_000);

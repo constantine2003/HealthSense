@@ -127,6 +127,31 @@ export function upsertProfile(profile) {
   });
 }
 
+/** Returns all local profiles (id, offline_created, synced). Used for deletion sync. */
+export function getAllLocalProfiles() {
+  return db.prepare('SELECT id, offline_created, synced FROM profiles').all();
+}
+
+/** Delete a single profile by ID. */
+export function deleteProfile(id) {
+  db.prepare('DELETE FROM profiles WHERE id = ?').run(id);
+}
+
+/** Delete all checkups belonging to a user. Used when their profile is pruned. */
+export function deleteCheckupsByUserId(userId) {
+  db.prepare('DELETE FROM health_checkups WHERE user_id = ?').run(userId);
+}
+
+/** Returns all local checkup IDs for a user. Used to detect cloud-side deletions. */
+export function getLocalCheckupIdsByUserId(userId) {
+  return db.prepare('SELECT id FROM health_checkups WHERE user_id = ? AND synced = 1').all(userId).map(r => r.id);
+}
+
+/** Delete a single checkup by ID. */
+export function deleteCheckup(id) {
+  db.prepare('DELETE FROM health_checkups WHERE id = ?').run(id);
+}
+
 /** Update just the password_hash for an existing profile (called on online login). */
 export function updatePasswordHash(id, hash) {
   db.prepare('UPDATE profiles SET password_hash = ? WHERE id = ?').run(hash, id);

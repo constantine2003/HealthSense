@@ -357,7 +357,19 @@
   let results: CheckupResults = { weight: 0, height: 0, temp: 0, spo2: 0, heartRate: 0, bp: "0/0" };
 
   const unsubProgress = esp32Progress.subscribe((val) => {
-    if (isScanning) { progress = val; if (val >= 100) isScanning = false; }
+    if (!isScanning) return;
+    progress = val;
+    if (val >= 100) {
+      isScanning = false;
+      // Fallback for SpO2: if scan expired before stability was reached, use last valid reading
+      if (currentPhase === 'spo2' && !hasCaptured && spo2Buffer.length > 0) {
+        const last = spo2Buffer[spo2Buffer.length - 1];
+        results.spo2      = last.spo2;
+        results.heartRate = last.hr;
+        hasCaptured = true;
+        progress    = 100;
+      }
+    }
   });
 
   const unsubReading = latestReading.subscribe((reading) => {
@@ -366,23 +378,71 @@
     if (sensor !== currentPhase) return;
     if (sensor === 'bp') {
       results.bp = String(reading.value);
+      hasCaptured = true;
+      isScanning = false;
+      progress = 100;
     } else if (sensor === 'spo2') {
+      // Parse incoming value
+      let spo2Val = 0, hrVal = 0;
       const raw = reading.value as Record<string, unknown>;
       if (raw && typeof raw === 'object') {
-        const spo2Val = Number(raw.spo2);
-        const hrVal = Number(raw.heartRate ?? raw.hr);
-        if (!Number.isNaN(spo2Val)) results.spo2 = spo2Val;
-        if (!Number.isNaN(hrVal)) results.heartRate = hrVal;
+        spo2Val = Number(raw.spo2);
+        hrVal   = Number(raw.heartRate ?? raw.hr);
       } else {
-        const spo2Val = Number(reading.value);
-        if (!Number.isNaN(spo2Val)) results.spo2 = spo2Val;
+        spo2Val = Number(reading.value);
       }
+
+      // Error filter — discard sensor noise / bad reads
+      const validSpo2 = !Number.isNaN(spo2Val) && spo2Val >= 70 && spo2Val <= 100;
+      const validHr   = !Number.isNaN(hrVal)   && hrVal   >= 40 && hrVal   <= 200;
+      if (!validSpo2 || !validHr) return; // ignore this reading
+
+      // Add to buffer and prune entries older than 6 seconds
+      const now = Date.now();
+      spo2Buffer.push({ spo2: spo2Val, hr: hrVal, ts: now });
+      spo2Buffer = spo2Buffer.filter(s => now - s.ts <= 6000);
+
+      // Stability check: need ≥ 5 samples, spo2 spread ≤ 2, HR spread ≤ 10
+      if (spo2Buffer.length >= 5) {
+        const spo2s = spo2Buffer.map(s => s.spo2);
+        const hrs   = spo2Buffer.map(s => s.hr);
+        const spo2Spread = Math.max(...spo2s) - Math.min(...spo2s);
+        const hrSpread   = Math.max(...hrs)   - Math.min(...hrs);
+        if (spo2Spread <= 2 && hrSpread <= 10) {
+          // Stable — use the average of buffered readings as the final value
+          const avgSpo2 = Math.round(spo2s.reduce((a, b) => a + b, 0) / spo2s.length);
+          const avgHr   = Math.round(hrs.reduce((a, b) => a + b, 0) / hrs.length);
+          results.spo2      = avgSpo2;
+          results.heartRate = avgHr;
+          hasCaptured = true;
+          isScanning  = false;
+          progress    = 100;
+        }
+        // else: not stable yet — keep scanning, don't capture
+      }
+
+      // Fallback: scan already ended (progress hit 100 before this reading was processed)
+      // — accept the latest valid reading immediately rather than reverting to instructions page
+      if (!hasCaptured && !isScanning && spo2Buffer.length > 0) {
+        const last = spo2Buffer[spo2Buffer.length - 1];
+        results.spo2      = last.spo2;
+        results.heartRate = last.hr;
+        hasCaptured = true;
+        progress    = 100;
+      }
+    } else if (sensor === 'temp') {
+      // Apply +1.5 °C hardware offset correction
+      const raw = Number(reading.value);
+      (results as any).temp = Number.isNaN(raw) ? reading.value : parseFloat((raw + 1.5).toFixed(1));
+      hasCaptured = true;
+      isScanning = false;
+      progress = 100;
     } else {
       (results as any)[sensor] = reading.value;
+      hasCaptured = true;
+      isScanning = false;
+      progress = 100;
     }
-    hasCaptured = true;
-    isScanning = false;
-    progress = 100;
   });
 
   const unsubError = lastError.subscribe((msg) => {
@@ -420,6 +480,12 @@
   let eufyPasswordInput = '';
   let eufySaveStatus: 'idle' | 'saving' | 'saved' | 'error' = 'idle';
   let showEufyCredForm = false;
+  let showDebug = false; // toggles debug/calibration panels
+  let hideResults = false; // "Conceal" privacy toggle — hides result values from display
+
+  // SpO2/HR stability buffer — only accept reading after values settle for ~5 seconds
+  interface Spo2Sample { spo2: number; hr: number; ts: number; }
+  let spo2Buffer: Spo2Sample[] = [];
 
   function saveEufyCredentials() {
     if (!eufyEmailInput.trim() || !eufyPasswordInput.trim()) return;
@@ -460,8 +526,8 @@
   const phases = {
     weight: { title: "Weight",      desc: "Step onto the platform",          icon: "weight", duration: 30, unit: "kg"    },
     height: { title: "Height",      desc: "Stand straight",                  icon: "height", duration: 30, unit: "m"     },
-    temp:   { title: "Temperature", desc: "Place forehead near sensor",       icon: "temp", duration: 40, unit: "°C"   },
-    spo2:   { title: "HR + SpO2",   desc: "Place finger on MAX30102 clip",   icon: "spo2", duration: 30, unit: "% / bpm" },
+    temp:   { title: "Temperature", desc: "Place forehead near sensor",       icon: "temp", duration: 80, unit: "°C"   },
+    spo2:   { title: "HR + SpO2",   desc: "Place finger on MAX30102 clip",   icon: "spo2", duration: 60, unit: "% / bpm" },
     bp:     { title: "Blood Pressure", desc: "Wrap cuff around your left arm", icon: "bp", duration: 90, unit: "mmHg" }
   } as const;
 
@@ -475,7 +541,7 @@
   }
 
   function startScan() {
-    isScanning = true; progress = 0;
+    isScanning = true; progress = 0; spo2Buffer = [];
     const sensor = currentPhase as SensorKey;
     const bridgeOnline    = $bridgeStatus === 'esp32Ready' || $bridgeStatus === 'esp32Missing' || $bridgeStatus === 'connected';
     const sensorConnected = $sensorStatus[sensor] !== 'disconnected';
@@ -535,11 +601,12 @@
   }
 
   function measureSingle(phase: SensorPhase) {
+    hideResults = false; spo2Buffer = [];
     mode = 'single'; isRedoingSpecific = false; currentPhase = phase; hasCaptured = false; progress = 0;
   }
 
   function nextPhase() {
-    hasCaptured = false; progress = 0;
+    hideResults = false; spo2Buffer = []; hasCaptured = false; progress = 0;
     if (mode === 'single' || isRedoingSpecific) { isRedoingSpecific = false; currentPhase = 'review'; return; }
     const order: Phase[] = ['weight', 'height', 'temp', 'spo2', 'bp', 'review'];
     const currentIndex = order.indexOf(currentPhase);
@@ -554,6 +621,7 @@
   }
 
   function goBack() {
+    hideResults = false; spo2Buffer = [];
     cancelMeasurement();
     isScanning = false; isCountingDown = false; hasCaptured = false; bpManualEntry = false; progress = 0;
     if (mode === 'single' || isRedoingSpecific) { isRedoingSpecific = false; mode = 'idle'; currentPhase = 'review'; return; }
@@ -567,6 +635,7 @@
   }
 
   function skipPhase() {
+    hideResults = false; spo2Buffer = [];
     cancelMeasurement(); isScanning = false; isCountingDown = false; hasCaptured = false; bpManualEntry = false;
     if (mode === 'single') { mode = 'idle'; currentPhase = 'review'; return; }
     if (currentPhase === 'bp') results.bp = "0/0";
@@ -707,20 +776,14 @@
 
             {:else if currentPhase === 'weight'}
               <h2 class="text-2xl font-[1000] text-blue-600 animate-pulse uppercase tracking-tight">Measuring Weight…</h2>
-              <p class="text-sm font-bold text-blue-400 uppercase tracking-widest">
-                {eufyMode === 'cloud'
-                  ? '☁️ Open the EufyLife app and step on the scale'
-                  : eufyMode === 'ble'
-                    ? '📡 Via Eufy BLE — Stand on the Eufy scale'
-                    : 'Stand still on the platform'}
-              </p>
+              <p class="text-sm font-bold text-blue-400 uppercase tracking-widest">Stand still on the platform</p>
               {#if $weightLiveReading !== null}
                 {@const lbs = ($weightLiveReading * 2.20462).toFixed(1)}
                 <div in:fade class="py-6 px-10 rounded-3xl bg-white border border-blue-100 flex flex-col items-center gap-1 w-full max-w-xs">
                   <p class="text-xs font-black uppercase tracking-widest text-blue-400">Live Reading</p>
-                  <p class="text-6xl font-[1000] text-blue-950 tabular-nums leading-none">{$weightLiveReading.toFixed(1)}</p>
+                  <p class="text-6xl font-[1000] text-blue-950 tabular-nums leading-none transition-all {hideResults ? 'blur-2xl select-none' : ''}">{$weightLiveReading.toFixed(1)}</p>
                   <p class="text-lg font-black text-blue-400">kg</p>
-                  <p class="text-sm font-bold text-blue-900/30">{lbs} lbs</p>
+                  {#if !hideResults}<p class="text-sm font-bold text-blue-900/30">{lbs} lbs</p>{/if}
                 </div>
               {:else}
                 <p class="text-sm text-blue-900/30 font-bold uppercase tracking-widest animate-pulse">Waiting for scale…</p>
@@ -735,34 +798,70 @@
 
         {:else if hasCaptured}
           <!-- RESULT -->
-          <div in:scale class="flex flex-col items-center gap-5 w-full">
-            <div class="w-24 h-24 bg-green-50 border-2 border-green-100 rounded-full flex items-center justify-center text-5xl">✓</div>
-            <h2 class="text-base font-black text-blue-900/30 uppercase tracking-[0.3em]">Captured</h2>
+          <div in:scale class="flex flex-col items-center gap-4 w-full">
+
+            <!-- Conceal / Reveal toggle -->
+            <button
+              on:click={() => hideResults = !hideResults}
+              class="flex items-center gap-2 px-5 py-2 rounded-full border-2
+                {hideResults
+                  ? 'border-amber-300 bg-amber-50 text-amber-600'
+                  : 'border-slate-200 bg-white/60 text-slate-400'}
+                text-xs font-black uppercase tracking-widest transition-all active:scale-95"
+            >
+              {#if hideResults}
+                <!-- eye-off icon -->
+                <svg class="w-4 h-4" fill="none" stroke="currentColor" stroke-width="2.5" viewBox="0 0 24 24">
+                  <path stroke-linecap="round" stroke-linejoin="round" d="M17.94 17.94A10.07 10.07 0 0112 20c-7 0-11-8-11-8a18.45 18.45 0 015.06-5.94M9.9 4.24A9.12 9.12 0 0112 4c7 0 11 8 11 8a18.5 18.5 0 01-2.16 3.19m-6.72-1.07a3 3 0 11-4.24-4.24M1 1l22 22"/>
+                </svg>
+                Reveal
+              {:else}
+                <!-- eye icon -->
+                <svg class="w-4 h-4" fill="none" stroke="currentColor" stroke-width="2.5" viewBox="0 0 24 24">
+                  <path stroke-linecap="round" stroke-linejoin="round" d="M1 12S5 4 12 4s11 8 11 8-4 8-11 8S1 12 1 12z"/>
+                  <circle cx="12" cy="12" r="3"/>
+                </svg>
+                Conceal
+              {/if}
+            </button>
 
             {#if currentPhase === 'spo2'}
-              <div class="grid grid-cols-2 gap-4 w-full max-w-xs">
-                <div class="py-5 rounded-3xl bg-white border border-blue-100 flex flex-col items-center gap-1">
+              <div class="grid grid-cols-2 gap-4 w-full max-w-sm">
+                <div class="py-6 rounded-3xl bg-white border border-blue-100 flex flex-col items-center gap-1">
                   <p class="text-xs font-black uppercase tracking-widest text-blue-400">SpO2</p>
-                  <p class="text-4xl font-black text-blue-950">{results.spo2 > 0 ? `${results.spo2}%` : '--'}</p>
+                  <p class="text-[5rem] font-[1000] text-blue-950 tabular-nums leading-none transition-all
+                    {hideResults ? 'blur-2xl select-none' : ''}">
+                    {results.spo2 > 0 ? `${results.spo2}` : '--'}
+                  </p>
+                  <p class="text-lg font-black text-blue-400">%</p>
                 </div>
-                <div class="py-5 rounded-3xl bg-white border border-blue-100 flex flex-col items-center gap-1">
+                <div class="py-6 rounded-3xl bg-white border border-blue-100 flex flex-col items-center gap-1">
                   <p class="text-xs font-black uppercase tracking-widest text-blue-400">Heart Rate</p>
-                  <p class="text-4xl font-black text-blue-950">{results.heartRate > 0 ? `${results.heartRate}` : '--'}</p>
-                  <p class="text-xs font-bold text-blue-300">bpm</p>
+                  <p class="text-[5rem] font-[1000] text-blue-950 tabular-nums leading-none transition-all
+                    {hideResults ? 'blur-2xl select-none' : ''}">
+                    {results.heartRate > 0 ? `${results.heartRate}` : '--'}
+                  </p>
+                  <p class="text-lg font-black text-blue-400">bpm</p>
                 </div>
               </div>
 
             {:else if currentPhase === 'bp'}
-              <div class="grid grid-cols-2 gap-4 w-full max-w-xs">
-                <div class="py-5 rounded-3xl bg-white border border-blue-100 flex flex-col items-center gap-1">
+              <div class="grid grid-cols-2 gap-4 w-full max-w-sm">
+                <div class="py-6 rounded-3xl bg-white border border-blue-100 flex flex-col items-center gap-1">
                   <p class="text-xs font-black uppercase tracking-widest text-blue-400">Systolic</p>
-                  <p class="text-4xl font-black text-blue-950">{bpSys > 0 ? bpSys : '--'}</p>
-                  <p class="text-xs font-bold text-blue-300">mmHg</p>
+                  <p class="text-[5rem] font-[1000] text-blue-950 tabular-nums leading-none transition-all
+                    {hideResults ? 'blur-2xl select-none' : ''}">
+                    {bpSys > 0 ? bpSys : '--'}
+                  </p>
+                  <p class="text-lg font-black text-blue-400">mmHg</p>
                 </div>
-                <div class="py-5 rounded-3xl bg-white border border-blue-100 flex flex-col items-center gap-1">
+                <div class="py-6 rounded-3xl bg-white border border-blue-100 flex flex-col items-center gap-1">
                   <p class="text-xs font-black uppercase tracking-widest text-blue-400">Diastolic</p>
-                  <p class="text-4xl font-black text-blue-950">{bpDia > 0 ? bpDia : '--'}</p>
-                  <p class="text-xs font-bold text-blue-300">mmHg</p>
+                  <p class="text-[5rem] font-[1000] text-blue-950 tabular-nums leading-none transition-all
+                    {hideResults ? 'blur-2xl select-none' : ''}">
+                    {bpDia > 0 ? bpDia : '--'}
+                  </p>
+                  <p class="text-lg font-black text-blue-400">mmHg</p>
                 </div>
               </div>
               <p class="text-xs text-blue-900/30 font-bold uppercase tracking-widest">Remove the cuff and set it aside</p>
@@ -770,41 +869,40 @@
             {:else if currentPhase === 'weight'}
               {@const wKg = results.weight}
               {@const wLbs = (wKg * 2.20462).toFixed(1)}
-              <div class="py-6 px-10 rounded-3xl bg-white border border-blue-100 flex flex-col items-center gap-1 w-full max-w-xs">
-                <p class="text-xs font-black uppercase tracking-widest text-blue-400">Weight</p>
-                <p class="text-6xl font-[1000] text-blue-950 tabular-nums leading-none">{wKg > 0 ? wKg.toFixed(1) : '--'}</p>
-                <p class="text-lg font-black text-blue-400">kg</p>
-                {#if wKg > 0}<p class="text-sm font-bold text-blue-900/30">{wLbs} lbs</p>{/if}
+              <div class="flex flex-col items-center gap-1">
+                <p class="text-sm font-black uppercase tracking-widest text-blue-400">Weight</p>
+                <p class="text-[11rem] font-[1000] text-blue-950 tabular-nums leading-none transition-all
+                  {hideResults ? 'blur-2xl select-none' : ''}">
+                  {wKg > 0 ? wKg.toFixed(1) : '--'}
+                </p>
+                <p class="text-3xl font-black text-blue-400">kg</p>
+                {#if wKg > 0 && !hideResults}
+                  <p class="text-lg font-bold text-blue-900/30">{wLbs} lbs</p>
+                {/if}
               </div>
-              <p class="text-xs text-blue-900/30 font-bold uppercase tracking-widest">You may step off the platform</p>
 
             {:else}
-              <div class="py-6 px-10 rounded-3xl bg-white border border-blue-100 flex flex-col items-center gap-1 w-full max-w-xs">
-                <p class="text-xs font-black uppercase tracking-widest text-blue-400">{phases[currentPhase as keyof typeof phases].title}</p>
-                <p class="text-6xl font-[1000] text-blue-950 tabular-nums leading-none">{results[currentPhase as keyof CheckupResults]}</p>
-                <p class="text-lg font-black text-blue-400">{phases[currentPhase as keyof typeof phases].unit}</p>
+              <!-- height / temp -->
+              <div class="flex flex-col items-center gap-1">
+                <p class="text-sm font-black uppercase tracking-widest text-blue-400">{phases[currentPhase as keyof typeof phases].title}</p>
+                <p class="text-[11rem] font-[1000] text-blue-950 tabular-nums leading-none transition-all
+                  {hideResults ? 'blur-2xl select-none' : ''}">
+                  {results[currentPhase as keyof CheckupResults]}
+                </p>
+                <p class="text-3xl font-black text-blue-400">{phases[currentPhase as keyof typeof phases].unit}</p>
               </div>
             {/if}
 
-            {#if currentPhase === 'temp' && typeof results.temp === 'number' && results.temp > 0}
+            {#if currentPhase === 'temp' && typeof results.temp === 'number' && results.temp > 0 && !hideResults}
               {@const t = results.temp}
               <div class="px-6 py-2.5 rounded-2xl text-sm font-black uppercase tracking-widest
                 {t >= 37.5 ? 'bg-red-50 text-red-500' : t >= 37.0 ? 'bg-amber-50 text-amber-500' : 'bg-green-50 text-green-500'}">
                 {#if t >= 37.5}
-                  <span class="inline-flex items-center gap-2">
-                    <span class="w-2.5 h-2.5 rounded-full bg-red-500"></span>
-                    Fever
-                  </span>
+                  <span class="inline-flex items-center gap-2"><span class="w-2.5 h-2.5 rounded-full bg-red-500"></span>Fever</span>
                 {:else if t >= 37.0}
-                  <span class="inline-flex items-center gap-2">
-                    <span class="w-2.5 h-2.5 rounded-full bg-amber-400"></span>
-                    Slightly elevated
-                  </span>
+                  <span class="inline-flex items-center gap-2"><span class="w-2.5 h-2.5 rounded-full bg-amber-400"></span>Slightly elevated</span>
                 {:else}
-                  <span class="inline-flex items-center gap-2">
-                    <span class="w-2.5 h-2.5 rounded-full bg-green-500"></span>
-                    Normal
-                  </span>
+                  <span class="inline-flex items-center gap-2"><span class="w-2.5 h-2.5 rounded-full bg-green-500"></span>Normal</span>
                 {/if}
               </div>
             {/if}
@@ -846,114 +944,207 @@
 
         {:else if currentPhase === 'bp'}
           <!-- BP INSTRUCTION -->
-          <div in:fade class="flex flex-col items-center gap-6 w-full">
-            <div class="w-36 h-36 bg-blue-50 rounded-[3rem] flex items-center justify-center text-blue-600">
-              {@html iconSvg('bp', 80)}
+          <div in:fade class="flex flex-col items-center gap-5 w-full overflow-y-auto">
+            <div class="w-28 h-28 bg-blue-50 rounded-[3rem] flex items-center justify-center text-blue-600 shrink-0">
+              {@html iconSvg('bp', 72)}
             </div>
-            <h1 class="text-4xl font-[1000] text-blue-950 uppercase tracking-tight">Blood Pressure</h1>
-            <div class="text-left space-y-3 w-full max-w-xs">
-              {#each ['Turn on the BP monitor', 'Wrap the cuff around your left arm', 'Sit still, then press Start'] as step, i}
+            <h1 class="text-3xl font-[1000] text-blue-950 uppercase tracking-tight shrink-0">Blood Pressure</h1>
+
+            <!-- Preparation box -->
+            <div class="w-full max-w-xs bg-amber-50 border border-amber-200 rounded-2xl px-5 py-4 text-left shrink-0">
+              <p class="text-xs font-black uppercase tracking-widest text-amber-500 mb-2">⚠ Preparation</p>
+              <ul class="space-y-1 text-sm font-bold text-amber-800/70">
+                <li>• Do not smoke, exercise, or drink caffeinated beverages.</li>
+                <li>• Empty your bladder.</li>
+                <li>• Rest quietly for 5 minutes before measurement.</li>
+              </ul>
+            </div>
+
+            <!-- Numbered steps -->
+            <div class="text-left space-y-3 w-full max-w-xs shrink-0">
+              {#each [
+                'Have yourself seated. Sit straight.',
+                'Remove restrictive clothing from your upper arm.',
+                'Place the cuff on the upper arm, about 1 inch (2 cm) above the elbow. Ensure the cuff\'s artery marker/tube sits over the inner arm, lined up with the middle finger.',
+                'The cuff should be tight, but you should only be able to fit two fingertips between the top edge and your arm.',
+                'While the reading is ongoing, stay still & silent.',
+              ] as step, i}
                 <div class="flex items-start gap-3">
-                  <span class="w-7 h-7 bg-blue-600 text-white rounded-full flex items-center justify-center text-sm font-black shrink-0">{i + 1}</span>
-                  <p class="text-base text-blue-900/60 font-bold pt-0.5">{step}</p>
+                  <span class="w-7 h-7 bg-blue-600 text-white rounded-full flex items-center justify-center text-sm font-black shrink-0 mt-0.5">{i + 1}</span>
+                  <p class="text-sm text-blue-900/60 font-bold leading-snug">{step}</p>
                 </div>
               {/each}
             </div>
-            <button on:click={openSegCalib}
-              class="px-6 py-3 rounded-2xl border-2 border-orange-200 bg-orange-50 text-orange-500 text-sm font-black uppercase tracking-widest active:scale-95 transition-transform">
-              Calibrate Camera
+
+            <!-- Debug toggle -->
+            <button on:click={() => showDebug = !showDebug}
+              class="px-5 py-2 rounded-2xl border-2 border-slate-200 bg-slate-50 text-slate-400 text-xs font-black uppercase tracking-widest active:scale-95 transition-transform shrink-0">
+              ⚙ {showDebug ? 'Hide Debug' : 'Debug'}
             </button>
+            {#if showDebug}
+              <button on:click={openSegCalib}
+                class="px-6 py-3 rounded-2xl border-2 border-orange-200 bg-orange-50 text-orange-500 text-sm font-black uppercase tracking-widest active:scale-95 transition-transform shrink-0">
+                Calibrate Camera
+              </button>
+            {/if}
           </div>
 
         {:else if currentPhase === 'weight'}
           <!-- WEIGHT INSTRUCTION -->
-          <div in:fade class="flex flex-col items-center gap-5 w-full">
-            <div class="w-36 h-36 bg-blue-50 rounded-[3rem] flex items-center justify-center text-blue-600">
-              {@html iconSvg('weight', 80)}
+          <div in:fade class="flex flex-col items-center gap-5 w-full overflow-y-auto">
+            <div class="w-28 h-28 bg-blue-50 rounded-[3rem] flex items-center justify-center text-blue-600 shrink-0">
+              {@html iconSvg('weight', 72)}
             </div>
-            <h1 class="text-4xl font-[1000] text-blue-950 uppercase tracking-tight">Weight</h1>
+            <h1 class="text-3xl font-[1000] text-blue-950 uppercase tracking-tight shrink-0">Weight</h1>
 
-            <!-- Steps depend on mode -->
-            <div class="text-left space-y-3 w-full max-w-xs">
-              {#if eufyMode === 'cloud'}
-                {#each ['Open the EufyLife app on your phone', 'Step onto the Eufy scale', 'Wait for the app to sync, then press Start'] as step, i}
-                  <div class="flex items-start gap-3">
-                    <span class="w-7 h-7 bg-indigo-500 text-white rounded-full flex items-center justify-center text-sm font-black shrink-0">{i + 1}</span>
-                    <p class="text-base text-blue-900/60 font-bold pt-0.5">{step}</p>
-                  </div>
-                {/each}
-              {:else}
-                {#each ['Remove shoes and heavy items', 'Step onto the platform and stand still', 'Press Start and hold steady until done'] as step, i}
-                  <div class="flex items-start gap-3">
-                    <span class="w-7 h-7 bg-blue-600 text-white rounded-full flex items-center justify-center text-sm font-black shrink-0">{i + 1}</span>
-                    <p class="text-base text-blue-900/60 font-bold pt-0.5">{step}</p>
-                  </div>
-                {/each}
-              {/if}
-            </div>
-
-            <!-- Eufy mode selector -->
-            <div class="w-full max-w-xs grid grid-cols-2 gap-2">
+            <!-- Steps -->
+            <div class="text-left space-y-3 w-full max-w-xs shrink-0">
               {#each [
-                { id: 'cloud', label: 'Eufy Cloud', icon: '☁️' },
-                { id: 'ble',   label: 'Eufy BLE',   icon: '📡' },
-              ] as opt}
-                <button
-                  on:click={() => setEufyMode(opt.id as 'cloud' | 'ble')}
-                  class="py-3 rounded-2xl border-2 font-black uppercase tracking-widest text-xs transition-all
-                    {eufyMode === opt.id
-                      ? (opt.id === 'cloud' ? 'border-indigo-400 bg-indigo-50 text-indigo-600' : 'border-blue-400 bg-blue-50 text-blue-600')
-                      : 'border-blue-100 bg-white text-blue-300'}"
-                >
-                  <span class="block text-base">{opt.icon}</span>
-                  {opt.label}
-                </button>
+                'Step on the scale and keep steady.',
+                'Once the scale\'s display shows a steady reading, hop off the scale.',
+              ] as step, i}
+                <div class="flex items-start gap-3">
+                  <span class="w-7 h-7 bg-blue-600 text-white rounded-full flex items-center justify-center text-sm font-black shrink-0 mt-0.5">{i + 1}</span>
+                  <p class="text-sm text-blue-900/60 font-bold leading-snug">{step}</p>
+                </div>
               {/each}
             </div>
 
-            <!-- Eufy Cloud credential status / setup -->
-            {#if eufyMode === 'cloud'}
-              <div class="w-full max-w-xs">
-                {#if $eufyCredentialsConfigured === false}
-                  <div class="mb-3 px-4 py-2 bg-amber-50 border border-amber-200 rounded-2xl text-xs text-amber-700 font-bold text-center">
-                    ⚠️ EufyLife account not set up yet
-                  </div>
-                {:else if $eufyCredentialsConfigured === true}
-                  <div class="mb-3 px-4 py-2 bg-green-50 border border-green-200 rounded-2xl text-xs text-green-700 font-bold text-center">
-                    ✓ EufyLife account connected
-                  </div>
-                {/if}
-                <button
-                  on:click={() => { showEufyCredForm = !showEufyCredForm; }}
-                  class="w-full py-3 rounded-2xl border-2 border-indigo-200 bg-indigo-50 text-indigo-500 text-xs font-black uppercase tracking-widest"
-                >
-                  {showEufyCredForm ? '✕ Cancel' : '🔑 Set EufyLife Account'}
-                </button>
-                {#if showEufyCredForm}
-                  <div class="mt-3 flex flex-col gap-3">
-                    <input
-                      type="email" bind:value={eufyEmailInput} placeholder="EufyLife email"
-                      class="w-full px-4 py-3 text-sm font-bold bg-white rounded-2xl border-2 border-blue-100 focus:border-indigo-400 outline-none"
-                    />
-                    <input
-                      type="password" bind:value={eufyPasswordInput} placeholder="EufyLife password"
-                      class="w-full px-4 py-3 text-sm font-bold bg-white rounded-2xl border-2 border-blue-100 focus:border-indigo-400 outline-none"
-                    />
-                    <button
-                      on:click={saveEufyCredentials}
-                      disabled={eufySaveStatus === 'saving'}
-                      class="w-full py-3 bg-indigo-600 text-white rounded-2xl font-black uppercase tracking-widest text-sm active:scale-95 transition-transform disabled:opacity-50"
-                    >
-                      {eufySaveStatus === 'saving' ? 'Saving…' : eufySaveStatus === 'saved' ? '✓ Saved!' : 'Save'}
-                    </button>
-                  </div>
-                {/if}
+            <!-- Debug toggle — hides Eufy mode & credential controls -->
+            <button on:click={() => showDebug = !showDebug}
+              class="px-5 py-2 rounded-2xl border-2 border-slate-200 bg-slate-50 text-slate-400 text-xs font-black uppercase tracking-widest active:scale-95 transition-transform shrink-0">
+              ⚙ {showDebug ? 'Hide Debug' : 'Debug'}
+            </button>
+            {#if showDebug}
+              <!-- Eufy mode selector -->
+              <div class="w-full max-w-xs grid grid-cols-2 gap-2 shrink-0">
+                {#each [
+                  { id: 'cloud', label: 'Eufy Cloud', icon: '☁️' },
+                  { id: 'ble',   label: 'Eufy BLE',   icon: '📡' },
+                ] as opt}
+                  <button
+                    on:click={() => setEufyMode(opt.id as 'cloud' | 'ble')}
+                    class="py-3 rounded-2xl border-2 font-black uppercase tracking-widest text-xs transition-all
+                      {eufyMode === opt.id
+                        ? (opt.id === 'cloud' ? 'border-indigo-400 bg-indigo-50 text-indigo-600' : 'border-blue-400 bg-blue-50 text-blue-600')
+                        : 'border-blue-100 bg-white text-blue-300'}"
+                  >
+                    <span class="block text-base">{opt.icon}</span>
+                    {opt.label}
+                  </button>
+                {/each}
               </div>
+
+              <!-- Eufy Cloud credential status / setup -->
+              {#if eufyMode === 'cloud'}
+                <div class="w-full max-w-xs shrink-0">
+                  {#if $eufyCredentialsConfigured === false}
+                    <div class="mb-3 px-4 py-2 bg-amber-50 border border-amber-200 rounded-2xl text-xs text-amber-700 font-bold text-center">
+                      ⚠️ EufyLife account not set up yet
+                    </div>
+                  {:else if $eufyCredentialsConfigured === true}
+                    <div class="mb-3 px-4 py-2 bg-green-50 border border-green-200 rounded-2xl text-xs text-green-700 font-bold text-center">
+                      ✓ EufyLife account connected
+                    </div>
+                  {/if}
+                  <button
+                    on:click={() => { showEufyCredForm = !showEufyCredForm; }}
+                    class="w-full py-3 rounded-2xl border-2 border-indigo-200 bg-indigo-50 text-indigo-500 text-xs font-black uppercase tracking-widest"
+                  >
+                    {showEufyCredForm ? '✕ Cancel' : '🔑 Set EufyLife Account'}
+                  </button>
+                  {#if showEufyCredForm}
+                    <div class="mt-3 flex flex-col gap-3">
+                      <input
+                        type="email" bind:value={eufyEmailInput} placeholder="EufyLife email"
+                        class="w-full px-4 py-3 text-sm font-bold bg-white rounded-2xl border-2 border-blue-100 focus:border-indigo-400 outline-none"
+                      />
+                      <input
+                        type="password" bind:value={eufyPasswordInput} placeholder="EufyLife password"
+                        class="w-full px-4 py-3 text-sm font-bold bg-white rounded-2xl border-2 border-blue-100 focus:border-indigo-400 outline-none"
+                      />
+                      <button
+                        on:click={saveEufyCredentials}
+                        disabled={eufySaveStatus === 'saving'}
+                        class="w-full py-3 bg-indigo-600 text-white rounded-2xl font-black uppercase tracking-widest text-sm active:scale-95 transition-transform disabled:opacity-50"
+                      >
+                        {eufySaveStatus === 'saving' ? 'Saving…' : eufySaveStatus === 'saved' ? '✓ Saved!' : 'Save'}
+                      </button>
+                    </div>
+                  {/if}
+                </div>
+              {/if}
             {/if}
           </div>
 
+        {:else if currentPhase === 'height'}
+          <!-- HEIGHT INSTRUCTION -->
+          <div in:fade class="flex flex-col items-center gap-5 w-full overflow-y-auto">
+            <div class="w-28 h-28 bg-blue-50 rounded-[3rem] flex items-center justify-center text-blue-600 shrink-0">
+              {@html iconSvg('height', 72)}
+            </div>
+            <h1 class="text-3xl font-[1000] text-blue-950 uppercase tracking-tight shrink-0">Height</h1>
+            <!-- Tip box -->
+            <div class="w-full max-w-xs bg-blue-50 border border-blue-200 rounded-2xl px-5 py-3 text-left shrink-0">
+              <p class="text-sm font-bold text-blue-700/80">💡 <span class="font-black">Note:</span> For more accurate results, have a flat object on top of your head.</p>
+            </div>
+            <div class="text-left space-y-3 w-full max-w-xs shrink-0">
+              {#each [
+                'Remove shoes.',
+                'Stand on the scale platform and align yourself with the sensor above.',
+                'Remain on the platform. Once your height is displayed, step off.',
+              ] as step, i}
+                <div class="flex items-start gap-3">
+                  <span class="w-7 h-7 bg-blue-600 text-white rounded-full flex items-center justify-center text-sm font-black shrink-0 mt-0.5">{i + 1}</span>
+                  <p class="text-sm text-blue-900/60 font-bold leading-snug">{step}</p>
+                </div>
+              {/each}
+            </div>
+          </div>
+
+        {:else if currentPhase === 'temp'}
+          <!-- TEMPERATURE INSTRUCTION -->
+          <div in:fade class="flex flex-col items-center gap-5 w-full">
+            <div class="w-28 h-28 bg-blue-50 rounded-[3rem] flex items-center justify-center text-blue-600 shrink-0">
+              {@html iconSvg('temp', 72)}
+            </div>
+            <h1 class="text-3xl font-[1000] text-blue-950 uppercase tracking-tight">Temperature</h1>
+            <div class="text-left space-y-3 w-full max-w-xs">
+              {#each [
+                'Point the non-contact thermometer at your forehead.',
+                'Wait for results. Once the reading is displayed, return the thermometer.',
+              ] as step, i}
+                <div class="flex items-start gap-3">
+                  <span class="w-7 h-7 bg-blue-600 text-white rounded-full flex items-center justify-center text-sm font-black shrink-0 mt-0.5">{i + 1}</span>
+                  <p class="text-sm text-blue-900/60 font-bold leading-snug">{step}</p>
+                </div>
+              {/each}
+            </div>
+          </div>
+
+        {:else if currentPhase === 'spo2'}
+          <!-- HR + SPO2 INSTRUCTION -->
+          <div in:fade class="flex flex-col items-center gap-5 w-full">
+            <div class="w-28 h-28 bg-blue-50 rounded-[3rem] flex items-center justify-center text-blue-600 shrink-0">
+              {@html iconSvg('spo2', 72)}
+            </div>
+            <h1 class="text-3xl font-[1000] text-blue-950 uppercase tracking-tight">HR + SpO2</h1>
+            <div class="text-left space-y-3 w-full max-w-xs">
+              {#each [
+                'Lay your index/pointer finger flat on the sensor. Make sure it remains flat on the surface.',
+                'Refrain from moving your finger.',
+                'Wait for results.',
+              ] as step, i}
+                <div class="flex items-start gap-3">
+                  <span class="w-7 h-7 bg-blue-600 text-white rounded-full flex items-center justify-center text-sm font-black shrink-0 mt-0.5">{i + 1}</span>
+                  <p class="text-sm text-blue-900/60 font-bold leading-snug">{step}</p>
+                </div>
+              {/each}
+            </div>
+          </div>
+
         {:else}
-          <!-- GENERIC INSTRUCTION -->
+          <!-- GENERIC INSTRUCTION (fallback) -->
           <div in:fade class="flex flex-col items-center gap-6">
             <div class="w-36 h-36 bg-blue-50 rounded-[3rem] flex items-center justify-center text-blue-600">
               {@html iconSvg(phases[currentPhase as keyof typeof phases].icon, 80)}

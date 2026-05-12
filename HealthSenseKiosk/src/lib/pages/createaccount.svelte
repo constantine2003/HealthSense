@@ -51,6 +51,9 @@
     return `${months[m - 1]} ${d}, ${y}`;
   })();
 
+  // --- SUCCESS MODAL ---
+  let createdProfile: any = null;
+
   // --- BIOMETRIC MODAL STATE ---
   let showBiometricModal = false;
   let scanStatus: 'idle' | 'scanning' | 'lift' | 'again' | 'success' | 'error' = 'idle';
@@ -158,7 +161,7 @@
         alert("Account created in offline mode. It will sync to the cloud when internet is restored.");
       }
 
-      onCreated(profile);
+      createdProfile = profile;
     } catch (err: any) {
       alert("Registration Error: " + err.message);
     } finally {
@@ -448,6 +451,51 @@
             Cancel
           </button>
         {/if}
+      </div>
+    </div>
+  {/if}
+
+  <!-- ── Account Created Success Modal ───────────────────────────────────── -->
+  {#if createdProfile}
+    <div
+      class="absolute inset-0 z-50 flex items-center justify-center bg-black/50 backdrop-blur-sm"
+      transition:fade={{ duration: 200 }}
+    >
+      <div
+        class="bg-white rounded-3xl shadow-2xl px-10 py-10 flex flex-col items-center gap-5 max-w-sm w-full mx-4"
+        transition:scale={{ duration: 250, start: 0.85 }}
+      >
+        <!-- Check icon -->
+        <div class="w-16 h-16 rounded-full bg-green-100 flex items-center justify-center">
+          <svg class="w-9 h-9 text-green-500" fill="none" stroke="currentColor" stroke-width="3" viewBox="0 0 24 24">
+            <path stroke-linecap="round" stroke-linejoin="round" d="M5 13l4 4L19 7" />
+          </svg>
+        </div>
+
+        <h2 class="text-2xl font-black text-slate-800 uppercase tracking-tight text-center">
+          Account Created!
+        </h2>
+
+        <p class="text-slate-500 text-sm text-center">
+          Welcome, <span class="font-bold text-slate-700">{createdProfile.first_name} {createdProfile.last_name}</span>!
+        </p>
+
+        <!-- Username highlight box -->
+        <div class="w-full bg-blue-50 border border-blue-200 rounded-2xl px-6 py-4 flex flex-col items-center gap-1">
+          <span class="text-xs font-bold uppercase tracking-widest text-blue-400">Your Username</span>
+          <span class="text-2xl font-black text-blue-700 tracking-tight">{createdProfile.username}</span>
+        </div>
+
+        <p class="text-xs text-slate-400 text-center leading-snug">
+          Remember your username — you'll need it to log in.
+        </p>
+
+        <button
+          on:click={() => { const p = createdProfile; createdProfile = null; onCreated(p); }}
+          class="w-full py-3 rounded-full bg-blue-600 text-white font-black uppercase text-sm tracking-widest active:bg-blue-700"
+        >
+          Continue
+        </button>
       </div>
     </div>
   {/if}

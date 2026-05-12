@@ -66,8 +66,26 @@
     }
   };
 
+  import { BRIDGE_BASE } from './lib/stores/connectivity';
+
   // Whether the user is logged in (show the ESP32 widget on these screens)
   $: loggedIn = user !== null && ['home', 'history', 'checkup'].includes(currentScreen);
+
+  let isRestarting = false;
+
+  async function restartAll() {
+    if (isRestarting) return;
+    isRestarting = true;
+    try {
+      await fetch(`${BRIDGE_BASE}/api/restart`, {
+        method: 'POST',
+        headers: { 'x-hs-token': import.meta.env.VITE_HS_TOKEN ?? '' },
+      }).catch(() => {});
+    } finally {
+      // Reload the page after a short delay to let the bridge restart
+      setTimeout(() => window.location.reload(), 1200);
+    }
+  }
 </script>
 
 <main 
@@ -134,6 +152,29 @@
       <span>📶</span><span>Offline Mode — data will sync when connected</span>
     </div>
   {/if}
+
+  <!-- Refresh button — top-left, always visible -->
+  <button
+    on:click={restartAll}
+    disabled={isRestarting}
+    class="fixed top-3 left-3 z-[200] w-10 h-10 rounded-full flex items-center justify-center
+           bg-white/20 hover:bg-white/40 active:bg-white/60 backdrop-blur-sm
+           transition-all duration-150 shadow-md disabled:opacity-60 disabled:cursor-not-allowed"
+    title="Restart kiosk"
+    aria-label="Restart kiosk"
+  >
+    {#if isRestarting}
+      <svg class="w-5 h-5 text-white animate-spin" fill="none" viewBox="0 0 24 24">
+        <circle class="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" stroke-width="3"/>
+        <path class="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8v4l3-3-3-3v4a10 10 0 100 10z"/>
+      </svg>
+    {:else}
+      <svg class="w-5 h-5 text-white" fill="none" stroke="currentColor" stroke-width="2.2" viewBox="0 0 24 24">
+        <path stroke-linecap="round" stroke-linejoin="round"
+          d="M4 4v5h.582M20 20v-5h-.581M5.635 19A9 9 0 104.582 9H4"/>
+      </svg>
+    {/if}
+  </button>
 </main>
 
 <!-- ESP32 status widget: floating top-right, only when logged in -->
