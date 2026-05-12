@@ -989,7 +989,7 @@ const AdminDashboard = () => {
                               { icon: <FaWeight size={10} />,          label: 'Weight', val: c.weight,         unit: 'kg'   },
                               { icon: <FaHeartbeat size={10} />,       label: 'BP',     val: c.blood_pressure, unit: 'mmHg' },
                               { icon: <FaChartLine size={10} />,       label: 'BMI',    val: c.bmi,            unit: ''     },
-                              { icon: <FaUsers size={10} />,           label: 'Height', val: c.height ? (Number(c.height) / 100).toFixed(2) : '--', unit: 'm' },
+                              { icon: <FaUsers size={10} />,           label: 'Height', val: c.height ? Number(c.height).toFixed(2) : '--', unit: 'm' },
                             ].map((item, j) => (
                               <div key={j} className="bg-white rounded-xl lg:rounded-2xl px-3 py-2.5 flex flex-col gap-1">
                                 <div className="flex items-center gap-1.5 text-[#139dc7]/50">

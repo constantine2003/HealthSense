@@ -84,7 +84,7 @@ async function exportToPDF(record: HealthRecord, language: "English" | "Tagalog"
   const t = Number(record.temp), displayTemp = isMetric ? t : (t*9/5)+32; vitals.push({ label: "Temperature", value: isNaN(t) ? "--" : displayTemp.toFixed(1), unit: isMetric ? "°C" : "°F", status: isNaN(t) ? "No Data" : t > 39 ? "High Fever" : t > 37.5 ? "Fever" : "Normal", color: isNaN(t) ? "#f59e0b" : t > 39 ? "#dc2626" : t > 37.5 ? "#ea580c" : "#16a34a" });
   const w = Number(record.weight), displayW = isMetric ? w : w*2.20462, b = Number(record.bmi); vitals.push({ label: "Weight", value: isNaN(w) ? "--" : displayW.toFixed(1), unit: isMetric ? "kg" : "lb", status: isNaN(b) ? "No Data" : b < 18.5 ? "Underweight" : b >= 30 ? "Obese" : b >= 25 ? "Overweight" : "Normal", color: isNaN(b) ? "#f59e0b" : b < 18.5 || b >= 25 ? (b >= 30 ? "#dc2626" : "#ea580c") : "#16a34a" });
   vitals.push({ label: "BMI", value: record.bmi, unit: "", status: isNaN(b) ? "No Data" : b < 18.5 ? "Underweight" : b >= 30 ? "Obese" : b >= 25 ? "Overweight" : "Normal", color: isNaN(b) ? "#f59e0b" : b < 18.5 || b >= 25 ? (b >= 30 ? "#dc2626" : "#ea580c") : "#16a34a" });
-  const rawH = Number(record.height), heightM = rawH/100, displayH = isMetric ? heightM : heightM*39.3701; vitals.push({ label: "Height", value: isNaN(rawH) ? "--" : (isMetric ? heightM.toFixed(2) : displayH.toFixed(1)), unit: isMetric ? "m" : "in", status: "Normal", color: "#16a34a" });
+  const rawH = Number(record.height), heightM = rawH, displayH = isMetric ? heightM : heightM*39.3701; vitals.push({ label: "Height", value: isNaN(rawH) ? "--" : (isMetric ? heightM.toFixed(2) : displayH.toFixed(1)), unit: isMetric ? "m" : "in", status: "Normal", color: "#16a34a" });
   let bpStatus = "Normal", bpColor = "#16a34a";
   if (record.bp?.includes("/") && !record.bp.includes("--")) { const [sys, dia] = record.bp.split("/").map(Number); if (sys > 140 || dia > 90) { bpStatus = "High"; bpColor = "#dc2626"; } else if (sys > 120 || dia > 80) { bpStatus = "Elevated"; bpColor = "#ea580c"; } } else { bpStatus = "No Data"; bpColor = "#f59e0b"; }
   vitals.push({ label: "Blood Pressure", value: record.bp, unit: ".", status: bpStatus, color: bpColor });
@@ -244,7 +244,7 @@ const Result: React.FC = () => {
     healthData.push({ title: lang.vitals.weight, value: isNaN(w) ? "--" : displayWeight.toFixed(1), unit: isMetric ? "kg" : "lb", status: bmiStatus, type: bmiType, icon: <MdMonitorWeight /> });
     healthData.push({ title: lang.vitals.bmi, value: record.bmi, unit: "", status: bmiStatus, type: bmiType, icon: <FiBarChart /> });
 
-    const rawH = Number(record.height), heightM = rawH/100, displayH = isMetric ? heightM : heightM*39.3701;
+    const rawH = Number(record.height), heightM = rawH, displayH = isMetric ? heightM : heightM*39.3701;
     healthData.push({ title: lang.vitals.height, value: isNaN(rawH) ? "--" : (isMetric ? heightM.toFixed(2) : displayH.toFixed(1)), unit: isMetric ? "m" : "in", status: lang.status.normal, type: "success", icon: <MdHeight /> });
 
     let bpStatus = lang.status.ideal, bpType: StatusType = "success";
