@@ -29,41 +29,27 @@
   let showPassword = false;
   let showConfirmPassword = false;
 
-  // --- BIRTHDAY SCROLLER STATE ---
-  const months = ["JAN", "FEB", "MAR", "APR", "MAY", "JUN", "JUL", "AUG", "SEP", "OCT", "NOV", "DEC"];
-  const days = Array.from({ length: 31 }, (_, i) => (i + 1).toString().padStart(2, '0'));
-  const years = Array.from({ length: 100 }, (_, i) => (2026 - i).toString());
+  // --- BIRTHDAY DATE PICKER ---
+  let birthDateInput = '1990-01-01';
+  let datePickerRef: HTMLInputElement;
 
-  let selM = "JAN", selD = "01", selY = "1990";
-  
-  $: birthday = `${selM} ${selD}, ${selY}`;
   $: age = (() => {
-    const monthIndex = months.indexOf(selM);
-    const birthDate = new Date(parseInt(selY), monthIndex, parseInt(selD));
+    if (!birthDateInput) return 0;
+    const [y, m, d] = birthDateInput.split('-').map(Number);
+    const birthDate = new Date(y, m - 1, d);
     const today = new Date();
     let calculatedAge = today.getFullYear() - birthDate.getFullYear();
-    const m = today.getMonth() - birthDate.getMonth();
-    if (m < 0 || (m === 0 && today.getDate() < birthDate.getDate())) calculatedAge--;
+    const mo = today.getMonth() - birthDate.getMonth();
+    if (mo < 0 || (mo === 0 && today.getDate() < birthDate.getDate())) calculatedAge--;
     return calculatedAge >= 0 ? calculatedAge : 0;
   })();
 
-  function scrollSelect(node: HTMLElement, type: 'm' | 'd' | 'y') {
-    const handleScroll = () => {
-      const center = node.scrollTop + node.offsetHeight / 2;
-      const items = Array.from(node.children) as HTMLElement[];
-      items.forEach((item) => {
-        const itemCenter = item.offsetTop + item.offsetHeight / 2;
-        if (Math.abs(center - itemCenter) < 25) {
-          const val = item.getAttribute('data-value') || "";
-          if (type === 'm') selM = val;
-          if (type === 'd') selD = val;
-          if (type === 'y') selY = val;
-        }
-      });
-    };
-    node.addEventListener('scroll', handleScroll, { passive: true });
-    return { destroy() { node.removeEventListener('scroll', handleScroll); } };
-  }
+  $: birthdayDisplay = (() => {
+    if (!birthDateInput) return 'Select a date';
+    const [y, m, d] = birthDateInput.split('-').map(Number);
+    const months = ['Jan','Feb','Mar','Apr','May','Jun','Jul','Aug','Sep','Oct','Nov','Dec'];
+    return `${months[m - 1]} ${d}, ${y}`;
+  })();
 
   // --- BIOMETRIC MODAL STATE ---
   let showBiometricModal = false;
@@ -74,6 +60,10 @@
 
   // Explicit store subscription — more reliable than $: reactive blocks
   // because Svelte will never batch-suppress a direct subscriber callback.
+  // Clear any stale fingerprint event from a previous user's session so the
+  // button does not show "Fingerprint Registered" on fresh mount.
+  fingerprintEvent.set(null);
+
   const unsubFP = fingerprintEvent.subscribe((evt) => {
     if (!evt) return;
     if (evt.type === 'fp_progress') {
@@ -150,8 +140,7 @@
 
     isSubmitting = true;
 
-    const monthIdx = months.indexOf(selM) + 1;
-    const dbDate   = `${selY}-${monthIdx.toString().padStart(2, '0')}-${selD}`;
+    const dbDate = birthDateInput; // already in YYYY-MM-DD format
 
     try {
       const profile = await createAccount({
@@ -177,40 +166,7 @@
     }
   }
 
-  // --- MOUSE DRAG LOGIC ---
-  let isDragging = false;
-  let startY: number;
-  let scrollTop: number;
 
-  function dragScroll(node: HTMLElement) {
-    const onMouseDown = (e: MouseEvent) => {
-      isDragging = true;
-      node.style.cursor = 'grabbing';
-      startY = e.pageY - node.offsetTop;
-      scrollTop = node.scrollTop;
-    };
-    const onMouseLeave = () => { isDragging = false; node.style.cursor = 'grab'; };
-    const onMouseUp = () => { isDragging = false; node.style.cursor = 'grab'; };
-    const onMouseMove = (e: MouseEvent) => {
-      if (!isDragging) return;
-      e.preventDefault();
-      const y = e.pageY - node.offsetTop;
-      const walk = (y - startY) * 2;
-      node.scrollTop = scrollTop - walk;
-    };
-    node.addEventListener('mousedown', onMouseDown);
-    node.addEventListener('mouseleave', onMouseLeave);
-    node.addEventListener('mouseup', onMouseUp);
-    node.addEventListener('mousemove', onMouseMove);
-    return {
-      destroy() {
-        node.removeEventListener('mousedown', onMouseDown);
-        node.removeEventListener('mouseleave', onMouseLeave);
-        node.removeEventListener('mouseup', onMouseUp);
-        node.removeEventListener('mousemove', onMouseMove);
-      }
-    };
-  }
 </script>
 
 <div
@@ -276,40 +232,29 @@
           <span class="text-sm font-black uppercase tracking-widest text-blue-400">Birthday</span>
           <span class="text-xs font-black text-blue-500 bg-blue-50 px-2 py-0.5 rounded-full">{age} YEARS OLD</span>
         </div>
-        
-        <div class="relative h-40 bg-white rounded-2xl border border-blue-100 shadow-sm overflow-hidden flex p-1 cursor-grab">
-          <div class="absolute inset-y-2 left-1 right-1 bg-blue-500/5 rounded-xl pointer-events-none border border-blue-500/10 z-20"></div>
-          
-          <div 
-            class="flex-1 overflow-y-auto snap-y snap-mandatory scrollbar-hide py-14 z-10 touch-pan-y" 
-            use:scrollSelect={'m'} 
-            use:dragScroll
-          >
-            {#each months as m}
-              <div data-value={m} class="h-10 snap-center flex items-center justify-center text-xs font-black transition-all {selM === m ? 'text-blue-600 scale-125' : 'text-blue-950/20'} pointer-events-none">{m}</div>
-            {/each}
-          </div>
 
-          <div 
-            class="flex-1 overflow-y-auto snap-y snap-mandatory scrollbar-hide py-14 z-10 touch-pan-y" 
-            use:scrollSelect={'d'} 
-            use:dragScroll
-          >
-            {#each days as d}
-              <div data-value={d} class="h-10 snap-center flex items-center justify-center text-xs font-black transition-all {selD === d ? 'text-blue-600 scale-125' : 'text-blue-950/20'} pointer-events-none">{d}</div>
-            {/each}
-          </div>
+        <!-- Hidden native date input — triggered by the button below -->
+        <input
+          type="date"
+          bind:this={datePickerRef}
+          bind:value={birthDateInput}
+          max={new Date().toISOString().slice(0, 10)}
+          min="1900-01-01"
+          class="sr-only"
+          tabindex="-1"
+          aria-hidden="true"
+        />
 
-          <div 
-            class="flex-1 overflow-y-auto snap-y snap-mandatory scrollbar-hide py-14 z-10 touch-pan-y" 
-            use:scrollSelect={'y'} 
-            use:dragScroll
-          >
-            {#each years as y}
-              <div data-value={y} class="h-10 snap-center flex items-center justify-center text-xs font-black transition-all {selY === y ? 'text-blue-600 scale-110' : 'text-blue-950/20'} pointer-events-none">{y}</div>
-            {/each}
-          </div>
-        </div>
+        <button
+          type="button"
+          on:click={() => datePickerRef.showPicker?.() ?? datePickerRef.click()}
+          class="w-full h-16 px-8 rounded-2xl bg-white border border-blue-100 shadow-sm flex items-center justify-between text-blue-950 font-bold active:border-blue-500 transition-all"
+        >
+          <span class="text-lg">{birthdayDisplay}</span>
+          <svg xmlns="http://www.w3.org/2000/svg" class="w-5 h-5 text-blue-400" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+            <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M8 7V3m8 4V3m-9 8h10M5 21h14a2 2 0 002-2V7a2 2 0 00-2-2H5a2 2 0 00-2 2v12a2 2 0 002 2z"/>
+          </svg>
+        </button>
       </div>
 
       <div class="w-full space-y-1">
@@ -508,23 +453,3 @@
   {/if}
 
 </div>
-
-<style>
-  .scrollbar-hide {
-    -ms-overflow-style: none;
-    scrollbar-width: none;
-    overflow-y: scroll;
-    -webkit-overflow-scrolling: touch;
-  }
-  .scrollbar-hide::-webkit-scrollbar {
-    display: none;
-  }
-  .scrollbar-hide {
-    mask-image: linear-gradient(to bottom, transparent, black 40%, black 60%, transparent);
-    -webkit-mask-image: linear-gradient(to bottom, transparent, black 40%, black 60%, transparent);
-  }
-  .snap-center {
-    user-select: none;
-    -webkit-user-select: none;
-  }
-</style>

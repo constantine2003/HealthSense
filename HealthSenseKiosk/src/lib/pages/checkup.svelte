@@ -1,6 +1,6 @@
 <script lang="ts">
   import { fade, slide, scale } from 'svelte/transition';
-  import { onDestroy } from 'svelte';
+  import { onDestroy, onMount } from 'svelte';
   import {
     startMeasurement,
     cancelMeasurement,
@@ -16,8 +16,9 @@
     weightLiveReading,
     send as wsSend,
     type SensorKey,
+    eufyCredentialsConfigured,
+    eufyBodyComposition,
   } from '../stores/esp32Store';
-  import WeightCalibration from './WeightCalibration.svelte';
 
   export let onFinish: (data: any) => void;
   export let onCancel: () => void;
@@ -72,7 +73,6 @@
   }
 
   let segCalibMode = false;
-  let weightCalibMode = false;
   let activeDigit: DigitName = 'sys0';
   let activeSeg: string | null = null;
   let allSegs: AllSegs = defaultSegPositions();
@@ -396,6 +396,49 @@
 
   onDestroy(() => { unsubProgress(); unsubReading(); unsubError(); });
 
+  // ── Eufy Smart Scale mode ─────────────────────────────────────────────────
+  // 'cloud' = Eufy cloud API, 'ble' = Eufy BLE
+  type EufyMode = 'cloud' | 'ble';
+  let eufyMode: EufyMode = (typeof localStorage !== 'undefined')
+    ? (() => {
+        const stored = localStorage.getItem('eufyMode');
+        // Migrate old 'none' (load cell) and legacy BLE flag to 'ble'
+        if (!stored || stored === 'none') return 'ble';
+        return stored as EufyMode;
+      })()
+    : 'ble';
+  if (typeof localStorage !== 'undefined') localStorage.setItem('eufyMode', eufyMode);
+
+  function setEufyMode(m: EufyMode) {
+    eufyMode = m;
+    if (typeof localStorage !== 'undefined') localStorage.setItem('eufyMode', m);
+    if (m === 'cloud') wsSend({ command: 'eufy_credentials_status' });
+  }
+
+  // Eufy cloud credential form
+  let eufyEmailInput   = '';
+  let eufyPasswordInput = '';
+  let eufySaveStatus: 'idle' | 'saving' | 'saved' | 'error' = 'idle';
+  let showEufyCredForm = false;
+
+  function saveEufyCredentials() {
+    if (!eufyEmailInput.trim() || !eufyPasswordInput.trim()) return;
+    eufySaveStatus = 'saving';
+    wsSend({ command: 'eufy_save_credentials', email: eufyEmailInput.trim(), password: eufyPasswordInput.trim() });
+    // Optimistically mark saved after 1.5s (server confirms via eufy_credentials_saved msg)
+    setTimeout(() => {
+      eufySaveStatus = 'saved';
+      showEufyCredForm = false;
+      eufyEmailInput = '';
+      eufyPasswordInput = '';
+    }, 1500);
+  }
+
+  // Keep credential status in sync
+  onMount(() => {
+    if (eufyMode === 'cloud') wsSend({ command: 'eufy_credentials_status' });
+  });
+
   function iconSvg(name: string, size = 28) {
     const base = `width="${size}" height="${size}" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round"`;
     switch (name) {
@@ -434,8 +477,33 @@
   function startScan() {
     isScanning = true; progress = 0;
     const sensor = currentPhase as SensorKey;
-    const bridgeOnline    = $bridgeStatus === 'esp32Ready';
+    const bridgeOnline    = $bridgeStatus === 'esp32Ready' || $bridgeStatus === 'esp32Missing' || $bridgeStatus === 'connected';
     const sensorConnected = $sensorStatus[sensor] !== 'disconnected';
+
+    // Eufy Cloud scale path — bypasses ESP32 sensor-status check
+    if (sensor === 'weight' && eufyMode === 'cloud') {
+      if ($bridgeStatus === 'disconnected') {
+        isScanning = false;
+        lastError.set('Bridge not connected — start the serial bridge and retry');
+        return;
+      }
+      weightLiveReading.set(null);
+      wsSend({ command: 'start', sensor: 'eufy_cloud_weight' });
+      return;
+    }
+
+    // Eufy BLE scale path — bypasses ESP32 sensor-status check
+    if (sensor === 'weight' && eufyMode === 'ble') {
+      if ($bridgeStatus === 'disconnected') {
+        isScanning = false;
+        lastError.set('Bridge not connected — start the serial bridge and retry');
+        return;
+      }
+      weightLiveReading.set(null);
+      wsSend({ command: 'start', sensor: 'eufy_weight' });
+      return;
+    }
+
     if (bridgeOnline && sensorConnected) {
       const sent = startMeasurement(sensor);
       if (!sent) { isScanning = false; lastError.set('Connection lost — please retry'); }
@@ -485,6 +553,15 @@
     results.bp = `${sys}/${dia}`; bpManualEntry = false; hasCaptured = true; progress = 100; lastError.set(null);
   }
 
+  function goBack() {
+    cancelMeasurement();
+    isScanning = false; isCountingDown = false; hasCaptured = false; bpManualEntry = false; progress = 0;
+    if (mode === 'single' || isRedoingSpecific) { isRedoingSpecific = false; mode = 'idle'; currentPhase = 'review'; return; }
+    const order: Phase[] = ['weight', 'height', 'temp', 'spo2', 'bp', 'review'];
+    const idx = order.indexOf(currentPhase);
+    currentPhase = idx > 0 ? order[idx - 1] : 'review';
+  }
+
   function redoSpecific(phase: SensorPhase) {
     isRedoingSpecific = true; currentPhase = phase; hasCaptured = false; progress = 0;
   }
@@ -499,6 +576,11 @@
   }
 
   $: statusLabel = (() => {
+    // On the weight phase we use the Eufy scale, not the ESP32 — show a relevant label
+    if (currentPhase === 'weight') {
+      if ($bridgeStatus === 'disconnected') return { text: 'Bridge Offline', color: 'bg-red-400' };
+      return { text: eufyMode === 'cloud' ? 'Eufy Cloud' : 'Eufy BLE', color: 'bg-blue-400' };
+    }
     switch ($bridgeStatus) {
       case 'esp32Ready':   return { text: 'ESP32 Connected',   color: 'bg-green-500' };
       case 'esp32Missing': return { text: 'ESP32 Missing',     color: 'bg-amber-400' };
@@ -508,9 +590,13 @@
     }
   })();
 
+  // Weight phase uses Eufy scale — only needs the bridge WS online, not the ESP32 serial.
+  // Other phases still require ESP32 connected + sensor wired.
   $: currentSensorAvailable = currentPhase === 'review'
     ? true
-    : $bridgeStatus !== 'esp32Ready' || $sensorStatus[currentPhase as SensorKey] !== 'disconnected';
+    : currentPhase === 'weight'
+      ? $bridgeStatus !== 'disconnected'
+      : ($bridgeStatus !== 'esp32Ready' || $sensorStatus[currentPhase as SensorKey] !== 'disconnected');
 </script>
 
 <!-- ── MAIN SHELL ─────────────────────────────────────────────────────────── -->
@@ -621,7 +707,13 @@
 
             {:else if currentPhase === 'weight'}
               <h2 class="text-2xl font-[1000] text-blue-600 animate-pulse uppercase tracking-tight">Measuring Weight…</h2>
-              <p class="text-sm font-bold text-blue-400 uppercase tracking-widest">Stand still on the platform</p>
+              <p class="text-sm font-bold text-blue-400 uppercase tracking-widest">
+                {eufyMode === 'cloud'
+                  ? '☁️ Open the EufyLife app and step on the scale'
+                  : eufyMode === 'ble'
+                    ? '📡 Via Eufy BLE — Stand on the Eufy scale'
+                    : 'Stand still on the platform'}
+              </p>
               {#if $weightLiveReading !== null}
                 {@const lbs = ($weightLiveReading * 2.20462).toFixed(1)}
                 <div in:fade class="py-6 px-10 rounded-3xl bg-white border border-blue-100 flex flex-col items-center gap-1 w-full max-w-xs">
@@ -775,23 +867,89 @@
 
         {:else if currentPhase === 'weight'}
           <!-- WEIGHT INSTRUCTION -->
-          <div in:fade class="flex flex-col items-center gap-6 w-full">
+          <div in:fade class="flex flex-col items-center gap-5 w-full">
             <div class="w-36 h-36 bg-blue-50 rounded-[3rem] flex items-center justify-center text-blue-600">
               {@html iconSvg('weight', 80)}
             </div>
             <h1 class="text-4xl font-[1000] text-blue-950 uppercase tracking-tight">Weight</h1>
+
+            <!-- Steps depend on mode -->
             <div class="text-left space-y-3 w-full max-w-xs">
-              {#each ['Remove shoes and heavy items', 'Step onto the platform and stand still', 'Press Start and hold steady until done'] as step, i}
-                <div class="flex items-start gap-3">
-                  <span class="w-7 h-7 bg-blue-600 text-white rounded-full flex items-center justify-center text-sm font-black shrink-0">{i + 1}</span>
-                  <p class="text-base text-blue-900/60 font-bold pt-0.5">{step}</p>
-                </div>
+              {#if eufyMode === 'cloud'}
+                {#each ['Open the EufyLife app on your phone', 'Step onto the Eufy scale', 'Wait for the app to sync, then press Start'] as step, i}
+                  <div class="flex items-start gap-3">
+                    <span class="w-7 h-7 bg-indigo-500 text-white rounded-full flex items-center justify-center text-sm font-black shrink-0">{i + 1}</span>
+                    <p class="text-base text-blue-900/60 font-bold pt-0.5">{step}</p>
+                  </div>
+                {/each}
+              {:else}
+                {#each ['Remove shoes and heavy items', 'Step onto the platform and stand still', 'Press Start and hold steady until done'] as step, i}
+                  <div class="flex items-start gap-3">
+                    <span class="w-7 h-7 bg-blue-600 text-white rounded-full flex items-center justify-center text-sm font-black shrink-0">{i + 1}</span>
+                    <p class="text-base text-blue-900/60 font-bold pt-0.5">{step}</p>
+                  </div>
+                {/each}
+              {/if}
+            </div>
+
+            <!-- Eufy mode selector -->
+            <div class="w-full max-w-xs grid grid-cols-2 gap-2">
+              {#each [
+                { id: 'cloud', label: 'Eufy Cloud', icon: '☁️' },
+                { id: 'ble',   label: 'Eufy BLE',   icon: '📡' },
+              ] as opt}
+                <button
+                  on:click={() => setEufyMode(opt.id as 'cloud' | 'ble')}
+                  class="py-3 rounded-2xl border-2 font-black uppercase tracking-widest text-xs transition-all
+                    {eufyMode === opt.id
+                      ? (opt.id === 'cloud' ? 'border-indigo-400 bg-indigo-50 text-indigo-600' : 'border-blue-400 bg-blue-50 text-blue-600')
+                      : 'border-blue-100 bg-white text-blue-300'}"
+                >
+                  <span class="block text-base">{opt.icon}</span>
+                  {opt.label}
+                </button>
               {/each}
             </div>
-            <button on:click={() => { weightCalibMode = true; }}
-              class="px-6 py-3 rounded-2xl border-2 border-blue-200 bg-blue-50 text-blue-500 text-sm font-black uppercase tracking-widest active:scale-95 transition-transform">
-              Calibrate Scale
-            </button>
+
+            <!-- Eufy Cloud credential status / setup -->
+            {#if eufyMode === 'cloud'}
+              <div class="w-full max-w-xs">
+                {#if $eufyCredentialsConfigured === false}
+                  <div class="mb-3 px-4 py-2 bg-amber-50 border border-amber-200 rounded-2xl text-xs text-amber-700 font-bold text-center">
+                    ⚠️ EufyLife account not set up yet
+                  </div>
+                {:else if $eufyCredentialsConfigured === true}
+                  <div class="mb-3 px-4 py-2 bg-green-50 border border-green-200 rounded-2xl text-xs text-green-700 font-bold text-center">
+                    ✓ EufyLife account connected
+                  </div>
+                {/if}
+                <button
+                  on:click={() => { showEufyCredForm = !showEufyCredForm; }}
+                  class="w-full py-3 rounded-2xl border-2 border-indigo-200 bg-indigo-50 text-indigo-500 text-xs font-black uppercase tracking-widest"
+                >
+                  {showEufyCredForm ? '✕ Cancel' : '🔑 Set EufyLife Account'}
+                </button>
+                {#if showEufyCredForm}
+                  <div class="mt-3 flex flex-col gap-3">
+                    <input
+                      type="email" bind:value={eufyEmailInput} placeholder="EufyLife email"
+                      class="w-full px-4 py-3 text-sm font-bold bg-white rounded-2xl border-2 border-blue-100 focus:border-indigo-400 outline-none"
+                    />
+                    <input
+                      type="password" bind:value={eufyPasswordInput} placeholder="EufyLife password"
+                      class="w-full px-4 py-3 text-sm font-bold bg-white rounded-2xl border-2 border-blue-100 focus:border-indigo-400 outline-none"
+                    />
+                    <button
+                      on:click={saveEufyCredentials}
+                      disabled={eufySaveStatus === 'saving'}
+                      class="w-full py-3 bg-indigo-600 text-white rounded-2xl font-black uppercase tracking-widest text-sm active:scale-95 transition-transform disabled:opacity-50"
+                    >
+                      {eufySaveStatus === 'saving' ? 'Saving…' : eufySaveStatus === 'saved' ? '✓ Saved!' : 'Save'}
+                    </button>
+                  </div>
+                {/if}
+              </div>
+            {/if}
           </div>
 
         {:else}
@@ -837,6 +995,12 @@
             class="w-full py-5 bg-white border-2 border-blue-100 text-blue-400 rounded-[2rem] font-black uppercase text-sm tracking-widest active:bg-blue-50 transition-colors">
             Retake
           </button>
+          {#if mode !== 'single'}
+            <button on:click={handleSave}
+              class="w-full py-5 bg-green-50 border-2 border-green-200 text-green-600 rounded-[2rem] font-black uppercase text-sm tracking-widest active:bg-green-100 transition-colors">
+              💾 Save &amp; Exit
+            </button>
+          {/if}
 
         {:else if bpManualEntry && currentPhase === 'bp'}
           {@const sysNum = parseInt(bpManualSys)}
@@ -856,6 +1020,10 @@
               {mode === 'single' ? 'Cancel' : 'Skip Step'}
             </button>
           </div>
+          <button on:click={goBack}
+            class="w-full py-5 bg-white border-2 border-blue-100 text-blue-400 rounded-[2rem] font-black uppercase text-sm tracking-widest active:bg-blue-50 transition-colors">
+            ← Back
+          </button>
 
         {:else if !isScanning && !isCountingDown && currentSensorAvailable}
           <button on:click={startSequence}
@@ -863,7 +1031,10 @@
             Start Reading
           </button>
           <div class="grid grid-cols-2 gap-3">
-            <div></div>
+            <button on:click={goBack}
+              class="py-5 bg-white border-2 border-blue-100 text-blue-400 rounded-[2rem] font-black uppercase text-sm tracking-widest active:bg-blue-50 transition-colors">
+              ← Back
+            </button>
             <button on:click={skipPhase}
               class="py-5 bg-red-50 text-red-400 rounded-[2rem] font-black uppercase text-sm tracking-widest active:bg-red-100">
               {mode === 'single' ? 'Cancel' : 'Skip Step'}
@@ -875,11 +1046,18 @@
             class="w-full py-7 bg-blue-100 text-blue-400 rounded-[2.5rem] text-2xl font-black uppercase active:scale-[0.98] transition-transform">
             Next →
           </button>
+          <button on:click={goBack}
+            class="w-full py-5 bg-white border-2 border-blue-100 text-blue-400 rounded-[2rem] font-black uppercase text-sm tracking-widest active:bg-blue-50 transition-colors">
+            ← Back
+          </button>
 
         {:else}
-          <!-- scanning / countdown — no CTA, but keep skip visible -->
+          <!-- scanning / countdown — no CTA, but keep skip and back visible -->
           <div class="grid grid-cols-2 gap-3">
-            <div></div>
+            <button on:click={goBack} disabled={isScanning || isCountingDown}
+              class="py-5 bg-white border-2 border-blue-100 text-blue-400 rounded-[2rem] font-black uppercase text-sm tracking-widest active:bg-blue-50 transition-colors disabled:opacity-40">
+              ← Back
+            </button>
             <button on:click={skipPhase} disabled={isScanning || isCountingDown}
               class="py-5 bg-red-50 text-red-400 rounded-[2rem] font-black uppercase text-sm tracking-widest active:bg-red-100 disabled:opacity-40">
               {mode === 'single' ? 'Cancel' : 'Skip Step'}
@@ -929,6 +1107,25 @@
               {#if k === 'spo2'}
                 <span class="text-5xl font-black text-blue-950 leading-tight">{hasResult ? `${results.spo2 || '--'}%` : '--'}</span>
                 <span class="text-xl font-black text-blue-900/40">{hasResult ? `${results.heartRate || '--'} bpm` : ''}</span>
+              {:else if k === 'weight'}
+                {@const wKg = results.weight as number}
+                {@const bmiRaw = (results.height > 0 && wKg > 0) ? wKg / (results.height * results.height) : null}
+                {@const bmiDisplay = bmiRaw ? bmiRaw.toFixed(1) : null}
+                {@const bmiLabel = bmiRaw
+                  ? bmiRaw < 18.5 ? { text: 'Underweight', cls: 'text-amber-500' }
+                  : bmiRaw < 23.0 ? { text: 'Normal',      cls: 'text-green-500' }
+                  : bmiRaw < 27.5 ? { text: 'Overweight',  cls: 'text-orange-500' }
+                  :                 { text: 'Obese',        cls: 'text-red-500' }
+                  : null}
+                <span class="text-5xl font-black text-blue-950 leading-tight">
+                  {hasResult ? wKg.toFixed(1) : '--'}<span class="text-xl text-blue-900/30 font-bold"> kg</span>
+                </span>
+                {#if bmiDisplay}
+                  <span class="text-base font-black text-blue-900/40 mt-0.5">BMI {bmiDisplay}</span>
+                  {#if bmiLabel}
+                    <span class="text-sm font-black uppercase tracking-wider mt-0.5 {bmiLabel.cls}">{bmiLabel.text}</span>
+                  {/if}
+                {/if}
               {:else}
                 <span class="text-5xl font-black text-blue-950 leading-tight">
                   {hasResult ? results[k] : '--'}<span class="text-xxl text-blue-900/30 font-bold"> {config.unit}</span>
@@ -1179,11 +1376,6 @@
       </div>
     </div>
   </div>
-{/if}
-
-<!-- ── WEIGHT CALIBRATION OVERLAY ──────────────────────────────────────────── -->
-{#if weightCalibMode}
-  <WeightCalibration onClose={() => { weightCalibMode = false; }} />
 {/if}
 
 <style>
