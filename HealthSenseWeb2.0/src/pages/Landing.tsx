@@ -5,7 +5,7 @@ import {
   FaChevronDown, FaArrowRight, FaQrcode, FaSignInAlt, FaChartLine,
 } from "react-icons/fa";
 
-const APK_URL = "https://expo.dev/accounts/daniel.montesclaros/projects/HealthSenseMobile/builds/d445aab5-ab6c-46cc-baef-362101c31fc1";
+const APK_URL = "https://drive.google.com/drive/folders/1EWsENTjwSji2g6mmkra9Zb5tOnz5MumC?usp=sharing";
 
 export default function Landing() {
   const navigate = useNavigate();
