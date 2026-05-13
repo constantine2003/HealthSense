@@ -1,12 +1,13 @@
 import { useState, useEffect } from "react";
 import {
-  View, Text, TouchableOpacity, ScrollView, ActivityIndicator,
+  View, Text, TouchableOpacity, ScrollView, ActivityIndicator, Image,
 } from "react-native";
 import { useRouter } from "expo-router";
 import { Ionicons } from "@expo/vector-icons";
 import AsyncStorage from "@react-native-async-storage/async-storage";
 import { supabase } from "../utils/supabaseClient";
 import BottomNav from "../components/BottomNav";
+import AIHealthInsights from "../components/AIHealthInsights";
 
 type UserData = {
   first_name: string;
@@ -123,9 +124,11 @@ export default function DashboardScreen() {
         {/* ── HEADER ── */}
         <View className="flex-row justify-between items-center px-5 pt-5 pb-4">
           <View className="flex-row items-center gap-2">
-            <View className="w-8 h-8 rounded-xl bg-[#139dc7] items-center justify-center">
-              <View className="w-3 h-3 bg-white rounded-sm" />
-            </View>
+            <Image
+              source={require("../assets/logo.png")}
+              className="w-8 h-8"
+              resizeMode="contain"
+            />
             <View>
               <Text className="text-xs font-black text-[#139dc7] uppercase tracking-tight">
                 HealthSense
@@ -235,6 +238,11 @@ export default function DashboardScreen() {
               </View>
             </View>
           </TouchableOpacity>
+        </View>
+
+        {/* ── AI HEALTH INSIGHTS ── */}
+        <View className="px-6 pt-6">
+          <AIHealthInsights language={language} />
         </View>
 
         {/* ── STATS STRIP ── */}

@@ -132,7 +132,7 @@ export default function Results() {
     const hr = Number(r.heart_rate)
     const displayTemp = isMetric ? t : (t * 9 / 5) + 32
     const displayWeight = isMetric ? w : w * 2.20462
-    const heightM = rawH / 100
+    const heightM = rawH > 10 ? rawH / 100 : rawH
     const displayH = isMetric ? heightM : heightM * 39.3701
 
     let spo2Status = lang.status.normal, spo2Color = '#10b981'

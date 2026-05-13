@@ -1,6 +1,6 @@
 import { useState } from "react";
 import {
-  View, Text, TextInput, TouchableOpacity, ActivityIndicator,
+  View, Text, TextInput, TouchableOpacity, ActivityIndicator, Image,
   Modal, ScrollView, KeyboardAvoidingView, Platform,
 } from "react-native";
 import { useRouter } from "expo-router";
@@ -108,21 +108,20 @@ export default function LoginScreen() {
       >
         {/* HEADER */}
         <View className="flex-row justify-between items-center px-6 pt-5 pb-3">
-          <View>
-            <Text className="text-xl font-black text-[#139dc7] uppercase tracking-tighter">
-              HealthSense
-            </Text>
-            <Text className="text-[10px] font-bold text-[#34A0A4] uppercase tracking-widest mt-0.5">
-              Patient Portal
-            </Text>
-          </View>
-          <View className="flex-row items-center gap-1.5 px-3 py-1.5 bg-white/40 rounded-full border border-white/40">
-            <View className="w-5 h-5 bg-[#139dc7] rounded-full items-center justify-center">
-              <Text className="text-white text-[9px] font-black">✓</Text>
+          <View className="flex-row items-center gap-3">
+            <Image
+              source={require("../assets/logo.png")}
+              className="w-8 h-8"
+              resizeMode="contain"
+            />
+            <View>
+              <Text className="text-l font-black text-[#139dc7] uppercase tracking-tighter">
+                HealthSense
+              </Text>
+              <Text className="text-[7px] font-bold text-[#34A0A4] uppercase tracking-widest mt-0.5">
+                Patient Portal
+              </Text>
             </View>
-            <Text className="text-[9px] font-black text-[#139dc7] uppercase tracking-wide">
-              Portal Login v2.0
-            </Text>
           </View>
         </View>
 
@@ -266,7 +265,6 @@ export default function LoginScreen() {
             <TouchableOpacity onPress={() => setShowRecoverModal(true)} style={{ marginBottom: 10 }}>
               <Text style={{ fontSize: 13, fontWeight: 'bold', color: '#139dc7', opacity: 0.6 }}>Recover Account</Text>
             </TouchableOpacity>
-            <Text style={{ fontSize: 9, color: '#9ca3af' }}>HealthSense Infrastructure v2.0</Text>
           </View>
         </View>
 
